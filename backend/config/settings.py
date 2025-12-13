@@ -27,7 +27,7 @@ class Config:
         "http://localhost:5173",
         "http://localhost:5174",
         "https://healthassistant.meallensai.com",
-        "https://www.healthassistant.meallensai.com",
+        "https://healthassistant.meallensai.com/",
         "https://recipe-ai-harmony-2bbq.vercel.app",
         "https://meallens.vercel.app",
     ]

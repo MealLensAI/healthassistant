@@ -106,8 +106,8 @@ FRONTEND_URL=http://localhost:5173
 The backend allows requests from:
 - `http://localhost:5173` (development)
 - `http://localhost:5174` (alternative dev port)
-- `https://healthassistant.meallensai.com` (production)
-- `https://www.healthassistant.meallensai.com` (production)
+- `https://healthassistant.meallensai.com/` (production)
+- `https://healthassistant.meallensai.com/` (production)
 
 ## 📡 API Endpoints
 

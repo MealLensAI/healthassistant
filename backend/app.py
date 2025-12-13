@@ -113,7 +113,7 @@ def create_app():
       "http://localhost:5173",
       "http://localhost:5174",
       "https://healthassistant.meallensai.com",
-      "https://www.healthassistant.meallensai.com",
+      "https://healthassistant.meallensai.com/",
       # Hosted frontend(s)
       "https://meallens.vercel.app",
   ]
