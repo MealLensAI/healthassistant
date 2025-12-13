@@ -112,8 +112,8 @@ def create_app():
   allowed_origins = [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://meallensai.com",
-      "https://www.meallensai.com",
+      "https://healthassistant.meallensai.com",
+      "https://www.healthassistant.meallensai.com",
       # Hosted frontend(s)
       "https://meallens.vercel.app",
   ]
