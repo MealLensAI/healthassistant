@@ -50,7 +50,7 @@ npm run dev
 ## 🌍 Production Deployment Testing
 
 ### Frontend (Vercel)
-- **URL:** www.meallensai.com
+- **URL:** healthassistant.meallensai.com
 - **Backend:** https://meallensai.onrender.com
 
 **Required:** Set environment variables in Vercel Dashboard:

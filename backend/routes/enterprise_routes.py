@@ -33,7 +33,7 @@ def get_frontend_url():
     # If FRONTEND_URL is not set, log warning and use production default
     print(f"⚠️ WARNING: FRONTEND_URL not set in environment. Using production default.")
     print(f"⚠️ Please set FRONTEND_URL in backend/.env file")
-    return 'https://www.meallensai.com'
+    return 'https://healthassistant.meallensai.com'
 
 enterprise_bp = Blueprint('enterprise', __name__)
 

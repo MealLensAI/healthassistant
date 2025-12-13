@@ -337,7 +337,7 @@ For issues or questions:
 
 ## 🔗 Links
 
-- **Production**: https://meallensai.com
+- **Production**: https://healthassistant.meallensai.com
 - **Supabase Dashboard**: https://supabase.com/dashboard
 - **Paystack Dashboard**: https://dashboard.paystack.com
 

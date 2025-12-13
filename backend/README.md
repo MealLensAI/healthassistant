@@ -87,7 +87,7 @@ PAYSTACK_SECRET_KEY=your_secret_key
 PAYSTACK_PUBLIC_KEY=your_public_key
 
 # CORS Configuration
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,https://meallensai.com
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,https://healthassistant.meallensai.com
 
 # SMTP Configuration (for emails)
 SMTP_HOST=smtp.gmail.com
@@ -106,8 +106,8 @@ FRONTEND_URL=http://localhost:5173
 The backend allows requests from:
 - `http://localhost:5173` (development)
 - `http://localhost:5174` (alternative dev port)
-- `https://meallensai.com` (production)
-- `https://www.meallensai.com` (production)
+- `https://healthassistant.meallensai.com` (production)
+- `https://www.healthassistant.meallensai.com` (production)
 
 ## 📡 API Endpoints
 

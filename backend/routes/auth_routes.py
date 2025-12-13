@@ -935,7 +935,7 @@ def forgot_password():
             except Exception:
                 frontend_base = ''
         if not frontend_base:
-            frontend_base = 'https://www.meallensai.com'
+            frontend_base = 'https://healthassistant.meallensai.com'
         default_redirect = f"{frontend_base}/reset-password"
         redirect_url = provided_redirect or os.environ.get('RESET_PASSWORD_REDIRECT_URL', default_redirect)
 
