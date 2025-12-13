@@ -112,8 +112,8 @@ def create_app():
   allowed_origins = [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://meallensai.com",
-      "https://www.meallensai.com",
+      "https://healthassistant.meallensai.com",
+      "https://www.healthassistant.meallensai.com",
       # Hosted frontend(s)
       "https://meallens.vercel.app",
   ]
@@ -162,11 +162,11 @@ def create_app():
                   response.headers.add('Access-Control-Allow-Origin', origin)
               else:
                   # Prefer production domain as default fallback instead of localhost
-                  default_origin = 'https://www.meallensai.com' if 'https://www.meallensai.com' in allowed_origins else allowed_origins[0]
+                  default_origin = 'https://healthassistant.meallensai.com' if 'https://healthassistant.meallensai.com' in allowed_origins else allowed_origins[0]
                   response.headers.add('Access-Control-Allow-Origin', default_origin)
           except Exception:
               # As a very last resort, use production domain to avoid leaking localhost in prod
-              response.headers.add('Access-Control-Allow-Origin', 'https://www.meallensai.com')
+              response.headers.add('Access-Control-Allow-Origin', 'https://healthassistant.meallensai.com')
           response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
           response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
           response.headers.add('Access-Control-Allow-Credentials', 'true')
