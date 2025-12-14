@@ -37,11 +37,14 @@ const LandingFooter = () => {
                 }}
               />
             </div>
-            <p className="text-muted-foreground max-w-sm mb-6">
-              Better health through food. End cooking burnout.
+            <p className="text-muted-foreground max-w-sm mb-4">
+              Better health through food.
+            </p>
+            <p className="text-sm text-muted-foreground mb-2">
+              meallensai@gmail.com
             </p>
             <p className="text-sm text-muted-foreground">
-              hello@meallensai.com
+              WhatsApp or call: <a href="tel:+274748703778" className="text-primary hover:underline">+274748703778</a>
             </p>
           </div>
 

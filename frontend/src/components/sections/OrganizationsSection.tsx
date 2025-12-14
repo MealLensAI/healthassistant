@@ -1,9 +1,4 @@
-import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-
 const OrganizationsSection = () => {
-  const navigate = useNavigate();
 
   return (
     <section id="organizations" className="py-24 bg-background">
@@ -80,20 +75,6 @@ const OrganizationsSection = () => {
           </div>
         </div>
 
-        {/* CTA */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start">
-          <Button 
-            variant="hero" 
-            size="lg" 
-            className="group"
-            onClick={() => navigate('/signup')}
-          >
-            Partner With Us
-          </Button>
-          <Button variant="heroOutline" size="lg">
-            Schedule a Demo
-          </Button>
-        </div>
       </div>
     </section>
   );

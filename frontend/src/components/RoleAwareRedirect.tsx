@@ -31,13 +31,13 @@ const RoleAwareRedirect = () => {
 
   if (authLoading || roleLoading || !isAuthenticated || role === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
         <div className="text-center space-y-6">
           <div className="flex items-center justify-center">
             <Logo size="lg" />
           </div>
           <div className="space-y-2">
-            <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto" />
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
             <p className="text-gray-600 text-lg font-medium">Preparing your dashboard…</p>
             <p className="text-gray-500 text-sm">Please wait while we verify your workspace</p>
           </div>

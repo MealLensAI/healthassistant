@@ -83,7 +83,7 @@ const ResetPassword: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-[url('/placeholder.svg?height=100&width=100')] opacity-5"></div>
 
             <div className="w-full max-w-md relative z-10">
@@ -140,7 +140,7 @@ const ResetPassword: React.FC = () => {
                             <Button
                                 type="submit"
                                 disabled={submitting}
-                                className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+                                className="w-full h-12 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
                             >
                                 {submitting ? (
                                     <>
@@ -158,7 +158,7 @@ const ResetPassword: React.FC = () => {
                                 Changed your mind?{" "}
                                 <Link
                                     to="/login"
-                                    className="font-semibold text-orange-600 hover:text-orange-700 transition-colors duration-200"
+                                    className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200"
                                 >
                                     Back to login
                                 </Link>

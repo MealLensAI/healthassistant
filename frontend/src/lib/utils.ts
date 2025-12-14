@@ -91,7 +91,7 @@ export function useProvideAuth(): AuthContextType {
       overlay.id = 'page-transition-overlay'
       overlay.style.position = 'fixed'
       overlay.style.inset = '0'
-      overlay.style.background = 'linear-gradient(135deg, #fff7ed 0%, #ffffff 100%)'
+      overlay.style.background = 'linear-gradient(135deg, #eff6ff 0%, #ffffff 100%)'
       overlay.style.opacity = '0'
       overlay.style.transition = 'opacity 150ms ease'
       overlay.style.zIndex = '9999'
@@ -111,7 +111,7 @@ export function useProvideAuth(): AuthContextType {
       spinner.style.width = '44px'
       spinner.style.height = '44px'
       spinner.style.border = '4px solid rgba(0,0,0,0.08)'
-      spinner.style.borderTop = '4px solid #f97316' // orange-500
+      spinner.style.borderTop = '4px solid #3b82f6' // blue-500
       spinner.style.borderRadius = '50%'
       // Use Web Animations API for rotation
       try {

@@ -46,7 +46,7 @@ const ForgotPassword: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-[url('/placeholder.svg?height=100&width=100')] opacity-5"></div>
 
             <div className="w-full max-w-md relative z-10">
@@ -76,7 +76,7 @@ const ForgotPassword: React.FC = () => {
                                         placeholder="Enter your email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="pl-10 h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                                        className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                                         required
                                     />
                                 </div>
@@ -85,7 +85,7 @@ const ForgotPassword: React.FC = () => {
                             <Button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+                                className="w-full h-12 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
                             >
                                 {isSubmitting ? (
                                     <>
@@ -103,7 +103,7 @@ const ForgotPassword: React.FC = () => {
                                 Remembered your password?{" "}
                                 <Link
                                     to="/login"
-                                    className="font-semibold text-orange-600 hover:text-orange-700 transition-colors duration-200"
+                                    className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200"
                                 >
                                     Back to login
                                 </Link>

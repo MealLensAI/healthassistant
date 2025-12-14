@@ -36,7 +36,12 @@ const HeroSection = () => {
               variant="heroOutline" 
               size="lg" 
               className="group border border-border text-foreground hover:bg-accent"
-              onClick={() => navigate('/signup')}
+              onClick={() => {
+                const featuresSection = document.getElementById('features');
+                if (featuresSection) {
+                  featuresSection.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
             >
               Learn More
             </Button>

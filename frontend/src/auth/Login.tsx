@@ -225,7 +225,7 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 flex items-center justify-center p-2 sm:p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 flex items-center justify-center p-2 sm:p-4">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-[url('/placeholder.svg?height=100&width=100')] opacity-5"></div>
 
@@ -260,7 +260,7 @@ const Login = () => {
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                    className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -278,7 +278,7 @@ const Login = () => {
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10 h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                    className="pl-10 pr-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                     required
                   />
                   <Button
@@ -300,7 +300,7 @@ const Login = () => {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="w-full h-12 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
               >
                 {isLoading ? (
                   <>
@@ -314,7 +314,7 @@ const Login = () => {
               <div className="flex items-center justify-between text-sm">
                 <Link
                   to="/forgot-password"
-                  className="text-orange-600 hover:text-orange-700"
+                  className="text-blue-600 hover:text-blue-700"
                 >
                   Forgot password?
                 </Link>
@@ -327,7 +327,7 @@ const Login = () => {
                 Don't have an account?{" "}
                 <Link
                   to="/signup"
-                  className="font-semibold text-orange-600 hover:text-orange-700 transition-colors duration-200"
+                  className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200"
                 >
                   Sign up here
                 </Link>

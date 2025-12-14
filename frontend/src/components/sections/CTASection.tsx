@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const CTASection = () => {
@@ -25,13 +24,6 @@ const CTASection = () => {
               onClick={() => navigate('/signup')}
             >
               Get Started
-            </Button>
-            <Button 
-              variant="heroOutline" 
-              size="lg"
-              onClick={() => navigate('/login')}
-            >
-              Learn More
             </Button>
           </div>
 

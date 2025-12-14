@@ -280,7 +280,7 @@ const Signup = () => {
   const passwordStrength = getPasswordStrength(formData.password)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 flex items-center justify-center p-4">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-[url('/placeholder.svg?height=100&width=100')] opacity-5"></div>
 
@@ -313,7 +313,7 @@ const Signup = () => {
                 type="button"
                 onClick={() => setIsOrganizationSignup(false)}
                 className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-all duration-200 ${!isOrganizationSignup
-                  ? 'bg-white text-orange-600 shadow-sm'
+                  ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800'
                   }`}
               >
@@ -324,7 +324,7 @@ const Signup = () => {
                 type="button"
                 onClick={() => setIsOrganizationSignup(true)}
                 className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-all duration-200 ${isOrganizationSignup
-                  ? 'bg-white text-orange-600 shadow-sm'
+                  ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800'
                   }`}
               >
@@ -349,7 +349,7 @@ const Signup = () => {
                       placeholder="First name"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="pl-10 h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                      className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -368,7 +368,7 @@ const Signup = () => {
                       placeholder="Last name"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="pl-10 h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                      className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -388,7 +388,7 @@ const Signup = () => {
                     placeholder={isOrganizationSignup ? "your.email@organization.com" : "Enter your email"}
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="pl-10 h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                    className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -404,7 +404,7 @@ const Signup = () => {
                 <>
                   <Separator className="my-6" />
                   <div className="space-y-4">
-                    <div className="flex items-center space-x-2 text-orange-600">
+                    <div className="flex items-center space-x-2 text-blue-600">
                       <Building2 className="h-5 w-5" />
                       <h3 className="font-semibold">Organization Details</h3>
                     </div>
@@ -420,7 +420,7 @@ const Signup = () => {
                         placeholder="e.g., Dr. Smith Medical Clinic"
                         value={organizationData.name}
                         onChange={handleOrganizationInputChange}
-                        className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                         required
                       />
                     </div>
@@ -436,7 +436,7 @@ const Signup = () => {
                         placeholder="contact@organization.com"
                         value={organizationData.email}
                         onChange={handleOrganizationInputChange}
-                        className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                         required
                       />
                     </div>
@@ -452,7 +452,7 @@ const Signup = () => {
                         placeholder="+1234567890"
                         value={organizationData.phone}
                         onChange={handleOrganizationInputChange}
-                        className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
 
@@ -467,7 +467,7 @@ const Signup = () => {
                         placeholder="123 Main St, City, State"
                         value={organizationData.address}
                         onChange={handleOrganizationInputChange}
-                        className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
 
@@ -480,7 +480,7 @@ const Signup = () => {
                         name="organization_type"
                         value={organizationData.organization_type}
                         onChange={handleOrganizationInputChange}
-                        className="w-full h-12 px-3 border border-gray-300 rounded-md focus:border-orange-500 focus:ring-orange-500"
+                        className="w-full h-12 px-3 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
                         required
                       >
                         <option value="clinic">Clinic</option>
@@ -507,7 +507,7 @@ const Signup = () => {
                     placeholder="Create a password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className="pl-10 pr-10 h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                    className="pl-10 pr-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                     required
                   />
                   <Button
@@ -560,7 +560,7 @@ const Signup = () => {
                     placeholder="Confirm your password"
                     value={formData.confirmPassword}
                     onChange={handleInputChange}
-                    className="pl-10 pr-10 h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                    className="pl-10 pr-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                     required
                   />
                   <Button
@@ -599,7 +599,7 @@ const Signup = () => {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="w-full h-12 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
               >
                 {isLoading ? (
                   <>
@@ -618,7 +618,7 @@ const Signup = () => {
                 Already have an account?{" "}
                 <Link
                   to="/login"
-                  className="font-semibold text-orange-600 hover:text-orange-700 transition-colors duration-200"
+                  className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200"
                 >
                   Sign in here
                 </Link>
