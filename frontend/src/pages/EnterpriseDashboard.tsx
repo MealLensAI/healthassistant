@@ -885,8 +885,7 @@ export default function EnterpriseDashboard() {
           {activeSidebarItem === "overview" && !isLoading && (
             <>
           <header className="mb-10">
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-orange-500">MealLens</p>
-            <h1 className="mt-2 text-4xl font-semibold text-slate-900">Enterprise Dashboard</h1>
+            <h1 className="text-4xl font-semibold text-slate-900">Enterprise Dashboard</h1>
             <p className="mt-2 text-sm text-slate-500">Manage your organization and invite users</p>
             {selectedEnterprise && statistics?.owner_info && (
               <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-2 text-sm text-blue-700">
@@ -974,7 +973,7 @@ export default function EnterpriseDashboard() {
               <Button
                 onClick={() => handleInviteMemberClick()}
                 disabled={isLoading}
-                className="h-11 rounded-xl bg-[#0f172a] px-6 text-sm font-semibold text-white hover:bg-[#0b1120] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-11 rounded-xl bg-blue-500 px-6 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="inline-flex items-center gap-2">
                   <Mail className="h-4 w-4" />
