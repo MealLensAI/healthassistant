@@ -93,7 +93,7 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
             className="bg-white rounded-2xl overflow-hidden cursor-pointer group border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300"
             onClick={onClick}
         >
-            <div className="relative h-44">
+            <div className="relative h-36 sm:h-40 md:h-44">
                 {imageLoading ? (
                     <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse" />
                 ) : (
@@ -117,34 +117,34 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                 )}
             </div>
 
-            <div className="p-5">
-                <h3 className="text-[15px] font-bold text-gray-900 mb-4 line-clamp-2 leading-snug">{name}</h3>
+            <div className="p-4 sm:p-5">
+                <h3 className="text-sm sm:text-[15px] font-bold text-gray-900 mb-3 sm:mb-4 line-clamp-2 leading-snug">{name}</h3>
 
                 {hasNutritionData && (
-                    <div className="flex gap-3 mb-4">
+                    <div className="flex gap-2 sm:gap-3 mb-4 overflow-x-auto scrollbar-hide -mx-1 px-1">
                         {/* Protein */}
-                        <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
-                            <div className="text-base">🍖</div>
-                            <div className="text-sm font-bold text-gray-800">{protein}g</div>
-                            <div className="text-xs text-gray-500">Protein</div>
+                        <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] rounded-[8px] sm:rounded-[10px] p-2 sm:p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC] flex-shrink-0">
+                            <div className="text-sm sm:text-base">🍖</div>
+                            <div className="text-xs sm:text-sm font-bold text-gray-800">{protein}g</div>
+                            <div className="text-[10px] sm:text-xs text-gray-500">Protein</div>
                         </div>
                         {/* Carbs */}
-                        <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
-                            <div className="text-base">🌾</div>
-                            <div className="text-sm font-bold text-gray-800">{carbs}g</div>
-                            <div className="text-xs text-gray-500">Carbs</div>
+                        <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] rounded-[8px] sm:rounded-[10px] p-2 sm:p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC] flex-shrink-0">
+                            <div className="text-sm sm:text-base">🌾</div>
+                            <div className="text-xs sm:text-sm font-bold text-gray-800">{carbs}g</div>
+                            <div className="text-[10px] sm:text-xs text-gray-500">Carbs</div>
                         </div>
                         {/* Fats */}
-                        <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
-                            <div className="text-base">💧</div>
-                            <div className="text-sm font-bold text-gray-800">{fat}g</div>
-                            <div className="text-xs text-gray-500">Fats</div>
+                        <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] rounded-[8px] sm:rounded-[10px] p-2 sm:p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC] flex-shrink-0">
+                            <div className="text-sm sm:text-base">💧</div>
+                            <div className="text-xs sm:text-sm font-bold text-gray-800">{fat}g</div>
+                            <div className="text-[10px] sm:text-xs text-gray-500">Fats</div>
                         </div>
                     </div>
                 )}
 
                 {benefit && (
-                    <div className="mb-4 flex items-start gap-2 text-sm text-orange-600">
+                    <div className="mb-3 sm:mb-4 flex items-start gap-2 text-xs sm:text-sm text-orange-600">
                         <span className="flex-shrink-0">🚀</span>
                         <span className="line-clamp-2 leading-snug">{benefit}</span>
                     </div>
@@ -152,7 +152,7 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
 
                 <button
                     onClick={(e) => { e.stopPropagation(); onClick(); }}
-                    className="w-full py-3 rounded-xl text-sm font-semibold border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-200"
+                    className="w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-200"
                 >
                     View Meal Details
                 </button>

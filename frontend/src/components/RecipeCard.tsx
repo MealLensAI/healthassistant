@@ -85,7 +85,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, mealType, onClick
       className="bg-white rounded-2xl overflow-hidden cursor-pointer group border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300"
       onClick={onClick}
     >
-      <div className="relative h-44">
+      <div className="relative h-36 sm:h-40 md:h-44">
         {imageLoading ? (
           <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse" />
         ) : (
@@ -103,14 +103,14 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, mealType, onClick
         )}
       </div>
 
-      <div className="p-5">
-        <h3 className="text-[15px] font-bold text-gray-900 mb-4 line-clamp-2 leading-snug">
+      <div className="p-4 sm:p-5">
+        <h3 className="text-sm sm:text-[15px] font-bold text-gray-900 mb-3 sm:mb-4 line-clamp-2 leading-snug">
           {originalTitle || title}
         </h3>
 
         <button
           onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-          className="w-full py-3 rounded-xl text-sm font-semibold border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-200"
+          className="w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-200"
         >
           View Meal Details
         </button>

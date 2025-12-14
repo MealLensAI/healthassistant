@@ -15,8 +15,8 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Sidebar Navigation */}
       <Sidebar />
 
-      {/* Main Content Area */}
-      <main className="flex-1 md:ml-[250px] min-h-screen">
+      {/* Main Content Area - responsive padding/margin for mobile */}
+      <main className="flex-1 min-h-screen w-full md:ml-[250px]">
         {children}
       </main>
     </div>

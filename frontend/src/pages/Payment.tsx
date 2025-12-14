@@ -708,31 +708,31 @@ const Payment: React.FC = () => {
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header - Matching other pages */}
       <header 
-        className="px-8 h-[105px] flex items-center border-b"
+        className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[105px] flex items-center border-b"
         style={{ 
           backgroundColor: '#F9FBFE',
           borderColor: '#F6FAFE',
           boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
         }}
       >
-        <div className="flex items-center justify-between w-full">
-          <h1 className="text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+        <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
+          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%] truncate" style={{ fontFamily: "'Work Sans', sans-serif" }}>
             Payment
           </h1>
           
           {/* Profile Dropdown */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+              className="flex items-center h-[36px] sm:h-[40px] md:h-[56px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-[10px] sm:rounded-[12px] md:rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-[10px] sm:text-xs md:text-sm border border-blue-100">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
               </div>
-              <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
+              <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
                 {user?.displayName || user?.email?.split('@')[0] || 'User'}
               </span>
-              <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
             </button>
             
             {showProfileDropdown && (
@@ -741,8 +741,8 @@ const Payment: React.FC = () => {
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowProfileDropdown(false)}
                 />
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-[15px] shadow-lg border border-gray-200 py-3 z-50">
-                  <a href="/profile" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
+                <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-[12px] sm:rounded-[15px] shadow-lg border border-gray-200 py-2 sm:py-3 z-50">
+                  <a href="/profile" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
                 </div>
               </>
             )}
@@ -751,8 +751,8 @@ const Payment: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <section className="w-full min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#f5f5f5] to-[#e8e8e8] py-20">
-        <div className="max-w-2xl mx-auto text-center mb-8">
+      <section className="w-full min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#f5f5f5] to-[#e8e8e8] py-8 sm:py-12 md:py-20 px-4 sm:px-6">
+        <div className="max-w-2xl mx-auto text-center mb-6 sm:mb-8">
         {/* Status Banner */}
         {hasActiveSubscription ? (
           <div className={`mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 ${isSubscriptionExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
@@ -780,8 +780,8 @@ const Payment: React.FC = () => {
         )}
 
 
-        <h2 className="text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
-        <p className="text-gray-600 mb-6">Choose the plan that fits your needs. All plans include essential features to get you started, with options to scale as you grow. No hidden fees and the flexibility to change anytime.</p>
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
+        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose the plan that fits your needs. All plans include essential features to get you started, with options to scale as you grow. No hidden fees and the flexibility to change anytime.</p>
 
         <div className="flex items-center justify-center gap-2 mb-4">
           <button
@@ -805,12 +805,12 @@ const Payment: React.FC = () => {
         )}
       </div>
 
-      <div className="flex flex-col md:flex-row gap-8 justify-center items-stretch w-full max-w-6xl">
+      <div className="flex flex-col md:flex-row gap-6 sm:gap-8 justify-center items-stretch w-full max-w-6xl mx-auto">
         {billing === 'monthly' ? (
           MONTHLY_PLANS.map((plan) => (
             <Card
               key={plan.label}
-              className={`flex-1 flex flex-col justify-between items-center p-8 bg-white shadow-xl rounded-2xl border border-gray-200 relative transform transition-all duration-300 hover:scale-105 hover:shadow-2xl ${plan.highlight ? 'ring-2 ring-yellow-400 shadow-2xl' : ''}`}
+              className={`flex-1 flex flex-col justify-between items-center p-6 sm:p-8 bg-white shadow-xl rounded-xl sm:rounded-2xl border border-gray-200 relative transform transition-all duration-300 hover:scale-105 hover:shadow-2xl ${plan.highlight ? 'ring-2 ring-yellow-400 shadow-2xl' : ''}`}
             >
               {plan.highlight && (
                 <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-blue-500 text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg">
@@ -850,7 +850,7 @@ const Payment: React.FC = () => {
           ))
         ) : (
           <Card
-            className="flex-1 flex flex-col justify-between items-center p-8 bg-white shadow-xl rounded-2xl border border-gray-200 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+            className="flex-1 flex flex-col justify-between items-center p-6 sm:p-8 bg-white shadow-xl rounded-xl sm:rounded-2xl border border-gray-200 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
           >
             <div className="mb-6 text-center">
               <div className="mb-4">{YEARLY_PLAN.icon}</div>

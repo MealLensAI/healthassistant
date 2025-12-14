@@ -71,8 +71,8 @@ const Navbar = () => {
               variant="ghost"
               onClick={() => navigate("/planner")}
               className={`transition-colors ${isActive("/planner")
-                ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
-                : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
+                ? "text-blue-500 bg-blue-50 border border-blue-200 font-semibold"
+                : "text-gray-700 hover:text-blue-500 hover:bg-blue-50"
                 }`}
             >
               Health Meal Planner
@@ -81,8 +81,8 @@ const Navbar = () => {
               variant="ghost"
               onClick={() => navigate("/health-meals")}
               className={`transition-colors ${isActive("/health-meals")
-                ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
-                : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
+                ? "text-blue-500 bg-blue-50 border border-blue-200 font-semibold"
+                : "text-gray-700 hover:text-blue-500 hover:bg-blue-50"
                 }`}
             >
               Generate Health Meals
@@ -91,8 +91,8 @@ const Navbar = () => {
               variant="ghost"
               onClick={() => navigate("/history")}
               className={`transition-colors ${isActive("/history")
-                ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
-                : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
+                ? "text-blue-500 bg-blue-50 border border-blue-200 font-semibold"
+                : "text-gray-700 hover:text-blue-500 hover:bg-blue-50"
                 }`}
             >
               History
@@ -140,7 +140,7 @@ const Navbar = () => {
                     <Building2 className="mr-2 h-4 w-4" />
                     <span>
                       {hasEnterprises ? 'My Organizations' : 'Enterprise Dashboard'}
-                      {hasEnterprises && <span className="ml-1 text-xs text-orange-600">●</span>}
+                      {hasEnterprises && <span className="ml-1 text-xs text-blue-600">●</span>}
                     </span>
                   </DropdownMenuItem>
                 )}
@@ -163,8 +163,8 @@ const Navbar = () => {
               variant="ghost"
               onClick={() => navigate("/planner")}
               className={`flex flex-col items-center justify-center h-14 text-[10px] sm:text-xs space-y-0.5 sm:space-y-1 transition-colors px-1 ${isActive("/planner")
-                ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
-                : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
+                ? "text-blue-500 bg-blue-50 border border-blue-200 font-semibold"
+                : "text-gray-700 hover:text-blue-500 hover:bg-blue-50"
                 }`}
             >
               <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -175,8 +175,8 @@ const Navbar = () => {
               variant="ghost"
               onClick={() => navigate("/health-meals")}
               className={`flex flex-col items-center justify-center h-14 text-[10px] sm:text-xs space-y-0.5 sm:space-y-1 transition-colors px-1 ${isActive("/health-meals")
-                ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
-                : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
+                ? "text-blue-500 bg-blue-50 border border-blue-200 font-semibold"
+                : "text-gray-700 hover:text-blue-500 hover:bg-blue-50"
                 }`}
             >
               <Utensils className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -187,8 +187,8 @@ const Navbar = () => {
               variant="ghost"
               onClick={() => navigate("/history")}
               className={`flex flex-col items-center justify-center h-14 text-[10px] sm:text-xs space-y-0.5 sm:space-y-1 transition-colors px-1 ${isActive("/history")
-                ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
-                : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
+                ? "text-blue-500 bg-blue-50 border border-blue-200 font-semibold"
+                : "text-gray-700 hover:text-blue-500 hover:bg-blue-50"
                 }`}
             >
               <User className="h-4 w-4 sm:h-5 sm:w-5" />

@@ -93,21 +93,21 @@ const MealCard: React.FC<{ meal: HealthMeal; onViewDetails: () => void }> = ({ m
         </h4>
 
         {/* Nutrition Info - Compact */}
-        <div className="flex gap-2 mb-3">
-          <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-2 text-center flex flex-col items-center justify-center gap-[2px]">
-            <span className="text-sm">🍖</span>
-            <p className="font-bold text-gray-800 text-[13px]">{meal.protein}g</p>
-            <p className="text-[10px] text-gray-500">Protein</p>
+        <div className="flex gap-1.5 sm:gap-2 mb-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
+          <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[8px] sm:rounded-[10px] p-1.5 sm:p-2 text-center flex flex-col items-center justify-center gap-[2px] flex-shrink-0">
+            <span className="text-xs sm:text-sm">🍖</span>
+            <p className="font-bold text-gray-800 text-[11px] sm:text-[13px]">{meal.protein}g</p>
+            <p className="text-[9px] sm:text-[10px] text-gray-500">Protein</p>
           </div>
-          <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-2 text-center flex flex-col items-center justify-center gap-[2px]">
-            <span className="text-sm">🌾</span>
-            <p className="font-bold text-gray-800 text-[13px]">{meal.carbs}g</p>
-            <p className="text-[10px] text-gray-500">Carbs</p>
+          <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[8px] sm:rounded-[10px] p-1.5 sm:p-2 text-center flex flex-col items-center justify-center gap-[2px] flex-shrink-0">
+            <span className="text-xs sm:text-sm">🌾</span>
+            <p className="font-bold text-gray-800 text-[11px] sm:text-[13px]">{meal.carbs}g</p>
+            <p className="text-[9px] sm:text-[10px] text-gray-500">Carbs</p>
           </div>
-          <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-2 text-center flex flex-col items-center justify-center gap-[2px]">
-            <span className="text-sm">💧</span>
-            <p className="font-bold text-gray-800 text-[13px]">{meal.fat}g</p>
-            <p className="text-[10px] text-gray-500">Fats</p>
+          <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[8px] sm:rounded-[10px] p-1.5 sm:p-2 text-center flex flex-col items-center justify-center gap-[2px] flex-shrink-0">
+            <span className="text-xs sm:text-sm">💧</span>
+            <p className="font-bold text-gray-800 text-[11px] sm:text-[13px]">{meal.fat}g</p>
+            <p className="text-[9px] sm:text-[10px] text-gray-500">Fats</p>
           </div>
         </div>
 
@@ -466,31 +466,31 @@ const AIResponsePage: FC = () => {
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
       <header 
-        className="px-8 h-[105px] flex items-center border-b"
+        className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[105px] flex items-center border-b"
         style={{ 
           backgroundColor: '#F9FBFE',
           borderColor: '#F6FAFE',
           boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
         }}
       >
-        <div className="flex items-center justify-between w-full">
-          <h1 className="text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+        <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
+          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%] truncate" style={{ fontFamily: "'Work Sans', sans-serif" }}>
             Ingredients Detector
           </h1>
           
           {/* Profile Dropdown */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+              className="flex items-center h-[36px] sm:h-[40px] md:h-[56px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-[10px] sm:rounded-[12px] md:rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-[10px] sm:text-xs md:text-sm border border-blue-100">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
               </div>
-              <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
+              <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
                 {user?.displayName || user?.email?.split('@')[0] || 'User'}
               </span>
-              <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
             </button>
             
             {showProfileDropdown && (
@@ -499,9 +499,9 @@ const AIResponsePage: FC = () => {
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowProfileDropdown(false)}
                 />
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-[15px] shadow-lg border border-gray-200 py-3 z-50">
-                  <a href="/settings" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Settings</a>
-                  <a href="/history" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">History</a>
+                <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-[12px] sm:rounded-[15px] shadow-lg border border-gray-200 py-2 sm:py-3 z-50">
+                  <a href="/settings" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">Settings</a>
+                  <a href="/history" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">History</a>
                 </div>
               </>
             )}
@@ -510,7 +510,7 @@ const AIResponsePage: FC = () => {
       </header>
 
       {/* Main Content */}
-      <div className="px-8 py-8">
+      <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6 md:py-8">
         {/* Loading State */}
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-32">
@@ -527,31 +527,31 @@ const AIResponsePage: FC = () => {
             </h2>
             <p className="text-center text-gray-500 mb-10">your ingredients.</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {/* Upload Image Card */}
               <button
                 onClick={handleUploadClick}
-                className="bg-white rounded-2xl border border-gray-200 p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
+                className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 p-6 sm:p-8 md:p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
               >
-                <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <Upload className="w-10 h-10 text-blue-500 group-hover:scale-110 transition-transform" />
+                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
+                  <Upload className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 text-blue-500 group-hover:scale-110 transition-transform" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">Upload image</h3>
-                <p className="text-gray-500 text-sm">Choose an Existing photo<br/>from your device</p>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Upload image</h3>
+                <p className="text-gray-500 text-xs sm:text-sm">Choose an Existing photo<br/>from your device</p>
               </button>
 
               {/* List Ingredients Card */}
               <button
                 onClick={handleListIngredientsClick}
-                className="bg-white rounded-2xl border border-gray-200 p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
+                className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 p-6 sm:p-8 md:p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
               >
-                <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <svg className="w-10 h-10 text-gray-600 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
+                  <svg className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 text-gray-600 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">List Ingredients</h3>
-                <p className="text-gray-500 text-sm">Type your ingredients<br/>manually</p>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">List Ingredients</h3>
+                <p className="text-gray-500 text-xs sm:text-sm">Type your ingredients<br/>manually</p>
               </button>
             </div>
 
@@ -588,8 +588,8 @@ const AIResponsePage: FC = () => {
             {/* Detected Ingredients Card - Figma style */}
             {/* Width: 782px, Height: auto, Radius: 15px, Border: 1px #E7E7E7, Padding: 32px top/bottom, 24px left/right, Gap: 20px */}
             <div 
-              className="bg-white rounded-[15px] border border-[#E7E7E7] mb-8 max-w-[782px]"
-              style={{ padding: '32px 24px' }}
+              className="bg-white rounded-[12px] sm:rounded-[15px] border border-[#E7E7E7] mb-6 sm:mb-8 max-w-[782px] w-full"
+              style={{ padding: '16px 16px' }}
             >
               {/* 2 columns layout with separator lines */}
               <div className="flex flex-col gap-5">
@@ -602,7 +602,7 @@ const AIResponsePage: FC = () => {
                   return (
                     <div key={rowIndex}>
                       {/* Row with 2 ingredients */}
-                      <div className="grid grid-cols-2 gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
                         {rowIngredients.map((ingredient, colIndex) => (
                           <div key={colIndex} className="flex items-start gap-3">
                             <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-blue-500">
@@ -626,7 +626,7 @@ const AIResponsePage: FC = () => {
                       
                       {/* Separator line - Width: 735px, Border: 1px #E7E7E7 */}
                       {!isLastRow && (
-                        <div className="border-b border-[#E7E7E7] mt-5" />
+                        <div className="border-b border-[#E7E7E7] mt-3 sm:mt-5" />
                       )}
                     </div>
                   )
@@ -660,8 +660,8 @@ const AIResponsePage: FC = () => {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 my-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-800">Upload Ingredient Image</h3>
               <button 
@@ -708,8 +708,8 @@ const AIResponsePage: FC = () => {
 
       {/* Ingredient List Modal */}
       {showIngredientModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 my-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-800">List Your Ingredients</h3>
               <button 

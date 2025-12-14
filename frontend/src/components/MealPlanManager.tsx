@@ -118,13 +118,13 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
   };
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-[#e2e8f0]">
+    <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-[#e2e8f0]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-[#2D3436]">Meal Plans</h2>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-bold text-[#2D3436]">Meal Plans</h2>
         <button
           onClick={onNewPlan}
-          className="flex items-center gap-2 bg-[#FF6B6B] text-white px-4 py-2 rounded-lg hover:bg-[#FF8E53] transition-colors"
+          className="flex items-center gap-2 bg-[#FF6B6B] text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-[#FF8E53] transition-colors text-sm sm:text-base w-full sm:w-auto justify-center"
         >
           <Plus className="w-4 h-4" />
           New Plan
@@ -132,12 +132,12 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
       </div>
 
       {/* Week Selector */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-[#2D3436]">Week of {getCurrentWeekDates()}</h3>
+      <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-3">
+          <h3 className="text-base sm:text-lg font-semibold text-[#2D3436]">Week of {getCurrentWeekDates()}</h3>
           <button
             onClick={() => setShowDatePicker(!showDatePicker)}
-            className="flex items-center gap-2 text-[#FF6B6B] hover:text-[#FF8E53] transition-colors"
+            className="flex items-center gap-2 text-[#FF6B6B] hover:text-[#FF8E53] transition-colors text-sm sm:text-base"
           >
             <Calendar className="w-4 h-4" />
             Change Week
@@ -183,7 +183,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
 
       {/* Saved Plans */}
       <div>
-        <h3 className="text-lg font-semibold text-[#2D3436] mb-4">Saved Plans</h3>
+        <h3 className="text-base sm:text-lg font-semibold text-[#2D3436] mb-3 sm:mb-4">Saved Plans</h3>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-10 text-gray-500">
             <LoadingSpinner />
@@ -200,7 +200,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
             {savedPlans.map((plan) => (
               <div
                 key={plan.id}
-                className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${currentPlan?.id === plan.id
+                className={`p-3 sm:p-4 rounded-lg border-2 transition-all cursor-pointer ${currentPlan?.id === plan.id
                   ? 'border-[#FF6B6B] bg-[#FF6B6B]/5'
                   : 'border-gray-200 hover:border-[#FF6B6B]/50 hover:bg-gray-50'
                   }`}
@@ -209,21 +209,21 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
                   if (onSelectPlan) onSelectPlan(plan);
                 }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-semibold text-[#2D3436]">{plan.name}</h4>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h4 className="font-semibold text-sm sm:text-base text-[#2D3436] truncate">{plan.name}</h4>
                       {renderSicknessIndicator(plan)}
                     </div>
-                    <p className="text-sm text-[#1e293b]">
+                    <p className="text-xs sm:text-sm text-[#1e293b]">
                       {formatDateRange(plan.startDate, plan.endDate)}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-[10px] sm:text-xs text-gray-500">
                       Updated {new Date(plan.updatedAt).toLocaleDateString()}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

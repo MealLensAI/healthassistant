@@ -150,30 +150,6 @@ const Index = () => {
     setShowPlanManager(false);
   };
 
-  const planManagerModal = showPlanManager ? (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-[#2D3436]">Manage Meal Plans</h2>
-          <button
-            onClick={() => setShowPlanManager(false)}
-            className="text-[#1e293b] hover:text-blue-500 transition-colors"
-          >
-            ✕
-          </button>
-        </div>
-        <MealPlanManager
-          onNewPlan={() => {
-            setShowPlanManager(false);
-            setShowInputModal(true);
-          }}
-          onEditPlan={handleEditPlan}
-          onSelectPlan={handleSelectPlan}
-          filterBySickness={sicknessSettings.hasSickness}
-        />
-      </div>
-    </div>
-  ) : null;
 
   const weekDates = generateWeekDates(selectedDate);
 
@@ -890,31 +866,31 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
-      {/* Header - aligned with sidebar logo height (123px) */}
+      {/* Header - aligned with sidebar logo height (123px) - responsive */}
       <header 
-        className="px-8 h-[105px] flex items-center border-b"
+        className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[105px] flex items-center border-b"
         style={{ 
           backgroundColor: '#F9FBFE',
           borderColor: '#F6FAFE',
           boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
         }}
       >
-        <div className="flex items-center justify-between w-full">
-          <h1 className="text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>Diet Planner</h1>
+        <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
+          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%] truncate" style={{ fontFamily: "'Work Sans', sans-serif" }}>Diet Planner</h1>
           
           {/* Profile Dropdown */}
-          <div className="relative">
-<button
-            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+          <div className="relative flex-shrink-0">
+            <button
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center h-[36px] sm:h-[40px] md:h-[56px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-[10px] sm:rounded-[12px] md:rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-[10px] sm:text-xs md:text-sm border border-blue-100">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
               </div>
-              <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
+              <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
                 {user?.displayName || user?.email?.split('@')[0] || 'User'}
               </span>
-              <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
             </button>
             
             {/* Dropdown Menu */}
@@ -924,8 +900,8 @@ const Index = () => {
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowProfileDropdown(false)}
                 />
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-[15px] shadow-lg border border-gray-200 py-3 z-50">
-                  <a href="/profile" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
+                <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-[12px] sm:rounded-[15px] shadow-lg border border-gray-200 py-2 sm:py-3 z-50">
+                  <a href="/profile" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
                 </div>
               </>
             )}
@@ -933,14 +909,14 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="px-8 py-6">
-        {/* Top Bar: Tabs and Create Button */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-gray-100">
-          <div className="flex gap-3">
+      {/* Main Content Area - responsive padding */}
+      <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6">
+        {/* Top Bar: Tabs and Create Button - responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pb-4 sm:pb-6 border-b border-gray-100">
+          <div className="flex gap-2 sm:gap-3 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
             <button
               onClick={() => setShowPlanManager(false)}
-              className={`px-7 py-3 rounded-lg text-[15px] font-semibold transition-all duration-200 border ${
+              className={`px-4 sm:px-7 py-2 sm:py-3 rounded-lg text-sm sm:text-[15px] font-semibold transition-all duration-200 border whitespace-nowrap ${
                 !showPlanManager
                   ? 'border-blue-500 text-blue-500 bg-white'
                   : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300'
@@ -950,7 +926,7 @@ const Index = () => {
             </button>
             <button
               onClick={() => setShowPlanManager(true)}
-              className={`px-7 py-3 rounded-lg text-[15px] font-semibold transition-all duration-200 border ${
+              className={`px-4 sm:px-7 py-2 sm:py-3 rounded-lg text-sm sm:text-[15px] font-semibold transition-all duration-200 border whitespace-nowrap ${
                 showPlanManager
                   ? 'border-blue-500 text-blue-500 bg-white'
                   : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300'
@@ -962,35 +938,35 @@ const Index = () => {
 
           <button
             onClick={handleNewPlan}
-            className="flex items-center justify-center w-[201px] h-[48px] gap-[10px] bg-[#1A76E3] hover:bg-[#1565C0] text-white rounded-[15px] border border-[#1356A5] text-[15px] font-semibold transition-all duration-200"
+            className="flex items-center justify-center w-full sm:w-auto min-w-[140px] sm:min-w-[160px] md:w-[201px] h-[40px] sm:h-[44px] md:h-[48px] gap-2 sm:gap-[10px] bg-[#1A76E3] hover:bg-[#1565C0] text-white rounded-[10px] sm:rounded-[12px] md:rounded-[15px] border border-[#1356A5] text-xs sm:text-sm md:text-[15px] font-semibold transition-all duration-200"
             style={{ boxShadow: '4px 4px 4px rgba(72, 146, 234, 0.3)' }}
           >
-            Create New Plan
-            <Plus className="w-4 h-4" />
+            <span className="truncate">Create New Plan</span>
+            <Plus className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
           </button>
         </div>
 
-        {/* Date Range and Day Tabs */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-10 py-6">
-          <div className="flex items-center">
-            <span className="text-[20px] font-medium text-black tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+        {/* Date Range and Day Tabs - responsive */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 sm:gap-4 md:gap-6 lg:gap-10 py-3 sm:py-4 md:py-6">
+          <div className="flex items-center flex-shrink-0">
+            <span className="text-sm sm:text-base md:text-lg lg:text-[20px] font-medium text-black tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
               {formatDateRange()}
             </span>
           </div>
 
-          <div className="flex-1 overflow-x-auto">
-            <div className="inline-flex items-center h-[48px] bg-[#F7F7F7] border border-[#E7E7E7] rounded-[12px] p-1 gap-1">
+          <div className="flex-1 w-full overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-hide">
+            <div className="inline-flex items-center h-[38px] sm:h-[44px] md:h-[48px] bg-[#F7F7F7] border border-[#E7E7E7] rounded-[8px] sm:rounded-[10px] md:rounded-[12px] p-0.5 sm:p-1 gap-0.5 sm:gap-1 min-w-full sm:min-w-0">
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`px-4 py-2 rounded-[8px] text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
+                  className={`px-2.5 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-[5px] sm:rounded-[6px] md:rounded-[8px] text-[11px] sm:text-xs md:text-sm lg:text-[14px] font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 flex-1 min-w-[50px] sm:min-w-0 ${
                     selectedDay === day
                       ? 'bg-white text-gray-800 border border-[#E7E7E7]'
                       : 'text-gray-400 hover:text-gray-500'
                   }`}
                 >
-                  {day}
+                  {day.substring(0, 3)}
                 </button>
               ))}
             </div>
@@ -1018,7 +994,7 @@ const Index = () => {
               {isLoading ? (
                 <LoadingSpinner />
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                   {getRecipesForSelectedDay().map((recipe, index) => {
                     const shouldShowEnhancedUI = sicknessSettings.hasSickness;
 
@@ -1056,22 +1032,22 @@ const Index = () => {
             </React.Fragment>
           ) : (
             mealPlansInitialized && !mealPlansLoading ? (
-              <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
-                <div className="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <ChefHat className="w-10 h-10 text-orange-400" />
+              <div className="bg-white rounded-xl sm:rounded-2xl p-6 sm:p-8 md:p-12 text-center shadow-sm border border-gray-100">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                  <ChefHat className="w-8 h-8 sm:w-10 sm:h-10 text-orange-400" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">No Meal Plan Selected</h3>
-                <p className="text-gray-500 mb-8 max-w-md mx-auto">Create a new meal plan or select an existing one to get started with your health journey!</p>
-                <div className="flex gap-4 justify-center">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">No Meal Plan Selected</h3>
+                <p className="text-sm sm:text-base text-gray-500 mb-6 sm:mb-8 max-w-md mx-auto">Create a new meal plan or select an existing one to get started with your health journey!</p>
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
                   <button
                     onClick={handleNewPlan}
-                    className="bg-blue-500 text-white px-8 py-3 rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="bg-blue-500 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200 shadow-sm hover:shadow-md text-sm sm:text-base"
                   >
                     Create New Plan
                   </button>
                   <button
                     onClick={() => setShowPlanManager(true)}
-                    className="bg-gray-100 text-gray-700 px-8 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-all duration-200"
+                    className="bg-gray-100 text-gray-700 px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:bg-gray-200 transition-all duration-200 text-sm sm:text-base"
                   >
                     View Saved Plans
                   </button>
@@ -1084,25 +1060,48 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Plan Manager Modal */}
-      {planManagerModal}
+      {/* Plan Manager Modal - responsive */}
+      {showPlanManager ? (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto my-auto">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-[#2D3436]">Manage Meal Plans</h2>
+              <button
+                onClick={() => setShowPlanManager(false)}
+                className="text-[#1e293b] hover:text-blue-500 transition-colors text-2xl sm:text-3xl leading-none"
+              >
+                ✕
+              </button>
+            </div>
+            <MealPlanManager
+              onNewPlan={() => {
+                setShowPlanManager(false);
+                setShowInputModal(true);
+              }}
+              onEditPlan={handleEditPlan}
+              onSelectPlan={handleSelectPlan}
+              filterBySickness={sicknessSettings.hasSickness}
+            />
+          </div>
+        </div>
+      ) : null}
 
-      {/* Input Modal */}
+      {/* Input Modal - responsive */}
       {showInputModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-[#2D3436]">Create Your Meal Plan</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto my-auto">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-[#2D3436]">Create Your Meal Plan</h2>
               <button
                 onClick={() => setShowInputModal(false)}
-                className="text-[#1e293b] hover:text-blue-500 transition-colors"
+                className="text-[#1e293b] hover:text-blue-500 transition-colors text-2xl sm:text-3xl leading-none"
               >
                 ✕
               </button>
             </div>
 
             {/* Week Selection */}
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
               <label className="block text-sm font-semibold text-[#2D3436] mb-2">
                 Select Week
               </label>
@@ -1110,21 +1109,21 @@ const Index = () => {
                 type="date"
                 value={selectedDate.toISOString().split('T')[0]}
                 onChange={(e) => handleDateChange(new Date(e.target.value))}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
+                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none text-sm sm:text-base"
               />
-              <p className="text-sm text-[#1e293b] mt-2">
+              <p className="text-xs sm:text-sm text-[#1e293b] mt-2">
                 Creating plan for: {weekDates.name}
               </p>
             </div>
 
             {/* Auto-Generate Toggle */}
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <ChefHat className="w-5 h-5 text-[#2D3436]" />
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#2D3436]"> Auto Generate with Budget & Location</h3>
-                    <p className="text-xs text-[#1e293b]">
+            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between gap-2 sm:gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 text-[#2D3436] flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xs sm:text-sm font-semibold text-[#2D3436]"> Auto Generate with Budget & Location</h3>
+                    <p className="text-[10px] sm:text-xs text-[#1e293b] truncate">
                       {getSicknessInfo()
                         ? `Based on your health condition: ${getSicknessInfo()?.sicknessType}`
                         : 'Based on location and budget preferences'
@@ -1134,7 +1133,7 @@ const Index = () => {
                 </div>
                 <button
                   onClick={() => setIsAutoGenerateEnabled(!isAutoGenerateEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAutoGenerateEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${isAutoGenerateEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAutoGenerateEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
@@ -1186,7 +1185,7 @@ const Index = () => {
 
             {/* Toggle Buttons */}
             {!isAutoGenerateEnabled && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
                 <button
                   onClick={() => setInputType('ingredient_list')}
                   className={`p-6 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
@@ -1384,17 +1383,17 @@ const Index = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-4 bg-blue-500 text-white font-bold text-lg rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                className="w-full py-3 sm:py-4 bg-blue-500 text-white font-bold text-base sm:text-lg rounded-lg sm:rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isLoading ? (
                   <>
-                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
-                    {isAutoGenerateEnabled ? 'Auto-Generating Plan...' : 'Generating Plan...'}
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-2 sm:mr-3"></div>
+                    <span className="text-sm sm:text-base">{isAutoGenerateEnabled ? 'Auto-Generating Plan...' : 'Generating Plan...'}</span>
                   </>
                 ) : (
                   <>
-                    <Utensils className="w-6 h-6 mr-3" />
-                    {isAutoGenerateEnabled ? 'Auto-Generate Meal Plan' : 'Generate My Meal Plan'}
+                    <Utensils className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
+                    <span className="text-sm sm:text-base">{isAutoGenerateEnabled ? 'Auto-Generate Meal Plan' : 'Generate My Meal Plan'}</span>
                   </>
                 )}
               </button>
