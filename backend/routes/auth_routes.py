@@ -879,22 +879,49 @@ def change_password():
 
         email = profile_res.data['email']
 
-        # Validate current password by signing in with anon client
+        # Validate current password by signing in with anon client and get auth user ID
+        auth_user_id = None
         try:
             auth_res = client.auth.sign_in_with_password({
                 'email': email,
                 'password': str(current_password)
             })
-            if not getattr(auth_res, 'user', None):
+            auth_user = getattr(auth_res, 'user', None)
+            if not auth_user:
                 return jsonify({'status': 'error', 'message': 'Current password is incorrect'}), 401
-        except Exception:
+            # Extract the auth user ID from the sign-in response
+            auth_user_id = getattr(auth_user, 'id', None)
+            if not auth_user_id:
+                # Try alternative ways to get the ID
+                if isinstance(auth_user, dict):
+                    auth_user_id = auth_user.get('id')
+                elif hasattr(auth_user, 'id'):
+                    auth_user_id = auth_user.id
+        except Exception as e:
+            current_app.logger.error(f"Password validation failed: {str(e)}")
             return jsonify({'status': 'error', 'message': 'Current password is incorrect'}), 401
 
-        # Update password using admin API
+        if not auth_user_id:
+            # Fallback: try to get auth user ID from email using admin API
+            try:
+                if hasattr(admin_client.auth.admin, 'get_user_by_email'):
+                    auth_user_res = admin_client.auth.admin.get_user_by_email(email)
+                    auth_user_obj = getattr(auth_user_res, 'user', None)
+                    if auth_user_obj:
+                        auth_user_id = getattr(auth_user_obj, 'id', None)
+            except Exception as e:
+                current_app.logger.warning(f"Could not get auth user by email: {str(e)}")
+
+        if not auth_user_id:
+            return jsonify({'status': 'error', 'message': 'Could not identify user for password update'}), 500
+
+        # Update password using admin API with auth user ID
         try:
-            admin_client.auth.admin.update_user_by_id(user_id, { 'password': str(new_password) })
+            admin_client.auth.admin.update_user_by_id(auth_user_id, { 'password': str(new_password) })
         except Exception as e:
-            return jsonify({'status': 'error', 'message': f'Failed to update password: {str(e)}'}), 500
+            error_msg = str(e)
+            current_app.logger.error(f"Password update failed for user {auth_user_id}: {error_msg}")
+            return jsonify({'status': 'error', 'message': f'Failed to update password: {error_msg}'}), 500
 
         return jsonify({'status': 'success', 'message': 'Password updated. Please sign in again.'}), 200
 
