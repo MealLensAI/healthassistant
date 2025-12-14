@@ -31,7 +31,7 @@ const RoleAwareRedirect = () => {
 
   if (authLoading || roleLoading || !isAuthenticated || role === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center space-y-6">
           <div className="flex items-center justify-center">
             <Logo size="lg" />

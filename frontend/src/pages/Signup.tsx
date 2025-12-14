@@ -5,9 +5,7 @@ import { useState, useEffect } from "react"
 import { useNavigate, Link, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff, Mail, Lock, User, Loader2, CheckCircle, XCircle, Building2 } from "lucide-react"
 import { useAuth, safeSetItem } from "@/lib/utils"
@@ -280,357 +278,392 @@ const Signup = () => {
   const passwordStrength = getPasswordStrength(formData.password)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 flex items-center justify-center p-4">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-[url('/placeholder.svg?height=100&width=100')] opacity-5"></div>
-
-      <div className="w-full max-w-md relative z-10">
-        {/* Logo Section */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      {/* Left Column - Form */}
+      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center bg-white px-4 sm:px-6 md:px-8 lg:px-12 lg:pl-[80px] py-8 lg:py-0 lg:pt-[64px] lg:pr-[32px]">
+        <div className="w-full max-w-md lg:max-w-none lg:w-[480px]">
+          {/* Logo */}
+          <div className="flex items-center justify-center mb-6 lg:mb-8">
             <Logo size="lg" />
           </div>
-          <p className="text-gray-600 text-lg">Join the Smart Food Revolution</p>
-        </div>
 
-        {/* Signup Card */}
-        <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl font-bold text-center text-gray-900">
-              {isOrganizationSignup ? "Register Your Organization" : "Create Your Account"}
-            </CardTitle>
-            <p className="text-center text-gray-600">
-              {isOrganizationSignup
-                ? "Set up your organization and start inviting patients"
-                : "Start your journey with AI-powered food detection"
-              }
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Signup Type Toggle */}
-            <div className="flex bg-gray-100 p-1 rounded-lg">
-              <button
-                type="button"
-                onClick={() => setIsOrganizationSignup(false)}
-                className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-all duration-200 ${!isOrganizationSignup
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-                  }`}
-              >
-                <User className="h-4 w-4" />
-                <span className="font-medium">Individual</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsOrganizationSignup(true)}
-                className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-all duration-200 ${isOrganizationSignup
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-                  }`}
-              >
-                <Building2 className="h-4 w-4" />
-                <span className="font-medium">Organization</span>
-              </button>
-            </div>
+          {/* Title */}
+          <h1 className="text-2xl sm:text-3xl lg:text-3xl font-bold text-gray-900 mb-6 lg:mb-8 text-center">Sign Up</h1>
 
-            {/* Email Signup Form */}
-            <form onSubmit={handleEmailSignup} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
-                    First Name
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          {/* Account Type Toggle */}
+          <div className="flex bg-[#F6FAFE] p-[4px] rounded-[12px] mb-6 border border-[#D0D0D0] w-full lg:w-[480px]" style={{ height: '55px', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setIsOrganizationSignup(false)}
+              className={`flex-1 flex items-center justify-center gap-2 rounded-[12px] transition-all duration-200 ${
+                !isOrganizationSignup
+                  ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+              style={{ padding: '10px' }}
+            >
+              <User className="h-4 w-4" />
+              <span className="font-medium text-sm">Individual</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOrganizationSignup(true)}
+              className={`flex-1 flex items-center justify-center gap-2 rounded-[12px] transition-all duration-200 ${
+                isOrganizationSignup
+                  ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+              style={{ padding: '10px' }}
+            >
+              <Building2 className="h-4 w-4" />
+              <span className="font-medium text-sm">Organization</span>
+            </button>
+          </div>
+
+          {/* Signup Form */}
+          <form onSubmit={handleEmailSignup} className="space-y-4">
+            {!isOrganizationSignup ? (
+              <>
+                {/* First Name and Last Name */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
+                      First Name
+                    </Label>
                     <Input
                       id="firstName"
                       name="firstName"
                       type="text"
-                      placeholder="First name"
+                      placeholder="Enter First Name"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
                       required
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
-                    Last Name
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
+                      Last Name
+                    </Label>
                     <Input
                       id="lastName"
                       name="lastName"
                       type="text"
-                      placeholder="Last name"
+                      placeholder="Enter Last Name"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
                       required
                     />
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  {isOrganizationSignup ? "Your Email Address" : "Email Address"}
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                    Email
+                  </Label>
                   <Input
                     id="email"
                     name="email"
                     type="email"
-                    placeholder={isOrganizationSignup ? "your.email@organization.com" : "Enter your email"}
+                    placeholder="Enter Email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
                     required
                   />
                 </div>
-                {isOrganizationSignup && (
-                  <p className="text-xs text-gray-500">
-                    This will be your login email for managing the organization
-                  </p>
-                )}
-              </div>
 
-              {/* Organization Details */}
-              {isOrganizationSignup && (
+                {/* Password */}
+                <div className="space-y-2">
+                    <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                      Password
+                    </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="pr-10 border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-2">
+                    <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
+                      Confirm Password
+                    </Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Enter password"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      className="pr-10 border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </Button>
+                  </div>
+                  {formData.confirmPassword && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      {formData.password === formData.confirmPassword ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <span className="text-green-600">Passwords match</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-4 w-4 text-red-500" />
+                          <span className="text-red-600">Passwords do not match</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Organization Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="orgName" className="text-sm font-medium text-gray-700">
+                    Organization Name
+                  </Label>
+                  <Input
+                    id="orgName"
+                    name="name"
+                    type="text"
+                    placeholder="Enter Name"
+                    value={organizationData.name}
+                    onChange={handleOrganizationInputChange}
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                    required
+                  />
+                </div>
+
+                {/* Organization Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="orgEmail" className="text-sm font-medium text-gray-700">
+                    Organization Email
+                  </Label>
+                  <Input
+                    id="orgEmail"
+                    name="email"
+                    type="email"
+                    placeholder="Enter Email"
+                    value={organizationData.email}
+                    onChange={handleOrganizationInputChange}
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                    required
+                  />
+                </div>
+
+                {/* Phone Number */}
+                <div className="space-y-2">
+                  <Label htmlFor="orgPhone" className="text-sm font-medium text-gray-700">
+                    Phone Number
+                  </Label>
+                  <Input
+                    id="orgPhone"
+                    name="phone"
+                    type="tel"
+                    placeholder="Enter Email"
+                    value={organizationData.phone}
+                    onChange={handleOrganizationInputChange}
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                  />
+                </div>
+
+                {/* User Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter Email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                    required
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="space-y-2">
+                    <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                      Password
+                    </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="pr-10 border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-2">
+                    <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
+                      Confirm Password
+                    </Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Enter password"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      className="pr-10 border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Sign Up Button */}
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="text-white font-semibold transition-all duration-200 mt-6"
+              className="w-full sm:w-auto"
+              style={{
+                width: '180px',
+                height: '42px',
+                borderRadius: '12px',
+                borderWidth: '1px',
+                borderColor: '#1356A5',
+                backgroundColor: '#1A76E3',
+                padding: '10px',
+                boxShadow: '3px 3px 3px 0px rgba(72, 146, 234, 1)',
+                fontSize: '15px'
+              }}
+            >
+              {isLoading ? (
                 <>
-                  <Separator className="my-6" />
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2 text-blue-600">
-                      <Building2 className="h-5 w-5" />
-                      <h3 className="font-semibold">Organization Details</h3>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="orgName" className="text-sm font-medium text-gray-700">
-                        Organization Name *
-                      </Label>
-                      <Input
-                        id="orgName"
-                        name="name"
-                        type="text"
-                        placeholder="e.g., Dr. Smith Medical Clinic"
-                        value={organizationData.name}
-                        onChange={handleOrganizationInputChange}
-                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="orgEmail" className="text-sm font-medium text-gray-700">
-                        Organization Email *
-                      </Label>
-                      <Input
-                        id="orgEmail"
-                        name="email"
-                        type="email"
-                        placeholder="contact@organization.com"
-                        value={organizationData.email}
-                        onChange={handleOrganizationInputChange}
-                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="orgPhone" className="text-sm font-medium text-gray-700">
-                        Phone Number
-                      </Label>
-                      <Input
-                        id="orgPhone"
-                        name="phone"
-                        type="tel"
-                        placeholder="+1234567890"
-                        value={organizationData.phone}
-                        onChange={handleOrganizationInputChange}
-                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="orgAddress" className="text-sm font-medium text-gray-700">
-                        Address
-                      </Label>
-                      <Input
-                        id="orgAddress"
-                        name="address"
-                        type="text"
-                        placeholder="123 Main St, City, State"
-                        value={organizationData.address}
-                        onChange={handleOrganizationInputChange}
-                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="orgType" className="text-sm font-medium text-gray-700">
-                        Organization Type *
-                      </Label>
-                      <select
-                        id="orgType"
-                        name="organization_type"
-                        value={organizationData.organization_type}
-                        onChange={handleOrganizationInputChange}
-                        className="w-full h-12 px-3 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                        required
-                      >
-                        <option value="clinic">Clinic</option>
-                        <option value="hospital">Hospital</option>
-                        <option value="doctor">Individual Doctor</option>
-                        <option value="nutritionist">Nutritionist</option>
-                        <option value="wellness">Wellness Center</option>
-                      </select>
-                    </div>
-                  </div>
+                  <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                  {isOrganizationSignup ? "Registering organization..." : "Creating account..."}
                 </>
+              ) : (
+                "Sign Up"
               )}
+            </Button>
+          </form>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="pl-10 pr-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                </div>
-
-                {/* Password Strength Indicator */}
-                {formData.password && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-600">Password strength:</span>
-                      <span className={`font-medium ${passwordStrength.strength <= 25 ? 'text-red-600' :
-                        passwordStrength.strength <= 50 ? 'text-yellow-600' :
-                          passwordStrength.strength <= 75 ? 'text-blue-600' : 'text-green-600'
-                        }`}>
-                        {passwordStrength.label}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color}`}
-                        style={{ width: `${passwordStrength.strength}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
-                  Confirm Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    className="pl-10 pr-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                </div>
-
-                {/* Password Match Indicator */}
-                {formData.confirmPassword && (
-                  <div className="flex items-center space-x-2 text-sm">
-                    {formData.password === formData.confirmPassword ? (
-                      <>
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span className="text-green-600">Passwords match</span>
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="h-4 w-4 text-red-500" />
-                        <span className="text-red-600">Passwords do not match</span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full h-12 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+          {/* Sign In Link */}
+          <div className="text-center mt-6">
+            <p className="text-sm text-gray-600">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200"
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-3 animate-spin" />
-                    {isOrganizationSignup ? "Registering organization..." : "Creating account..."}
-                  </>
-                ) : (
-                  isOrganizationSignup ? "Register Organization" : "Create Account"
-                )}
-              </Button>
-            </form>
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
 
-            {/* Sign In Link */}
-            <div className="text-center">
-              <p className="text-sm text-gray-600">
-                Already have an account?{" "}
-                <Link
-                  to="/login"
-                  className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200"
-                >
-                  Sign in here
-                </Link>
+      {/* Right Column - Hero Image */}
+      <div className="hidden lg:flex lg:w-1/2 relative bg-gray-50">
+        <div className="relative w-full h-full flex items-center justify-center p-8 lg:p-12">
+          <div className="relative w-full max-w-md aspect-[3/4] flex items-center">
+            <img
+              src="/assets/signup-hero.png"
+              alt="Hospital care"
+              className="object-cover w-full h-full rounded-lg"
+              style={{ borderRadius: '8px' }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent rounded-lg" />
+            <div className="absolute bottom-0 left-0 right-0 p-6 lg:p-8 text-white">
+              <p className="text-2xl lg:text-3xl xl:text-4xl font-bold leading-tight">
+                Let every <span className="text-blue-300">MEAL</span> bring you closer
+                <br />
+                to recovery.
               </p>
-              {isOrganizationSignup && (
-                <p className="text-xs text-gray-500 mt-2">
-                  After registration, you'll be able to invite patients and manage your organization
-                </p>
-              )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   )

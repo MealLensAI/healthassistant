@@ -19,11 +19,12 @@ const Onboarding: React.FC = () => {
     const { settings: existingSettings, saveSettings } = useSicknessSettings()
 
     // Simplified form - only essentials
+    // Set hasSickness to true by default since this is a sickness app
     const [formData, setFormData] = useState({
         age: existingSettings.age,
         gender: existingSettings.gender,
         location: existingSettings.location || '',
-        hasSickness: existingSettings.hasSickness || false,
+        hasSickness: true, // Always true for sickness app
         sicknessType: existingSettings.sicknessType || ''
     })
 
@@ -108,7 +109,7 @@ const Onboarding: React.FC = () => {
         }
 
         if (stepId === 'health') {
-            if (formData.hasSickness && (!formData.sicknessType || formData.sicknessType.trim().length < 2)) {
+            if (!formData.sicknessType || formData.sicknessType.trim().length < 2) {
                 toast({
                     title: "Health Condition Required",
                     description: "Please specify your health condition.",
@@ -133,8 +134,8 @@ const Onboarding: React.FC = () => {
                 age: formData.age,
                 gender: formData.gender as 'male' | 'female' | 'other',
                 location: formData.location,
-                hasSickness: formData.hasSickness,
-                sicknessType: formData.hasSickness ? formData.sicknessType : ''
+                hasSickness: true, // Always true for sickness app
+                sicknessType: formData.sicknessType
             }
 
             const res = await saveSettings(dataToSave as SicknessSettings)
@@ -180,19 +181,19 @@ const Onboarding: React.FC = () => {
                             <h2 className="text-3xl font-bold text-gray-900">Welcome to MealLensAI</h2>
                             <p className="text-gray-600 text-lg">Your AI-Powered Kitchen Companion</p>
                         </div>
-                        <div className="space-y-4 text-left bg-orange-50 p-6 rounded-lg">
+                        <div className="space-y-4 text-left bg-blue-50 p-6 rounded-lg">
                             <p className="text-gray-700 font-medium">What you'll get:</p>
                             <ul className="space-y-3 text-gray-600">
                                 <li className="flex items-start gap-3">
-                                    <span className="text-orange-500 font-bold">✓</span>
+                                    <span className="text-blue-600 font-bold">✓</span>
                                     <span>AI-powered food and ingredient detection</span>
                                 </li>
                                 <li className="flex items-start gap-3">
-                                    <span className="text-orange-500 font-bold">✓</span>
+                                    <span className="text-blue-600 font-bold">✓</span>
                                     <span>Personalized meal plans tailored to your health</span>
                                 </li>
                                 <li className="flex items-start gap-3">
-                                    <span className="text-orange-500 font-bold">✓</span>
+                                    <span className="text-blue-600 font-bold">✓</span>
                                     <span>Smart recipe suggestions based on your location</span>
                                 </li>
                             </ul>
@@ -205,7 +206,7 @@ const Onboarding: React.FC = () => {
                 return (
                     <div className="space-y-5">
                         <div className="text-center space-y-2">
-                            <div className="inline-flex items-center gap-2 text-orange-600 font-semibold text-sm bg-orange-50 px-4 py-2 rounded-full">
+                            <div className="inline-flex items-center gap-2 text-blue-600 font-semibold text-sm bg-blue-50 px-4 py-2 rounded-full">
                                 {currentStepData.icon}
                                 <span>Step 1 of 3</span>
                             </div>
@@ -233,19 +234,19 @@ const Onboarding: React.FC = () => {
                                 <RadioGroup value={formData.gender || ''} onValueChange={(value) => updateFormData('gender', value)}>
                                     <div className="grid grid-cols-3 gap-3">
                                         <label htmlFor="male" className="cursor-pointer">
-                                            <div className={`border-2 rounded-lg p-4 text-center transition-all ${formData.gender === 'male' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                                            <div className={`border-2 rounded-lg p-4 text-center transition-all ${formData.gender === 'male' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
                                                 <RadioGroupItem value="male" id="male" className="sr-only" />
                                                 <div className="font-medium">Male</div>
                                             </div>
                                         </label>
                                         <label htmlFor="female" className="cursor-pointer">
-                                            <div className={`border-2 rounded-lg p-4 text-center transition-all ${formData.gender === 'female' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                                            <div className={`border-2 rounded-lg p-4 text-center transition-all ${formData.gender === 'female' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
                                                 <RadioGroupItem value="female" id="female" className="sr-only" />
                                                 <div className="font-medium">Female</div>
                                             </div>
                                         </label>
                                         <label htmlFor="other" className="cursor-pointer">
-                                            <div className={`border-2 rounded-lg p-4 text-center transition-all ${formData.gender === 'other' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                                            <div className={`border-2 rounded-lg p-4 text-center transition-all ${formData.gender === 'other' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
                                                 <RadioGroupItem value="other" id="other" className="sr-only" />
                                                 <div className="font-medium">Other</div>
                                             </div>
@@ -261,7 +262,7 @@ const Onboarding: React.FC = () => {
                 return (
                     <div className="space-y-5">
                         <div className="text-center space-y-2">
-                            <div className="inline-flex items-center gap-2 text-orange-600 font-semibold text-sm bg-orange-50 px-4 py-2 rounded-full">
+                            <div className="inline-flex items-center gap-2 text-blue-600 font-semibold text-sm bg-blue-50 px-4 py-2 rounded-full">
                                 {currentStepData.icon}
                                 <span>Step 2 of 3</span>
                             </div>
@@ -292,54 +293,28 @@ const Onboarding: React.FC = () => {
                 return (
                     <div className="space-y-5">
                         <div className="text-center space-y-2">
-                            <div className="inline-flex items-center gap-2 text-orange-600 font-semibold text-sm bg-orange-50 px-4 py-2 rounded-full">
+                            <div className="inline-flex items-center gap-2 text-blue-600 font-semibold text-sm bg-blue-50 px-4 py-2 rounded-full">
                                 {currentStepData.icon}
                                 <span>Step 3 of 3</span>
                             </div>
                             <h2 className="text-2xl font-bold text-gray-900">{currentStepData.title}</h2>
-                            <p className="text-gray-600">Do you have any health conditions?</p>
+                            <p className="text-gray-600">Tell us about your health condition</p>
                         </div>
 
                         <div className="space-y-4 pt-2">
-                            <div className="grid grid-cols-2 gap-4">
-                                <Button 
-                                    type="button"
-                                    size="lg"
-                                    variant={!formData.hasSickness ? "default" : "outline"} 
-                                    onClick={() => {
-                                        updateFormData('hasSickness', false)
-                                        updateFormData('sicknessType', '')
-                                    }}
-                                    className="h-16 text-lg"
-                                >
-                                    No
-                                </Button>
-                                <Button 
-                                    type="button"
-                                    size="lg"
-                                    variant={formData.hasSickness ? "default" : "outline"} 
-                                    onClick={() => updateFormData('hasSickness', true)}
-                                    className="h-16 text-lg"
-                                >
-                                    Yes
-                                </Button>
+                            <div className="space-y-2">
+                                <Label htmlFor="sickness" className="text-sm font-medium text-gray-700">What condition? *</Label>
+                                <Input
+                                    id="sickness"
+                                    placeholder="e.g., diabetes, hypertension"
+                                    value={formData.sicknessType}
+                                    onChange={(e) => updateFormData('sicknessType', e.target.value)}
+                                    className="h-12"
+                                />
                             </div>
 
-                            {formData.hasSickness && (
-                                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                                    <Label htmlFor="sickness" className="text-sm font-medium text-gray-700">What condition? *</Label>
-                                    <Input
-                                        id="sickness"
-                                        placeholder="e.g., diabetes, hypertension"
-                                        value={formData.sicknessType}
-                                        onChange={(e) => updateFormData('sicknessType', e.target.value)}
-                                        className="h-12"
-                                    />
-                                </div>
-                            )}
-
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
-                                <p className="text-sm text-green-800">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                                <p className="text-sm text-blue-800">
                                     <span className="font-medium">🎯 Complete Your Profile Later</span><br />
                                     You can add detailed health information (height, weight, activity level, goals) in Settings after completing this setup.
                                 </p>
@@ -354,7 +329,7 @@ const Onboarding: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50 to-pink-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-white flex items-center justify-center p-4">
             <div className="w-full max-w-2xl">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
@@ -372,7 +347,7 @@ const Onboarding: React.FC = () => {
                     {/* Progress Bar */}
                     <div className="h-2 bg-gray-100">
                         <div 
-                            className="h-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-500 ease-out" 
+                            className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out" 
                             style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }} 
                         />
                     </div>

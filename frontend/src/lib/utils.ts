@@ -91,7 +91,7 @@ export function useProvideAuth(): AuthContextType {
       overlay.id = 'page-transition-overlay'
       overlay.style.position = 'fixed'
       overlay.style.inset = '0'
-      overlay.style.background = 'linear-gradient(135deg, #eff6ff 0%, #ffffff 100%)'
+      overlay.style.background = '#ffffff'
       overlay.style.opacity = '0'
       overlay.style.transition = 'opacity 150ms ease'
       overlay.style.zIndex = '9999'

@@ -34,7 +34,7 @@ export default function OrganizationAccessGuard({ children }: OrganizationAccess
 
   if (authLoading || roleLoading || !isAuthenticated || role === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center space-y-6">
           <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-lg">
             <Loader2 className="h-8 w-8 text-white animate-spin" />

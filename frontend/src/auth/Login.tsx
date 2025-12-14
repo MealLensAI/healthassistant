@@ -225,7 +225,7 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 flex items-center justify-center p-2 sm:p-4">
+    <div className="min-h-screen bg-white flex items-center justify-center p-2 sm:p-4">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-[url('/placeholder.svg?height=100&width=100')] opacity-5"></div>
 
