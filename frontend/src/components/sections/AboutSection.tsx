@@ -6,61 +6,50 @@ const AboutSection = () => {
           {/* Left: Vision & Mission */}
           <div>
             <h2 className="text-3xl lg:text-4xl font-normal mb-12">
-              Why we built this
+              About MealLensAI
             </h2>
             
             <div className="space-y-10">
               <div>
-                <h3 className="font-medium text-lg mb-3">Our vision</h3>
+                <h3 className="font-medium text-lg mb-3">What we do</h3>
                 <p className="text-muted-foreground leading-relaxed">
-                  To become the world's most trusted AI food and health assistant — a platform that helps every person and organization transform health outcomes through better eating, without stress, confusion, or burnout.
+                  We are building an AI solution for people with chronic diseases, using food to maintain and reverse people's health. We are using food to maintain and reverse patient health with chronic diseases.
                 </p>
               </div>
               
               <div>
-                <h3 className="font-medium text-lg mb-3">Our mission</h3>
+                <h3 className="font-medium text-lg mb-3">Our approach</h3>
                 <p className="text-muted-foreground leading-relaxed">
-                  To make cooking simple, to make healthy eating effortless, and to use AI to personalize food choices that improve lives, support health conditions, and empower organizations to help their communities through better nutrition.
+                  If you have a chronic disease, you just tell us your sickness, and we recommend food that you can eat that will maintain your health and give you better health. At the same time, it can also reverse your health based on your health condition.
                 </p>
               </div>
-
-              <blockquote className="border-l-4 border-primary pl-6 py-2">
-                <p className="text-xl font-medium">
-                  "Get better health through food.
-                  <br />
-                  End cooking burnout."
-                </p>
-                <cite className="text-sm text-muted-foreground mt-2 block">— Our motto</cite>
-              </blockquote>
             </div>
           </div>
 
           {/* Right: Who we serve */}
           <div className="bg-card rounded-lg p-8 lg:p-10 border border-border">
-            <h3 className="text-xl font-normal mb-8">Who we serve</h3>
+            <h3 className="text-xl font-normal mb-8">Our customers</h3>
             
             <div className="space-y-8">
               <div>
-                <h4 className="font-medium text-primary mb-4">B2C – Individual Users</h4>
-                <ul className="space-y-2 text-muted-foreground">
-                  <li>People with cooking burnout</li>
-                  <li>People who don't know what to cook</li>
-                  <li>People with chronic health conditions</li>
-                  <li>Weight loss / weight gain users</li>
-                  <li>Busy professionals</li>
-                  <li>Beginners who want simple meals</li>
-                </ul>
+                <h4 className="font-medium text-primary mb-4">People with chronic diseases</h4>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                  Our primary customers are people with chronic diseases who need personalized food recommendations to maintain and reverse their health conditions.
+                </p>
               </div>
               
               <div>
-                <h4 className="font-medium text-primary mb-4">B2B – Organizations</h4>
-                <ul className="space-y-2 text-muted-foreground">
-                  <li>Hospitals (IHK Hospital etc. give them speed to handle lot of patients at once)</li>
-                  <li>Nutritionist (give them speed to handle lot of patients at once)</li>
-                  <li>Pharmacies (Good Life Pharmacy etc. Help patient who test for chronic disease with a solution for their sickness based on food, or a nutritional plan that can help them reduce, improve or maintain their sickness)</li>
-                  <li>Insurance/HMOs (we reduce cost for them by giving them a solution they can give to their client who are on health insurance and have chronic diseases. And with this their clients will hardly or barely fall sick which will save the companies money)</li>
-                  <li>Gyms</li>
-                </ul>
+                <h4 className="font-medium text-primary mb-4">Nutritionists and Dietitians</h4>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                  Nutritionists and dietitians currently do all these things manually. With our product, they won't need to do everything manually. They will just use MealLensAI and it will automatically do everything for them.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-primary mb-4">Insurance Companies</h4>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Insurance companies need to save money. People with health insurance can use our product, and it will automatically reduce the amount of money they spend on treating people with sickness, getting them better health, and reducing the amount of costs the company spends.
+                </p>
               </div>
             </div>
           </div>

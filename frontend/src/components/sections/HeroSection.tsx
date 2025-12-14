@@ -12,15 +12,14 @@ const HeroSection = () => {
           
           {/* Main Headline - Simple, clean */}
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-normal leading-[1.1] mb-8 text-foreground tracking-tight">
-            Better health starts
+            Using food to maintain
             <br />
-            <span className="text-primary">with what you eat.</span>
+            <span className="text-primary">and reverse your health.</span>
           </h1>
 
           {/* Subheadline */}
           <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-12 font-normal">
-            Tired of cooking the same meals? Managing a health condition through diet? 
-            MealLensAI turns your ingredients into personalized recipes — instantly.
+            An AI solution for people with chronic diseases. Tell us your sickness, and we recommend food that maintains your health and can reverse your condition based on your health data.
           </p>
 
           {/* CTA Buttons - Simple Google-style */}
@@ -46,7 +45,7 @@ const HeroSection = () => {
           {/* Trust indicators */}
           <div className="flex flex-col items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              Trusted by 10,000+ people managing diabetes, PCOS, hypertension, and more.
+              Trusted by people with chronic diseases, nutritionists, dietitians, and insurance companies.
             </p>
           </div>
         </div>

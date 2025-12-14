@@ -14,68 +14,63 @@ const OrganizationsSection = () => {
             For Organizations
           </span>
           <h2 className="text-3xl lg:text-4xl font-normal mb-6">
-            Help more patients, reduce costs.
+            Automate processes and reduce costs
           </h2>
           <p className="text-lg text-muted-foreground">
-            Hospitals, pharmacies, nutritionists, and insurance companies use MealLensAI
-            to scale their nutrition guidance without scaling their staff.
+            Nutritionists, dietitians, and insurance companies use MealLensAI to automate manual processes and reduce healthcare costs.
           </p>
         </div>
 
         {/* Organization types */}
         <div className="grid lg:grid-cols-2 gap-8 mb-16">
-          {/* Hospitals, Pharmacies, Clinics, Nutritionists */}
+          {/* Nutritionists & Dietitians */}
           <div className="border border-border rounded-lg p-8 bg-card">
-            <h3 className="text-xl font-normal mb-4">Hospitals, Pharmacies, Clinics, Nutritionists</h3>
+            <h3 className="text-xl font-normal mb-4">Nutritionists & Dietitians</h3>
             <p className="text-muted-foreground mb-6">
-              Provide patients with diet guidance through a controlled subscription.
-              Organizations can update user data and view progress <strong>without seeing the user's daily activity</strong>.
-              Organizations manage subscription duration; users contacting them when time expires.
+              Currently, nutritionists and dietitians do all these things manually. With our product, they won't need to do everything manually. They will just use MealLensAI and it will automatically do everything for them.
             </p>
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                10x faster diet planning
+                Automated BMI/BMR calculations
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                Automated meal recommendations
+                AI-powered food recommendations
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                Patient progress tracking
+                Handle more patients in less time
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                Speed to handle lot of patients at once
+                No more manual processes
               </li>
             </ul>
           </div>
 
-          {/* Insurance/HMOs */}
+          {/* Insurance Companies */}
           <div className="border border-border rounded-lg p-8 bg-card">
-            <h3 className="text-xl font-normal mb-4">Insurance & HMOs Companies</h3>
+            <h3 className="text-xl font-normal mb-4">Insurance Companies</h3>
             <p className="text-muted-foreground mb-6">
-              Provide their clients who are on health insurance have chronic sickness MealLensAI which will give them better health and at same time reduce cost for the insurance companies.
-              Organizations can update user data and view progress <strong>without seeing the user's daily activity</strong>.
-              Organizations manage subscription duration; users contacting them when time expires.
+              Insurance companies need to save money. People with health insurance can use our product, and it will automatically reduce the amount of money they spend on treating people with sickness, getting them better health, and reducing the amount of costs the company spends.
             </p>
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                Lower healthcare claims
+                Lower healthcare costs
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                Healthier client base
+                Better health outcomes for clients
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                Reduced costs for insurance companies
+                Reduced company spending
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                Competitive advantage
+                Automated cost reduction
               </li>
             </ul>
           </div>
@@ -90,7 +85,6 @@ const OrganizationsSection = () => {
             onClick={() => navigate('/signup')}
           >
             Partner With Us
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </Button>
           <Button variant="heroOutline" size="lg">
             Schedule a Demo
