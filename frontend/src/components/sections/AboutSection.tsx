@@ -13,9 +13,7 @@ const AboutSection = () => {
               <div>
                 <h3 className="font-medium text-lg mb-3">Our vision</h3>
                 <p className="text-muted-foreground leading-relaxed">
-                  To become the world's most trusted AI food and health assistant — 
-                  a platform that helps every person and organization transform health outcomes
-                  through better eating, without stress, confusion, or burnout.
+                  To become the world's most trusted AI food and health assistant — a platform that helps every person and organization transform health outcomes through better eating, without stress, confusion, or burnout.
                 </p>
               </div>
               
@@ -27,7 +25,7 @@ const AboutSection = () => {
               </div>
 
               <blockquote className="border-l-4 border-primary pl-6 py-2">
-                <p className="text-xl font-semibold">
+                <p className="text-xl font-medium">
                   "Get better health through food.
                   <br />
                   End cooking burnout."
