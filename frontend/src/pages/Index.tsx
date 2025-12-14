@@ -40,6 +40,27 @@ const countries = [
   'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
 ];
 
+// Map new goal values to backend API format
+const mapGoalToBackendFormat = (goal: string | undefined): string => {
+  if (!goal) return 'heal'; // default
+  
+  const goalMap: Record<string, string> = {
+    'Heal Health Condition': 'heal',
+    'Improve Health Condition': 'heal',
+    'Manage Health Condition': 'heal',
+    'Restore Health Condition': 'heal',
+    'Maintain Health Condition': 'maintain',
+    // Legacy values for backward compatibility
+    'heal': 'heal',
+    'maintain': 'maintain',
+    'lose_weight': 'lose_weight',
+    'gain_weight': 'gain_weight',
+    'improve_fitness': 'improve_fitness'
+  };
+  
+  return goalMap[goal] || 'heal'; // default to 'heal' if not found
+};
+
 const Index = () => {
   const [inputType, setInputType] = useState<'image' | 'ingredient_list' | 'auto_medical' | 'auto_sick' | 'auto_healthy'>('ingredient_list');
   const [ingredientList, setIngredientList] = useState('');
@@ -261,14 +282,19 @@ const Index = () => {
       // Handle Medical AI Auto-Generate
       if (inputType === 'auto_medical' && isHealthProfileComplete()) {
         console.log('[Index] Using Medical AI Nutrition Plan endpoint');
-        console.log('[Index] Health Profile Payload:', healthProfilePayload);
+        // Map goal to backend format before sending
+        const mappedPayload = {
+          ...healthProfilePayload,
+          goal: mapGoalToBackendFormat(healthProfilePayload!.goal)
+        };
+        console.log('[Index] Health Profile Payload:', mappedPayload);
 
         const response = await fetch(`${APP_CONFIG.api.ai_api_url}/ai_nutrition_plan`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(healthProfilePayload),
+          body: JSON.stringify(mappedPayload),
         });
 
         if (!response.ok) {
@@ -368,7 +394,7 @@ const Index = () => {
           formData.append('gender', healthProfilePayload!.gender);
           formData.append('activity_level', healthProfilePayload!.activity_level);
           formData.append('condition', healthProfilePayload!.condition);
-          formData.append('goal', healthProfilePayload!.goal);
+          formData.append('goal', mapGoalToBackendFormat(healthProfilePayload!.goal));
           formData.append('location', location);
           formData.append('budget_state', 'true');
           formData.append('budget', budget);
@@ -522,7 +548,7 @@ const Index = () => {
         formData.append('gender', healthProfilePayload!.gender);
         formData.append('activity_level', healthProfilePayload!.activity_level);
         formData.append('condition', healthProfilePayload!.condition);
-        formData.append('goal', healthProfilePayload!.goal);
+        formData.append('goal', mapGoalToBackendFormat(healthProfilePayload!.goal));
         formData.append('location', healthProfilePayload!.location);
         formData.append('budget_state', 'false');
         formData.append('budget', '0');

@@ -13,6 +13,27 @@ import Swal from 'sweetalert2'
 import { api } from "@/lib/api"
 import CookingTutorialModal from "@/components/CookingTutorialModal"
 
+// Map new goal values to backend API format
+const mapGoalToBackendFormat = (goal: string | undefined): string => {
+  if (!goal) return 'heal'; // default
+  
+  const goalMap: Record<string, string> = {
+    'Heal Health Condition': 'heal',
+    'Improve Health Condition': 'heal',
+    'Manage Health Condition': 'heal',
+    'Restore Health Condition': 'heal',
+    'Maintain Health Condition': 'maintain',
+    // Legacy values for backward compatibility
+    'heal': 'heal',
+    'maintain': 'maintain',
+    'lose_weight': 'lose_weight',
+    'gain_weight': 'gain_weight',
+    'improve_fitness': 'improve_fitness'
+  };
+  
+  return goalMap[goal] || 'heal'; // default to 'heal' if not found
+};
+
 interface HealthMeal {
   calories: number
   carbs: number
@@ -240,7 +261,7 @@ const AIResponsePage: FC = () => {
     formData.append("gender", sicknessSettings.gender || "")
     formData.append("activity_level", sicknessSettings.activityLevel || "")
     formData.append("condition", sicknessSettings.sicknessType || "")
-    formData.append("goal", sicknessSettings.goal === "heal" ? "heal" : "manage")
+    formData.append("goal", mapGoalToBackendFormat(sicknessSettings.goal))
     
     if (inputType === "image" && selectedImage) {
       formData.append("image_or_ingredient_list", "image")
