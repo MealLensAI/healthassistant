@@ -11,7 +11,7 @@ export interface SicknessSettings {
   weight?: number;
   waist?: number;
   activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
-  goal?: 'heal' | 'maintain' | 'lose_weight' | 'gain_weight' | 'improve_fitness';
+  goal?: string;
   location?: string;
 }
 

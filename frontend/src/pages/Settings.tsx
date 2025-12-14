@@ -377,7 +377,7 @@ const Settings = () => {
                         </TableRow>
                         <TableRow>
                           <TableCell className="font-medium">Health Goal</TableCell>
-                          <TableCell className="capitalize">{settings.goal?.replace('_', ' ') || 'Not set'}</TableCell>
+                          <TableCell>{settings.goal || 'Not set'}</TableCell>
                         </TableRow>
                         <TableRow>
                           <TableCell className="font-medium">Location</TableCell>
@@ -419,7 +419,7 @@ const Settings = () => {
                       </div>
                       <div className="p-3 sm:p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0">
                         <span className="font-medium text-xs sm:text-sm text-gray-700">Health Goal</span>
-                        <span className="text-xs sm:text-sm text-gray-600 capitalize font-medium">{settings.goal?.replace('_', ' ') || 'Not set'}</span>
+                        <span className="text-xs sm:text-sm text-gray-600 font-medium">{settings.goal || 'Not set'}</span>
                       </div>
                       <div className="p-3 sm:p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0">
                         <span className="font-medium text-xs sm:text-sm text-gray-700">Location</span>
@@ -552,14 +552,17 @@ const Settings = () => {
                     <Label>Health Goal *</Label>
                     <Select
                       value={settings.goal || ''}
-                      onValueChange={(value) => updateSettings({ goal: value as 'heal' | 'maintain' })}
+                      onValueChange={(value) => updateSettings({ goal: value })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select your goal" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="heal">Heal & Manage Condition</SelectItem>
-                        <SelectItem value="maintain">Maintain Health</SelectItem>
+                        <SelectItem value="Heal Health Condition">Heal Health Condition</SelectItem>
+                        <SelectItem value="Improve Health Condition">Improve Health Condition</SelectItem>
+                        <SelectItem value="Manage Health Condition">Manage Health Condition</SelectItem>
+                        <SelectItem value="Restore Health Condition">Restore Health Condition</SelectItem>
+                        <SelectItem value="Maintain Health Condition">Maintain Health Condition</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
