@@ -1132,24 +1132,45 @@ def accept_invitation():
         
         if user_id:
             # User is authenticated - check if already a member
+            current_app.logger.info(f"[ACCEPT] Checking existing membership for user {user_id} in enterprise {invitation['enterprise_id']}")
             existing_membership = supabase.table('organization_users').select('id').eq('enterprise_id', invitation['enterprise_id']).eq('user_id', user_id).execute()
             
             if existing_membership.data:
+                current_app.logger.warning(f"[ACCEPT] User {user_id} is already a member")
                 return jsonify({'error': 'You are already a member of this organization'}), 400
             
             # Add authenticated user to organization using admin client to bypass RLS
+            membership_id = str(uuid.uuid4())
             membership_data = {
+                'id': membership_id,
                 'enterprise_id': invitation['enterprise_id'],
                 'user_id': user_id,
-                'role': invitation.get('role', 'patient')  # Use role from invitation
+                'role': invitation.get('role', 'patient'),  # Use role from invitation
+                'status': 'active',
+                'joined_at': datetime.now(timezone.utc).isoformat()
             }
+            
+            current_app.logger.info(f"[ACCEPT] Inserting membership: {membership_data}")
             
             # Use admin client to bypass RLS for this operation
             admin_supabase = get_supabase_client(use_admin=True)
-            membership_result = admin_supabase.table('organization_users').insert(membership_data).execute()
+            try:
+                membership_result = admin_supabase.table('organization_users').insert(membership_data).execute()
+                current_app.logger.info(f"[ACCEPT] Membership insert result: {membership_result.data}")
+            except Exception as insert_error:
+                current_app.logger.error(f"[ACCEPT] Failed to insert membership: {str(insert_error)}", exc_info=True)
+                return jsonify({'error': f'Failed to add user to organization: {str(insert_error)}'}), 500
             
             if not membership_result.data:
-                return jsonify({'error': 'Failed to add user to organization'}), 500
+                current_app.logger.error(f"[ACCEPT] Membership insert returned no data")
+                # Verify if it was actually inserted
+                verify_result = admin_supabase.table('organization_users').select('*').eq('id', membership_id).execute()
+                if not verify_result.data:
+                    return jsonify({'error': 'Failed to add user to organization'}), 500
+                else:
+                    current_app.logger.info(f"[ACCEPT] Membership verified: {verify_result.data[0]}")
+            
+            current_app.logger.info(f"[ACCEPT] ✅ Successfully added user {user_id} to organization {invitation['enterprise_id']}")
             
             # Update invitation status with acceptance details
             current_app.logger.info(f"[ACCEPT] Updating invitation {invitation['id']} status to 'accepted'")
@@ -1295,18 +1316,37 @@ def complete_invitation():
             return jsonify({'error': 'You are already a member of this organization'}), 400
         
         # Add user to organization using admin client to bypass RLS
+        membership_id = str(uuid.uuid4())
         membership_data = {
+            'id': membership_id,
             'enterprise_id': invitation['enterprise_id'],
             'user_id': request.user_id,
-            'role': invitation.get('role', 'patient')  # Use role from invitation
+            'role': invitation.get('role', 'patient'),  # Use role from invitation
+            'status': 'active',
+            'joined_at': datetime.now(timezone.utc).isoformat()
         }
+        
+        current_app.logger.info(f"[COMPLETE] Inserting membership: {membership_data}")
         
         # Use admin client to bypass RLS for this operation
         admin_supabase = get_supabase_client(use_admin=True)
-        membership_result = admin_supabase.table('organization_users').insert(membership_data).execute()
+        try:
+            membership_result = admin_supabase.table('organization_users').insert(membership_data).execute()
+            current_app.logger.info(f"[COMPLETE] Membership insert result: {membership_result.data}")
+        except Exception as insert_error:
+            current_app.logger.error(f"[COMPLETE] Failed to insert membership: {str(insert_error)}", exc_info=True)
+            return jsonify({'error': f'Failed to add user to organization: {str(insert_error)}'}), 500
         
         if not membership_result.data:
-            return jsonify({'error': 'Failed to add user to organization'}), 500
+            current_app.logger.error(f"[COMPLETE] Membership insert returned no data")
+            # Verify if it was actually inserted
+            verify_result = admin_supabase.table('organization_users').select('*').eq('id', membership_id).execute()
+            if not verify_result.data:
+                return jsonify({'error': 'Failed to add user to organization'}), 500
+            else:
+                current_app.logger.info(f"[COMPLETE] Membership verified: {verify_result.data[0]}")
+        
+        current_app.logger.info(f"[COMPLETE] ✅ Successfully added user {request.user_id} to organization {invitation['enterprise_id']}")
         
         # Update invitation status with completion details
         current_app.logger.info(f"[COMPLETE] Updating invitation {invitation['id']} status to 'accepted'")
@@ -1452,18 +1492,35 @@ def create_user():
         user_id = user_response.user.id
         
         # Add user to organization
+        membership_id = str(uuid.uuid4())
         membership_data = {
+            'id': membership_id,
             'enterprise_id': data['enterprise_id'],
             'user_id': user_id,
-            'role': data['role']
+            'role': data['role'],
+            'status': 'active',
+            'joined_at': datetime.now(timezone.utc).isoformat()
         }
+
+        current_app.logger.info(f"[CREATE_USER] Inserting membership: {membership_data}")
 
         # Use admin client to bypass RLS for this operation
         admin_supabase = get_supabase_client(use_admin=True)
-        membership_result = admin_supabase.table('organization_users').insert(membership_data).execute()
-        
+        try:
+            membership_result = admin_supabase.table('organization_users').insert(membership_data).execute()
+            current_app.logger.info(f"[CREATE_USER] Membership insert result: {membership_result.data}")
+        except Exception as insert_error:
+            current_app.logger.error(f"[CREATE_USER] Failed to insert membership: {str(insert_error)}", exc_info=True)
+            return jsonify({'error': f'Failed to add user to organization: {str(insert_error)}'}), 500
+
         if not membership_result.data:
-            return jsonify({'error': 'Failed to add user to organization'}), 500
+            current_app.logger.error(f"[CREATE_USER] Membership insert returned no data")
+            # Verify if it was actually inserted
+            verify_result = admin_supabase.table('organization_users').select('*').eq('id', membership_id).execute()
+            if not verify_result.data:
+                return jsonify({'error': 'Failed to add user to organization'}), 500
+            else:
+                current_app.logger.info(f"[CREATE_USER] Membership verified: {verify_result.data[0]}")
 
         # Create a trial for the new user (30 days for enterprise users)
         try:
