@@ -65,13 +65,24 @@ const FeaturesSection = () => {
               </p>
             </div>
           </div>
-          <div className="bg-accent rounded-lg aspect-[4/3] flex items-center justify-center border border-border lg:order-1">
-            <p className="text-muted-foreground text-sm">Health dashboard preview</p>
+          <div className="bg-accent rounded-lg aspect-[4/3] flex items-center justify-center border border-border overflow-hidden lg:order-1">
+            <img 
+              src="/assets/Screenshot_2025-12-14_at_11.07.29-3201fdec-52ea-4b1a-a161-7dc41f538dd3.png" 
+              alt="Diet Planner - Personalized meal plans"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                if (target.parentElement) {
+                  target.parentElement.innerHTML = '<p class="text-muted-foreground text-sm text-center py-8">Health dashboard preview</p>';
+                }
+              }}
+            />
           </div>
         </div>
 
         {/* Problem 3 - Organizations */}
-        <div className="grid lg:grid-cols-2 gap-16 items-start">
+        <div className="grid lg:grid-cols-2 gap-16 items-start mb-24">
           <div>
             <span className="text-sm font-semibold text-primary uppercase tracking-wider mb-4 block">
               Problem 3
@@ -120,6 +131,58 @@ const FeaturesSection = () => {
           </div>
           <div className="bg-accent rounded-lg aspect-[4/3] flex items-center justify-center border border-border">
             <p className="text-muted-foreground text-sm">Organization dashboard preview</p>
+          </div>
+        </div>
+
+        {/* Problem 4 - Insurance & Healthcare Costs */}
+        <div className="grid lg:grid-cols-2 gap-16 items-start">
+          <div className="lg:order-2">
+            <span className="text-sm font-semibold text-primary uppercase tracking-wider mb-4 block">
+              Problem 4
+            </span>
+            <h3 className="text-2xl lg:text-3xl font-normal mb-6">
+              High Healthcare Costs from Chronic Conditions
+            </h3>
+            <p className="text-muted-foreground text-lg leading-relaxed mb-8">
+              Healthcare providers and insurance companies face high costs from chronic-condition claims. MealLensAI helps insured clients improve their health naturally through personalized nutrition support, leading to better outcomes and fewer claims. Organizations can track progress while preserving user privacy and manage subscription access easily.
+            </p>
+            
+            <div>
+              <h4 className="font-medium mb-4 text-primary">Benefits</h4>
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <div className="w-1 bg-primary rounded-full flex-shrink-0" />
+                  <div>
+                    <p className="font-medium mb-1">Lower healthcare claims</p>
+                    <p className="text-muted-foreground text-sm">Reduced costs from fewer chronic condition-related claims.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="w-1 bg-primary rounded-full flex-shrink-0" />
+                  <div>
+                    <p className="font-medium mb-1">Healthier clients</p>
+                    <p className="text-muted-foreground text-sm">Clients improve their health naturally through personalized nutrition.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="w-1 bg-primary rounded-full flex-shrink-0" />
+                  <div>
+                    <p className="font-medium mb-1">Reduced insurance costs</p>
+                    <p className="text-muted-foreground text-sm">Lower overall costs for insurance companies and healthcare providers.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="w-1 bg-primary rounded-full flex-shrink-0" />
+                  <div>
+                    <p className="font-medium mb-1">Strong competitive advantage</p>
+                    <p className="text-muted-foreground text-sm">Stand out in the market with innovative health solutions.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-accent rounded-lg aspect-[4/3] flex items-center justify-center border border-border lg:order-1">
+            <p className="text-muted-foreground text-sm">Insurance & healthcare dashboard preview</p>
           </div>
         </div>
       </div>
