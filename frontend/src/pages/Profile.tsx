@@ -14,8 +14,9 @@ const Profile: React.FC = () => {
     const { toast } = useToast()
     const { user } = useAuth()
 
-    // Email from API
+    // Email state - prioritize current user's email, make editable if not available
     const [email, setEmail] = useState('')
+    const [isEmailEditable, setIsEmailEditable] = useState(false)
     const [showProfileDropdown, setShowProfileDropdown] = useState(false)
 
     // Form state
@@ -29,8 +30,17 @@ const Profile: React.FC = () => {
     const [showNew, setShowNew] = useState(false)
     const [showConfirm, setShowConfirm] = useState(false)
 
-    // Fetch user profile on mount
+    // Set email from current signed-in user first, then try API, then make editable
     useEffect(() => {
+        // Priority 1: Use email from current signed-in user (useAuth hook)
+        if (user?.email) {
+            console.log('[Profile] Using email from current signed-in user:', user.email)
+            setEmail(user.email)
+            setIsEmailEditable(false) // User is signed in, email is known
+            return
+        }
+
+        // Priority 2: Try to fetch from API
         const fetchProfile = async () => {
             try {
                 console.log('[Profile] Fetching user profile...')
@@ -43,33 +53,38 @@ const Profile: React.FC = () => {
                     if (profileEmail) {
                         console.log('[Profile] Setting email from API:', profileEmail)
                         setEmail(profileEmail)
-                    } else {
-                        console.warn('[Profile] No email found in profile response')
+                        setIsEmailEditable(false)
+                        return
                     }
-                } else {
-                    console.warn('[Profile] Profile fetch unsuccessful:', result)
                 }
             } catch (error) {
                 console.error('[Profile] Error fetching user profile:', error)
-                // Fallback to localStorage for migration
-                try {
-                    const raw = localStorage.getItem('user_data')
-                    if (raw) {
-                        const user = JSON.parse(raw)
-                        const fallbackEmail = user?.email
-                        if (fallbackEmail) {
-                            console.log('[Profile] Using fallback email from localStorage:', fallbackEmail)
-                            setEmail(fallbackEmail)
-                        }
-                    }
-                } catch (err) {
-                    console.error('[Profile] Error reading from localStorage:', err)
-                }
             }
+
+            // Priority 3: Try localStorage fallback
+            try {
+                const raw = localStorage.getItem('user_data')
+                if (raw) {
+                    const storedUser = JSON.parse(raw)
+                    const fallbackEmail = storedUser?.email
+                    if (fallbackEmail) {
+                        console.log('[Profile] Using fallback email from localStorage:', fallbackEmail)
+                        setEmail(fallbackEmail)
+                        setIsEmailEditable(false)
+                        return
+                    }
+                }
+            } catch (err) {
+                console.error('[Profile] Error reading from localStorage:', err)
+            }
+
+            // Priority 4: If no email found anywhere, make field editable
+            console.log('[Profile] No email found, making field editable')
+            setIsEmailEditable(true)
         }
 
         fetchProfile()
-    }, [])
+    }, [user])
 
     const handleChangePassword = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
@@ -178,8 +193,21 @@ const Profile: React.FC = () => {
                             <Label htmlFor="email">Email</Label>
                             <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <Input id="email" value={email} disabled className="pl-9" />
+                                <Input 
+                                    id="email" 
+                                    type="email"
+                                    value={email} 
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    disabled={!isEmailEditable}
+                                    placeholder={isEmailEditable ? "Enter your email" : ""}
+                                    className="pl-9" 
+                                />
                             </div>
+                            {isEmailEditable && (
+                                <p className="text-xs text-gray-500">
+                                    Please enter your email address
+                                </p>
+                            )}
                         </div>
 
                         {/* Passwords stacked vertically */}
