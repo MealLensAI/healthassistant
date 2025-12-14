@@ -552,7 +552,7 @@ const Settings = () => {
                     <Label>Health Goal *</Label>
                     <Select
                       value={settings.goal || ''}
-                      onValueChange={(value) => updateSettings({ goal: value as 'heal' | 'maintain' | 'lose_weight' | 'gain_weight' | 'improve_fitness' })}
+                      onValueChange={(value) => updateSettings({ goal: value as 'heal' | 'maintain' })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select your goal" />
@@ -560,9 +560,6 @@ const Settings = () => {
                       <SelectContent>
                         <SelectItem value="heal">Heal & Manage Condition</SelectItem>
                         <SelectItem value="maintain">Maintain Health</SelectItem>
-                        <SelectItem value="lose_weight">Lose Weight</SelectItem>
-                        <SelectItem value="gain_weight">Gain Weight</SelectItem>
-                        <SelectItem value="improve_fitness">Improve Fitness</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
