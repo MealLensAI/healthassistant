@@ -45,12 +45,18 @@ const mapGoalToBackendFormat = (goal: string | undefined): string => {
   if (!goal) return 'heal'; // default
   
   const goalMap: Record<string, string> = {
+    // New goal values - send as lowercase for backend compatibility
+    'Heal': 'heal',
+    'Improve': 'heal',
+    'Manage': 'heal',
+    'Restore': 'heal',
+    'Maintain': 'maintain',
+    // Legacy values for backward compatibility
     'Heal Health Condition': 'heal',
     'Improve Health Condition': 'heal',
     'Manage Health Condition': 'heal',
     'Restore Health Condition': 'heal',
     'Maintain Health Condition': 'maintain',
-    // Legacy values for backward compatibility
     'heal': 'heal',
     'maintain': 'maintain',
     'lose_weight': 'lose_weight',
@@ -58,7 +64,7 @@ const mapGoalToBackendFormat = (goal: string | undefined): string => {
     'improve_fitness': 'improve_fitness'
   };
   
-  return goalMap[goal] || 'heal'; // default to 'heal' if not found
+  return goalMap[goal] || goal.toLowerCase(); // Use lowercase of goal if not found, or default to 'heal'
 };
 
 const Index = () => {
