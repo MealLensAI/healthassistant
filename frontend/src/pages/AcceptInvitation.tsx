@@ -53,7 +53,9 @@ export default function AcceptInvitation() {
 
     const verifyInvitation = async () => {
         try {
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/invitation/verify/${token}`);
+            // Properly encode the token for URL path
+            const encodedToken = encodeURIComponent(token || '');
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/invitation/verify/${encodedToken}`);
             const data = await response.json();
 
             if (!response.ok) {

@@ -977,13 +977,38 @@ def test_email():
 
 
 @enterprise_bp.route('/api/enterprise/invitation/verify/<token>', methods=['GET'])
-def verify_invitation(token):
-    """Verify an invitation token (public endpoint)"""
+@enterprise_bp.route('/api/enterprise/invitation/verify', methods=['GET'])
+def verify_invitation(token=None):
+    """Verify an invitation token (public endpoint)
+    Supports both path parameter and query parameter for token
+    """
     try:
-        current_app.logger.info(f"[VERIFY_INVITE] Verifying invitation token: {token[:20]}...")
-        supabase = get_supabase_client()
+        from urllib.parse import unquote
         
-        # Get invitation details
+        # Get token from path parameter or query parameter
+        if not token:
+            token = request.args.get('token', '').strip()
+        
+        # URL decode the token (Flask should do this automatically, but be explicit)
+        # Try both decoded and as-is in case it's already decoded
+        token_decoded = unquote(token).strip() if token else ''
+        token_original = token.strip() if token else ''
+        
+        # Use the decoded version, but we'll try both if needed
+        token = token_decoded or token_original
+        
+        current_app.logger.info(f"[VERIFY_INVITE] Verifying invitation token (length: {len(token)}, first 20 chars: {token[:20] if len(token) >= 20 else token}...)")
+        
+        if not token:
+            current_app.logger.warning("[VERIFY_INVITE] Empty token received")
+            return jsonify({'error': 'Invalid invitation token'}), 404
+        
+        supabase = get_supabase_client()
+        if not supabase:
+            current_app.logger.error("[VERIFY_INVITE] Supabase client not available")
+            return jsonify({'error': 'Service unavailable'}), 500
+        
+        # Get invitation details - try with the decoded token first
         result = supabase.table('invitations').select('''
             *,
             enterprise:enterprise_id (
@@ -993,10 +1018,28 @@ def verify_invitation(token):
             )
         ''').eq('invitation_token', token).execute()
         
+        # If not found with decoded token, try with original token (in case it wasn't encoded)
+        if not result.data and token_decoded != token_original and token_original:
+            current_app.logger.info(f"[VERIFY_INVITE] Retrying with original token format")
+            result = supabase.table('invitations').select('''
+                *,
+                enterprise:enterprise_id (
+                    id,
+                    name,
+                    organization_type
+                )
+            ''').eq('invitation_token', token_original).execute()
+            # If found with original, use that token
+            if result.data:
+                token = token_original
+        
         current_app.logger.info(f"[VERIFY_INVITE] Query result: {len(result.data) if result.data else 0} invitations found")
         
         if not result.data:
-            current_app.logger.warning(f"[VERIFY_INVITE] No invitation found for token: {token[:20]}...")
+            # Try to find any invitations with similar tokens for debugging
+            current_app.logger.warning(f"[VERIFY_INVITE] No invitation found for token: {token[:20] if len(token) >= 20 else token}...")
+            # Log the full token length for debugging (but not the full token for security)
+            current_app.logger.warning(f"[VERIFY_INVITE] Token length: {len(token)}, Token ends with: ...{token[-10:] if len(token) > 10 else token}")
             return jsonify({'error': 'Invalid invitation token'}), 404
         
         invitation = result.data[0]
