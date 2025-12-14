@@ -8,7 +8,7 @@ const steps = [
   {
     number: "2",
     title: "Get personalized food recommendations",
-    description: "Our AI automatically generates food that you can eat that will maintain your health, and at some point gradually recover or reverse your sickness based on the kind of chronic disease that you have.",
+    description: "Our AI automatically generates food that you can eat that will maintain your health, and at some point gradually recover, restore, or improve your health based on the kind of chronic disease that you have.",
     image: "/assets/Screenshot_2025-12-14_at_11.07.29-3201fdec-52ea-4b1a-a161-7dc41f538dd3.png",
   },
   {

@@ -13,14 +13,14 @@ const AboutSection = () => {
               <div>
                 <h3 className="font-medium text-lg mb-3">What we do</h3>
                 <p className="text-muted-foreground leading-relaxed">
-                  We are building an AI solution for people with chronic diseases, using food to maintain and reverse people's health. We are using food to maintain and reverse patient health with chronic diseases.
+                  We are building an AI solution for people with chronic diseases, using food to maintain and restore or improve people's health. We are using food to maintain and restore or improve patient health with chronic diseases.
                 </p>
               </div>
               
               <div>
                 <h3 className="font-medium text-lg mb-3">Our approach</h3>
                 <p className="text-muted-foreground leading-relaxed">
-                  If you have a chronic disease, you just tell our AI your sickness, and it recommends food that you can eat that will maintain your health and give you better health. At the same time, it can also reverse your health based on your health condition.
+                  If you have a chronic disease, you just tell our AI your sickness, and it recommends food that you can eat that will maintain your health and give you better health. At the same time, it can also restore or improve your health based on your health condition.
                 </p>
               </div>
             </div>
@@ -34,7 +34,7 @@ const AboutSection = () => {
               <div>
                 <h4 className="font-medium text-primary mb-4">People with chronic diseases</h4>
                 <p className="text-muted-foreground text-sm leading-relaxed mb-4">
-                  Our primary customers are people with chronic diseases who need personalized food recommendations to maintain and reverse their health conditions.
+                  Our primary customers are people with chronic diseases who need personalized food recommendations to maintain and restore or improve their health conditions.
                 </p>
               </div>
               

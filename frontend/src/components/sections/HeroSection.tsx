@@ -14,12 +14,12 @@ const HeroSection = () => {
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-normal leading-[1.1] mb-8 text-foreground tracking-tight">
             Using food to maintain
             <br />
-            <span className="text-primary">and reverse your health.</span>
+            <span className="text-primary">and restore or improve your health.</span>
           </h1>
 
           {/* Subheadline */}
           <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-12 font-normal">
-            An AI solution for people with chronic diseases. Tell our AI your sickness, and it recommends food that maintains your health and can reverse your condition based on your health data.
+            An AI solution for people with chronic diseases. Tell our AI your sickness, and it recommends food that maintains your health and can restore or improve your condition based on your health data.
           </p>
 
           {/* CTA Buttons - Simple Google-style */}

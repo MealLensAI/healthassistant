@@ -7,7 +7,7 @@ const FeaturesSection = () => {
           <h2 className="text-3xl lg:text-5xl font-normal mb-6">
             Using food to maintain
             <br />
-            <span className="text-muted-foreground font-normal">and reverse patient health</span>
+            <span className="text-muted-foreground font-normal">and restore or improve patient health</span>
           </h2>
         </div>
 
@@ -21,7 +21,7 @@ const FeaturesSection = () => {
               Tell our AI your sickness, get food recommendations
             </h3>
             <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-              If you have a chronic disease, you just tell our AI your sickness, and it recommends food that you can eat that will maintain your health and give you better health. At the same time, it can also reverse your health based on your health condition.
+              If you have a chronic disease, you just tell our AI your sickness, and it recommends food that you can eat that will maintain your health and give you better health. At the same time, it can also restore or improve your health based on your health condition.
             </p>
             
             <div className="mb-8">
@@ -39,7 +39,7 @@ const FeaturesSection = () => {
                   <div className="w-1 bg-primary rounded-full flex-shrink-0" />
                   <div>
                     <p className="font-medium mb-1">AI generates personalized food recommendations</p>
-                    <p className="text-muted-foreground text-sm">Our AI automatically generates food that you can eat that will maintain your health, and at some point gradually recover or reverse your sickness based on the kind of chronic disease that you have.</p>
+                    <p className="text-muted-foreground text-sm">Our AI automatically generates food that you can eat that will maintain your health, and at some point gradually recover, restore, or improve your health based on the kind of chronic disease that you have.</p>
                   </div>
                 </div>
               </div>
