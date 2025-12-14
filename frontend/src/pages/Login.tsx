@@ -279,8 +279,7 @@ const Login = () => {
             <Button
               type="submit"
               disabled={isLoading}
-              className="text-white font-semibold transition-all duration-200"
-              className="w-full sm:w-auto"
+              className="text-white font-semibold transition-all duration-200 w-full sm:w-auto"
               style={{
                 width: '180px',
                 height: '42px',

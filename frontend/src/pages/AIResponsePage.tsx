@@ -251,7 +251,7 @@ const AIResponsePage: FC = () => {
     }
 
     try {
-      const response = await fetch(`${APP_CONFIG.api.ai_api_url}/generate_meals_from_ingredients`, {
+      const response = await fetch(`${APP_CONFIG.api.ai_api_url}/process`, {
         method: "POST",
         body: formData,
       })
@@ -262,6 +262,8 @@ const AIResponsePage: FC = () => {
 
       const data = await response.json()
       console.log("Detection response:", data)
+      console.log("Ingredients from API (data.response):", data.response)
+      console.log("Food suggestions from API:", data.food_suggestions)
 
       if (data.error) {
         Swal.fire({
@@ -274,12 +276,23 @@ const AIResponsePage: FC = () => {
       }
 
       // Parse detected ingredients with health info
-      // Handle both ", " and "," separators, and also split by newlines
-      const mainIngredients = data.main_ingredients || ""
-      const ingredientsList = mainIngredients
-        .split(/[,\n]+/)  // Split by comma or newline
-        .map((s: string) => s.trim())  // Trim whitespace
-        .filter((s: string) => s.length > 0)  // Remove empty strings
+      // The API returns ingredients in the "response" array
+      const ingredientsArray = data.response || []
+      const ingredientsList = Array.isArray(ingredientsArray) 
+        ? ingredientsArray.map((ingredient: string) => ingredient.trim()).filter((s: string) => s.length > 0)
+        : []
+      
+      // Check if we got any ingredients
+      if (ingredientsList.length === 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'No Ingredients Detected',
+          text: 'Could not detect any ingredients from the image. Please try again with a clearer image.',
+          confirmButtonColor: '#1A76E3'
+        })
+        setIsLoading(false)
+        return
+      }
       
       // Create ingredient objects with mock health info based on sickness type
       const parsedIngredients: DetectedIngredient[] = ingredientsList.map((name: string) => {
@@ -296,11 +309,30 @@ const AIResponsePage: FC = () => {
 
       setDetectedIngredients(parsedIngredients)
 
-      // Process meal options with placeholder images
-      const mealsWithImages = (data.meal_options || []).map((meal: HealthMeal, index: number) => ({
-        ...meal,
-        image: getMealImage(meal.food_suggestions?.[0] || "meal", index)
-      }))
+      // Process meal options - check if meal_options exists, otherwise use food_suggestions if available
+      let mealsWithImages: HealthMeal[] = []
+      
+      if (data.meal_options && Array.isArray(data.meal_options)) {
+        // Full meal objects with nutrition data
+        mealsWithImages = data.meal_options.map((meal: HealthMeal, index: number) => ({
+          ...meal,
+          image: getMealImage(meal.food_suggestions?.[0] || "meal", index)
+        }))
+      } else if (data.food_suggestions && Array.isArray(data.food_suggestions)) {
+        // If only food_suggestions array is available, create basic meal objects
+        // Note: These won't have nutrition data, but will display the suggestions
+        mealsWithImages = data.food_suggestions.map((foodName: string, index: number) => ({
+          food_suggestions: [foodName],
+          ingredients_used: ingredientsList,
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+          fiber: 0,
+          health_benefit: `A healthy meal suggestion using your detected ingredients`,
+          image: getMealImage(foodName, index)
+        }))
+      }
 
       setHealthMeals(mealsWithImages)
       setShowResults(true)
