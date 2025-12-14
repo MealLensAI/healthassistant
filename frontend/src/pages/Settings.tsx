@@ -558,11 +558,11 @@ const Settings = () => {
                         <SelectValue placeholder="Select your goal" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Heal Health Condition">Heal Health Condition</SelectItem>
-                        <SelectItem value="Improve Health Condition">Improve Health Condition</SelectItem>
-                        <SelectItem value="Manage Health Condition">Manage Health Condition</SelectItem>
-                        <SelectItem value="Restore Health Condition">Restore Health Condition</SelectItem>
-                        <SelectItem value="Maintain Health Condition">Maintain Health Condition</SelectItem>
+                        <SelectItem value="Heal">Heal</SelectItem>
+                        <SelectItem value="Improve">Improve</SelectItem>
+                        <SelectItem value="Manage">Manage</SelectItem>
+                        <SelectItem value="Restore">Restore</SelectItem>
+                        <SelectItem value="Maintain">Maintain</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
