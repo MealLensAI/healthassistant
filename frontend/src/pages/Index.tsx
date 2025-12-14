@@ -966,7 +966,9 @@ const Index = () => {
                       : 'text-gray-400 hover:text-gray-500'
                   }`}
                 >
-                  {day.substring(0, 3)}
+                  {/* Show abbreviated on mobile, full name on desktop */}
+                  <span className="md:hidden">{day.substring(0, 3)}</span>
+                  <span className="hidden md:inline">{day}</span>
                 </button>
               ))}
             </div>
