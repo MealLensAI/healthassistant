@@ -19,7 +19,7 @@ const HeroSection = () => {
 
           {/* Subheadline */}
           <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-12 font-normal">
-            An AI solution for people with chronic diseases. Tell us your sickness, and we recommend food that maintains your health and can reverse your condition based on your health data.
+            An AI solution for people with chronic diseases. Tell our AI your sickness, and it recommends food that maintains your health and can reverse your condition based on your health data.
           </p>
 
           {/* CTA Buttons - Simple Google-style */}

@@ -36,8 +36,20 @@ const LandingNavbar = () => {
       <div className="container mx-auto px-4 lg:px-8">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <a href="#" className="text-xl font-normal text-foreground">
-            Meal<span className="text-primary">Lens</span>AI
+          <a href="#" className="flex items-center gap-2">
+            <img 
+              src="/assets/logo.png" 
+              alt="MealLensAI" 
+              className="h-12 w-auto"
+              onError={(e) => {
+                // Fallback to text if image doesn't load
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                if (target.parentElement) {
+                  target.parentElement.innerHTML = '<span class="text-xl font-normal text-foreground">Meal<span class="text-primary">Lens</span>AI</span>';
+                }
+              }}
+            />
           </a>
 
           {/* Desktop Navigation */}
@@ -129,7 +141,7 @@ const LandingNavbar = () => {
                     </Button>
                     <Button 
                       variant="hero" 
-                      className="w-full bg-primary hover:bg-orange-deep text-white rounded-full"
+                      className="w-full bg-primary hover:bg-blue-deep text-white"
                       onClick={() => {
                         setIsMobileMenuOpen(false);
                         navigate('/signup');
@@ -141,7 +153,7 @@ const LandingNavbar = () => {
                 ) : (
                   <Button 
                     variant="hero" 
-                    className="w-full bg-primary hover:bg-orange-deep text-white rounded-full"
+                    className="w-full bg-primary hover:bg-blue-deep text-white"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
                       navigate('/planner');

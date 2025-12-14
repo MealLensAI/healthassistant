@@ -20,7 +20,7 @@ const AboutSection = () => {
               <div>
                 <h3 className="font-medium text-lg mb-3">Our approach</h3>
                 <p className="text-muted-foreground leading-relaxed">
-                  If you have a chronic disease, you just tell us your sickness, and we recommend food that you can eat that will maintain your health and give you better health. At the same time, it can also reverse your health based on your health condition.
+                  If you have a chronic disease, you just tell our AI your sickness, and it recommends food that you can eat that will maintain your health and give you better health. At the same time, it can also reverse your health based on your health condition.
                 </p>
               </div>
             </div>

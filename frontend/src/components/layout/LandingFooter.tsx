@@ -22,9 +22,21 @@ const LandingFooter = () => {
         <div className="grid lg:grid-cols-5 gap-12 mb-12">
           {/* Brand */}
           <div className="lg:col-span-2">
-            <p className="text-xl font-normal mb-4">
-              Meal<span className="text-primary">Lens</span>AI
-            </p>
+            <div className="flex items-center gap-2 mb-4">
+              <img 
+                src="/assets/logo.png" 
+                alt="MealLensAI" 
+                className="h-10 w-auto"
+                onError={(e) => {
+                  // Fallback to text if image doesn't load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  if (target.parentElement) {
+                    target.parentElement.innerHTML = '<p class="text-xl font-normal">Meal<span class="text-primary">Lens</span>AI</p>';
+                  }
+                }}
+              />
+            </div>
             <p className="text-muted-foreground max-w-sm mb-6">
               Better health through food. End cooking burnout.
             </p>

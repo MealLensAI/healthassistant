@@ -27,7 +27,7 @@ const OrganizationsSection = () => {
           <div className="border border-border rounded-lg p-8 bg-card">
             <h3 className="text-xl font-normal mb-4">Nutritionists & Dietitians</h3>
             <p className="text-muted-foreground mb-6">
-              Currently, nutritionists and dietitians do all these things manually. With our product, they won't need to do everything manually. They will just use MealLensAI and it will automatically do everything for them.
+              Nutritionists and dietitians currently do all these things manually. With our product, they won't need to do everything manually. They will just use MealLensAI and it will automatically do everything for them, saving time and making them manage more users at once and focus on other things.
             </p>
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-2">
@@ -40,11 +40,15 @@ const OrganizationsSection = () => {
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                Handle more patients in less time
+                Monitor and track patient data and progress over time, saving them time
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                No more manual processes
+                Manage more users at once
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-primary rounded-full" />
+                Focus on other important tasks
               </li>
             </ul>
           </div>

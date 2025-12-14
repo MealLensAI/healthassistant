@@ -18,28 +18,28 @@ const FeaturesSection = () => {
               How It Works
             </span>
             <h3 className="text-2xl lg:text-3xl font-normal mb-6">
-              Tell us your sickness, get food recommendations
+              Tell our AI your sickness, get food recommendations
             </h3>
             <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-              If you have a chronic disease, you just tell us your sickness, and we recommend food that you can eat that will maintain your health and give you better health. At the same time, it can also reverse your health based on your health condition.
+              If you have a chronic disease, you just tell our AI your sickness, and it recommends food that you can eat that will maintain your health and give you better health. At the same time, it can also reverse your health based on your health condition.
             </p>
             
             <div className="mb-8">
               <h4 className="font-medium mb-4 text-primary">How this happens</h4>
-              <p className="text-muted-foreground mb-4">You give us your health data:</p>
+              <p className="text-muted-foreground mb-4">You provide our AI with your health data:</p>
               <div className="space-y-4">
                 <div className="flex gap-4">
                   <div className="w-1 bg-primary rounded-full flex-shrink-0" />
                   <div>
                     <p className="font-medium mb-1">Provide your health data</p>
-                    <p className="text-muted-foreground text-sm">Give us data about you: weight, age, gender, and your health condition.</p>
+                    <p className="text-muted-foreground text-sm">Give our AI data about you: weight, age, gender, and your health condition.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <div className="w-1 bg-primary rounded-full flex-shrink-0" />
                   <div>
                     <p className="font-medium mb-1">AI generates personalized food recommendations</p>
-                    <p className="text-muted-foreground text-sm">We automatically generate food that you can eat that will maintain your health, and at some point gradually recover or reverse your sickness based on the kind of chronic disease that you have.</p>
+                    <p className="text-muted-foreground text-sm">Our AI automatically generates food that you can eat that will maintain your health, and at some point gradually recover or reverse your sickness based on the kind of chronic disease that you have.</p>
                   </div>
                 </div>
               </div>
@@ -71,7 +71,7 @@ const FeaturesSection = () => {
               Automate manual processes
             </h3>
             <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-              Nutritionists and dietitians currently do all these things manually. With our product, they won't need to do everything manually. They will just use MealLensAI and it will automatically do everything for them.
+              Nutritionists and dietitians currently do all these things manually. With our product, they won't need to do everything manually. They will just use MealLensAI and it will automatically do everything for them, saving time and making them manage more users at once and focus on other things.
             </p>
             
             <div>
@@ -87,22 +87,40 @@ const FeaturesSection = () => {
                 <div className="flex gap-4">
                   <div className="w-1 bg-primary rounded-full flex-shrink-0" />
                   <div>
-                    <p className="font-medium mb-1">Time savings</p>
+                    <p className="font-medium mb-1">Monitor and track patient data and progress</p>
+                    <p className="text-muted-foreground text-sm">Monitor and track patient data and progress over time, saving them time.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="w-1 bg-primary rounded-full flex-shrink-0" />
+                  <div>
+                    <p className="font-medium mb-1">Manage more users at once</p>
                     <p className="text-muted-foreground text-sm">Handle more patients in less time with automated processes.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <div className="w-1 bg-primary rounded-full flex-shrink-0" />
                   <div>
-                    <p className="font-medium mb-1">Consistent recommendations</p>
-                    <p className="text-muted-foreground text-sm">AI-powered food recommendations based on patient health data.</p>
+                    <p className="font-medium mb-1">Focus on other important tasks</p>
+                    <p className="text-muted-foreground text-sm">AI-powered food recommendations free up time to focus on other things.</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <div className="bg-accent rounded-lg aspect-[4/3] flex items-center justify-center border border-border">
-            <p className="text-muted-foreground text-sm">Nutritionist dashboard preview</p>
+          <div className="bg-accent rounded-lg aspect-[4/3] flex items-center justify-center border border-border overflow-hidden">
+            <img 
+              src="/assets/nutritionist-dashboard.png" 
+              alt="Nutritionist dashboard - User management and patient tracking"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                if (target.parentElement) {
+                  target.parentElement.innerHTML = '<p class="text-muted-foreground text-sm text-center py-8">Nutritionist dashboard preview</p>';
+                }
+              }}
+            />
           </div>
         </div>
 
@@ -146,8 +164,19 @@ const FeaturesSection = () => {
               </div>
             </div>
           </div>
-          <div className="bg-accent rounded-lg aspect-[4/3] flex items-center justify-center border border-border lg:order-1">
-            <p className="text-muted-foreground text-sm">Insurance dashboard preview</p>
+          <div className="bg-accent rounded-lg aspect-[4/3] flex items-center justify-center border border-border overflow-hidden lg:order-1">
+            <img 
+              src="/assets/health-insurance.png" 
+              alt="Health Insurance - Cost reduction and better outcomes"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                if (target.parentElement) {
+                  target.parentElement.innerHTML = '<p class="text-muted-foreground text-sm text-center py-8">Insurance dashboard preview</p>';
+                }
+              }}
+            />
           </div>
         </div>
       </div>

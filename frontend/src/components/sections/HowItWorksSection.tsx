@@ -1,14 +1,14 @@
 const steps = [
   {
     number: "1",
-    title: "Tell us your sickness",
-    description: "Tell us your sickness and provide your health data (weight, age, gender, health condition).",
+    title: "Tell our AI your sickness",
+    description: "Tell our AI your sickness and provide your health data (weight, age, gender, health condition).",
     image: "/assets/Screenshot_2025-12-14_at_11.06.14-2d5c32a1-d246-4ecd-9f87-9dcd37c25e39.png",
   },
   {
     number: "2",
     title: "Get personalized food recommendations",
-    description: "We automatically generate food that you can eat that will maintain your health, and at some point gradually recover or reverse your sickness based on the kind of chronic disease that you have.",
+    description: "Our AI automatically generates food that you can eat that will maintain your health, and at some point gradually recover or reverse your sickness based on the kind of chronic disease that you have.",
     image: "/assets/Screenshot_2025-12-14_at_11.07.29-3201fdec-52ea-4b1a-a161-7dc41f538dd3.png",
   },
   {
