@@ -11,10 +11,10 @@ const HeroSection = () => {
         <div className="max-w-4xl mx-auto text-center min-h-[calc(100vh-200px)] flex flex-col justify-center">
           
           {/* Main Headline - Simple, clean */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-normal leading-[1.1] mb-8 text-foreground tracking-tight">
-            Using food to maintain
-            <br />
-            <span className="text-primary">and restore or improve your health.</span>
+          <h1 className="text-3xl sm:text-6xl lg:text-6xl font-normal leading-[1.1] mb-8 text-foreground tracking-tight">
+            {/* Using food to maintain
+            <br /> */}
+            <span className="text-primary">Using foods as medicine to treat,maintain,restore and improve, chronic diseases with AI.</span>
           </h1>
 
           {/* Subheadline */}
