@@ -106,6 +106,22 @@ const Signup = () => {
 
     // Validate organization data if organization signup
     if (isOrganizationSignup) {
+      if (!formData.firstName.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Admin first name is required.",
+          variant: "destructive",
+        })
+        return false
+      }
+      if (!formData.lastName.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Admin last name is required.",
+          variant: "destructive",
+        })
+        return false
+      }
       if (!organizationData.name.trim()) {
         toast({
           title: "Validation Error",
@@ -461,6 +477,60 @@ const Signup = () => {
               </>
             ) : (
               <>
+                {/* Admin First Name and Last Name */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
+                      Admin First Name
+                    </Label>
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      placeholder="Enter First Name"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
+                      Admin Last Name
+                    </Label>
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      placeholder="Enter Last Name"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Admin Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                    Admin Email
+                  </Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter Email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                    required
+                  />
+                </div>
+
                 {/* Organization Name */}
                 <div className="space-y-2">
                   <Label htmlFor="orgName" className="text-sm font-medium text-gray-700">
@@ -470,7 +540,7 @@ const Signup = () => {
                     id="orgName"
                     name="name"
                     type="text"
-                    placeholder="Enter Name"
+                    placeholder="Enter Organization Name"
                     value={organizationData.name}
                     onChange={handleOrganizationInputChange}
                       className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
@@ -488,7 +558,7 @@ const Signup = () => {
                     id="orgEmail"
                     name="email"
                     type="email"
-                    placeholder="Enter Email"
+                    placeholder="Enter Organization Email"
                     value={organizationData.email}
                     onChange={handleOrganizationInputChange}
                       className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
@@ -500,35 +570,17 @@ const Signup = () => {
                 {/* Phone Number */}
                 <div className="space-y-2">
                   <Label htmlFor="orgPhone" className="text-sm font-medium text-gray-700">
-                    Phone Number
+                    Phone Number (Optional)
                   </Label>
                   <Input
                     id="orgPhone"
                     name="phone"
                     type="tel"
-                    placeholder="Enter Email"
+                    placeholder="Enter Phone Number"
                     value={organizationData.phone}
                     onChange={handleOrganizationInputChange}
                       className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
                       style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
-                  />
-                </div>
-
-                {/* User Email */}
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="Enter Email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
-                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
-                    required
                   />
                 </div>
 
