@@ -4,7 +4,29 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8b490bbb-0141-4b56-b6c0-741c58db7ad3" name="Changes" comment="" />
+    <list default="true" id="8b490bbb-0141-4b56-b6c0-741c58db7ad3" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/.env" beforeDir="false" afterPath="$PROJECT_DIR$/backend/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/.env.bak" beforeDir="false" afterPath="$PROJECT_DIR$/backend/.env.bak" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/.env.bak2" beforeDir="false" afterPath="$PROJECT_DIR$/backend/.env.bak2" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/backend/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/backend-docs/API_DOCUMENTATION.md" beforeDir="false" afterPath="$PROJECT_DIR$/backend/backend-docs/API_DOCUMENTATION.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/config/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/config/settings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/core/extensions.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/core/extensions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/docs/TESTING.md" beforeDir="false" afterPath="$PROJECT_DIR$/backend/docs/TESTING.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/frontend/env_example" beforeDir="false" afterPath="$PROJECT_DIR$/backend/frontend/env_example" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/frontend/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/backend/frontend/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/routes/auth_routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/routes/auth_routes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/routes/enterprise_routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/routes/enterprise_routes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/services/email_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/services/email_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/TESTING.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/TESTING.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.env.bak" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.env.bak" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/seo.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/seo.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Signup.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Signup.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/vite.config.ts" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -91,6 +113,7 @@
       <workItem from="1765750792316" duration="1683000" />
       <workItem from="1765753820110" duration="24000" />
       <workItem from="1765881127110" duration="2515000" />
+      <workItem from="1766322855723" duration="563000" />
     </task>
     <servers />
   </component>
@@ -98,6 +121,6 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/healthassistant$app.coverage" NAME="app Coverage Results" MODIFIED="1765751363364" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
+    <SUITE FILE_PATH="coverage/healthassistant$app.coverage" NAME="app Coverage Results" MODIFIED="1766322918051" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
   </component>
 </project>
