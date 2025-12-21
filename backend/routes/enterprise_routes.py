@@ -4,6 +4,7 @@ Handles organization/enterprise registration, user invitations, and management
 """
 
 from flask import Blueprint, request, jsonify, current_app
+import time
 from functools import wraps
 import uuid
 import secrets
@@ -31,9 +32,9 @@ def get_frontend_url():
             return frontend_url.rstrip('/')
     
     # If FRONTEND_URL is not set, log warning and use production default
-    print(f"⚠️ WARNING: FRONTEND_URL not set in environment. Using production default.")
+    print(f"⚠️ WARNING: FRONTEND_URL not set in environment. Using localhost fallback.")
     print(f"⚠️ Please set FRONTEND_URL in backend/.env file")
-    return 'https://healthassistant.meallensai.com'
+    return 'http://localhost:5173'
 
 enterprise_bp = Blueprint('enterprise', __name__)
 
@@ -51,6 +52,35 @@ def get_supabase_client(use_admin: bool = False) -> Client:
     if hasattr(current_app, 'supabase_service'):
         return current_app.supabase_service.supabase
     raise Exception("Supabase service not available")
+
+def retry_on_connection_error(max_retries=3, delay=1):
+    """Decorator to retry database operations on connection errors"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    error_msg = str(e).lower()
+                    
+                    # Check if it's a connection-related error
+                    if any(keyword in error_msg for keyword in ['disconnected', 'connection', 'timeout', 'unavailable']):
+                        if attempt < max_retries - 1:  # Don't sleep on the last attempt
+                            sleep_time = delay * (2 ** attempt)  # Exponential backoff
+                            current_app.logger.warning(f"Database connection error (attempt {attempt + 1}/{max_retries}): {str(e)}. Retrying in {sleep_time}s...")
+                            time.sleep(sleep_time)
+                            continue
+                    
+                    # If it's not a connection error, or we've exhausted retries, re-raise
+                    raise e
+            
+            # If we get here, all retries failed
+            raise last_exception
+        return wrapper
+    return decorator
 
 def require_auth(f):
     """Decorator to require authentication"""
@@ -231,10 +261,10 @@ def register_enterprise():
                 return jsonify({'error': 'Database connection unavailable. Please try again later.'}), 503
             return jsonify({'error': 'Failed to connect to database. Please try again later.'}), 503
         
-        # Check if user can create organizations
+        # Check if user can create organizations (with retry)
         try:
             current_app.logger.info(f"[ORG REGISTER] Checking if user {request.user_id} can create organizations")
-            can_create, reason = check_user_can_create_organizations(request.user_id, supabase, getattr(request, 'user_metadata', None))
+            can_create, reason = check_user_can_create_organizations_with_retry(request.user_id, supabase, getattr(request, 'user_metadata', None))
             current_app.logger.info(f"[ORG REGISTER] Permission check result: can_create={can_create}, reason={reason}")
         except Exception as perm_error:
             current_app.logger.error(f"[ORG REGISTER] Error checking permissions: {str(perm_error)}", exc_info=True)
@@ -244,17 +274,17 @@ def register_enterprise():
             current_app.logger.error(f"[ORG REGISTER] User {request.user_id} cannot create organizations: {reason}")
             return jsonify({'error': reason}), 403
         
-        # Check if enterprise with this email already exists
+        # Check if enterprise with this email already exists (with retry)
         try:
-            existing = supabase.table('enterprises').select('id').eq('email', data['email']).execute()
-            if existing.data:
+            existing = check_existing_enterprise_with_retry(supabase, data['email'])
+            if existing:
                 current_app.logger.error(f"[ORG REGISTER] Organization with email {data['email']} already exists")
                 return jsonify({'error': 'An organization with this email already exists'}), 400
         except Exception as check_error:
             current_app.logger.error(f"[ORG REGISTER] Error checking existing enterprise: {str(check_error)}", exc_info=True)
             return jsonify({'error': 'Failed to verify organization email. Please try again later.'}), 500
         
-        # Create enterprise
+        # Create enterprise (with retry)
         enterprise_data = {
             'name': data['name'],
             'email': data['email'],
@@ -266,7 +296,7 @@ def register_enterprise():
         
         try:
             current_app.logger.info(f"[ORG REGISTER] Creating enterprise with data: {enterprise_data}")
-            result = supabase.table('enterprises').insert(enterprise_data).execute()
+            result = create_enterprise_with_retry(supabase, enterprise_data)
         except Exception as insert_error:
             error_msg = str(insert_error).lower()
             current_app.logger.error(f"[ORG REGISTER] Error inserting enterprise: {str(insert_error)}", exc_info=True)
@@ -297,6 +327,23 @@ def register_enterprise():
             return jsonify({'error': 'Request timed out. Please try again.'}), 504
         # Generic error message to avoid exposing internal details
         return jsonify({'error': 'Failed to register organization. Please try again later.'}), 500
+
+
+@retry_on_connection_error(max_retries=3, delay=1)
+def check_user_can_create_organizations_with_retry(user_id: str, supabase: Client, user_metadata: dict = None):
+    """Check if user can create organizations with retry logic"""
+    return check_user_can_create_organizations(user_id, supabase, user_metadata)
+
+@retry_on_connection_error(max_retries=3, delay=1)
+def check_existing_enterprise_with_retry(supabase: Client, email: str):
+    """Check if enterprise exists with retry logic"""
+    existing = supabase.table('enterprises').select('id').eq('email', email).execute()
+    return existing.data
+
+@retry_on_connection_error(max_retries=3, delay=1)
+def create_enterprise_with_retry(supabase: Client, enterprise_data: dict):
+    """Create enterprise with retry logic"""
+    return supabase.table('enterprises').insert(enterprise_data).execute()
 
 
 @enterprise_bp.route('/api/enterprise/can-create', methods=['GET'])

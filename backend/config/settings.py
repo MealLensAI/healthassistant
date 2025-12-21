@@ -23,11 +23,12 @@ class Config:
     PORT = int(os.environ.get('FLASK_PORT', 5000))
     
     # CORS Configuration
+    frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173').rstrip('/')
     ALLOWED_ORIGINS = [
         "http://localhost:5173",
         "http://localhost:5174",
-        "https://healthassistant.meallensai.com",
-        "https://healthassistant.meallensai.com/",
+        frontend_url,
+        f"{frontend_url}/",
         "https://recipe-ai-harmony-2bbq.vercel.app",
         "https://meallens.vercel.app",
     ]

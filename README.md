@@ -337,7 +337,7 @@ For issues or questions:
 
 ## 🔗 Links
 
-- **Production**: https://healthassistant.meallensai.com
+- **Production**: Set via FRONTEND_URL environment variable
 - **Supabase Dashboard**: https://supabase.com/dashboard
 - **Paystack Dashboard**: https://dashboard.paystack.com
 

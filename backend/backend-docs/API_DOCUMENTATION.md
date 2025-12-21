@@ -3059,10 +3059,10 @@ When reporting issues, please provide:
 ## Legal & Compliance
 
 ### Terms of Service
-API usage is governed by the MeallensAI Terms of Service available at https://healthassistant.meallensai.com/terms
+API usage is governed by the MeallensAI Terms of Service available at ${FRONTEND_URL}/terms
 
 ### Privacy Policy
-Data handling practices are detailed in our Privacy Policy at https://healthassistant.meallensai.com/privacy
+Data handling practices are detailed in our Privacy Policy at ${FRONTEND_URL}/privacy
 
 ### Data Processing Agreement
 Enterprise customers require a signed Data Processing Agreement. Contact legal@meallensai.com

@@ -911,7 +911,7 @@ export default function EnterpriseDashboard() {
             <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div>
                 <p className="text-sm font-medium text-slate-500">Invited Users</p>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">{enterprises.length}</p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900">{totalUsers}</p>
               </div>
               <div className="rounded-xl bg-purple-100 p-3 text-purple-600">
                 <Building2 className="h-8 w-8" />

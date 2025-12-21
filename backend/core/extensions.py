@@ -41,11 +41,11 @@ def init_cors(app: Flask, allowed_origins: List[str]) -> None:
                 if origin and origin in allowed_origins:
                     response.headers.add('Access-Control-Allow-Origin', origin)
                 else:
-                    # Prefer production domain as default fallback
-                    default_origin = 'https://healthassistant.meallensai.com' if 'https://healthassistant.meallensai.com' in allowed_origins else allowed_origins[0]
+                    # Use first available origin as fallback
+                    default_origin = allowed_origins[0] if allowed_origins else 'http://localhost:5173'
                     response.headers.add('Access-Control-Allow-Origin', default_origin)
             except Exception:
-                response.headers.add('Access-Control-Allow-Origin', 'https://healthassistant.meallensai.com')
+                response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
             
             response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
             response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')

@@ -216,11 +216,25 @@ const Signup = () => {
                 // Still continue to app - user can create org later
               }
             } catch (error: any) {
+              let errorMessage = "Failed to register organization. You can create it later from Enterprise Dashboard."
+              let errorTitle = "Organization Registration Failed"
+              
+              // Handle specific error types
+              if (error.message && error.message.includes('503')) {
+                errorTitle = "Database Connection Issue"
+                errorMessage = "Database temporarily unavailable. Please try creating your organization again from the Enterprise Dashboard."
+              } else if (error.message && error.message.includes('timeout')) {
+                errorTitle = "Request Timeout"
+                errorMessage = "The request took too long. Please try creating your organization again from the Enterprise Dashboard."
+              } else if (error.message) {
+                errorMessage = error.message
+              }
+              
               toast({
-                title: "Organization Registration Failed",
-                description: error.message || "Failed to register organization. You can create it later from Enterprise Dashboard.",
+                title: errorTitle,
+                description: errorMessage,
                 variant: "destructive",
-                duration: 7000,
+                duration: 8000,
               })
               console.error('Failed to register organization:', error)
               // Still continue to app - user can create org later
@@ -461,6 +475,42 @@ const Signup = () => {
               </>
             ) : (
               <>
+                {/* First Name and Last Name for Organization Admin */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
+                      First Name
+                    </Label>
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      placeholder="Enter First Name"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
+                      Last Name
+                    </Label>
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      placeholder="Enter Last Name"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className="border-[#D0D0D0] focus:border-[#1A76E3] focus:ring-[#1A76E3] text-sm w-full"
+                      style={{ height: '42px', borderRadius: '12px', borderWidth: '1px', padding: '10px 14px' }}
+                      required
+                    />
+                  </div>
+                </div>
+
                 {/* Organization Name */}
                 <div className="space-y-2">
                   <Label htmlFor="orgName" className="text-sm font-medium text-gray-700">
