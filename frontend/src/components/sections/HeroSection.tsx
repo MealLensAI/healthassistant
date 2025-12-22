@@ -14,12 +14,12 @@ const HeroSection = () => {
           <h1 className="text-3xl sm:text-6xl lg:text-6xl font-normal leading-[1.1] mb-8 text-foreground tracking-tight">
             {/* Using food to maintain
             <br /> */}
-            <span className="text-primary">Using AI to help people with chronic diseases manage, improve and restore their health with just food they eat daily.</span>
+            <span className="text-primary">Using AI to help people with chronic condition manage, improve and restore their health with just food they eat daily.</span>
           </h1>
 
           {/* Subheadline */}
           <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-12 font-normal">
-            An AI solution for people with chronic diseases. Tell our AI your sickness, and it recommends food that maintains your health and can restore or improve your condition based on your health data.
+            An AI solution for people with chronic condition. Tell our AI your sickness, and it recommends food that maintains your health and can restore or improve your condition based on your health data.
           </p>
 
           {/* CTA Buttons - Simple Google-style */}
@@ -50,7 +50,7 @@ const HeroSection = () => {
           {/* Trust indicators */}
           <div className="flex flex-col items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              Trusted by people with chronic diseases, nutritionists, dietitians, and insurance companies.
+              Trusted by people with chronic condition, nutritionists, dietitians, and insurance companies.
             </p>
           </div>
         </div>

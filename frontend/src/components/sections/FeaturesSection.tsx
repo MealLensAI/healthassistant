@@ -39,7 +39,7 @@ const FeaturesSection = () => {
                   <div className="w-1 bg-primary rounded-full flex-shrink-0" />
                   <div>
                     <p className="font-medium mb-1">AI generates personalized food recommendations</p>
-                    <p className="text-muted-foreground text-sm">Our AI automatically generates food that you can eat that will maintain your health, and at some point gradually recover, restore, or improve your health based on the kind of chronic disease that you have.</p>
+                    <p className="text-muted-foreground text-sm">Our AI automatically generates food that you can eat that will maintain your health, and at some point gradually recover, restore, or improve your health based on the kind of chronic conditions that you have.</p>
                   </div>
                 </div>
               </div>
