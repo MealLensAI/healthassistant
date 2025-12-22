@@ -333,8 +333,10 @@ const AIResponsePage: FC = () => {
       }
 
       // Parse detected ingredients from main_ingredients
-      const mainIngredients = data.main_ingredients || ""
-      const ingredientsList = mainIngredients
+      const mainIngredients = data.main_ingredients || []
+      const ingredientsList = Array.isArray(mainIngredients)
+        ? mainIngredients.map((ingredient: string) => ingredient.trim()).filter((s: string) => s.length > 0)
+        : typeof mainIngredients === 'string'
         ? mainIngredients.split(',').map((ingredient: string) => ingredient.trim()).filter((s: string) => s.length > 0)
         : []
       
