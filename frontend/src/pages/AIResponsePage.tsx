@@ -12,6 +12,7 @@ import { useSicknessSettings } from "@/hooks/useSicknessSettings"
 import Swal from 'sweetalert2'
 import { api } from "@/lib/api"
 import CookingTutorialModal from "@/components/CookingTutorialModal"
+import MealDetailsModal from "@/components/MealDetailsModal"
 
 // Map new goal values to backend API format
 const mapGoalToBackendFormat = (goal: string | undefined): string => {
@@ -198,6 +199,8 @@ const AIResponsePage: FC = () => {
   const [showResults, setShowResults] = useState(false)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [showCookingModal, setShowCookingModal] = useState(false)
+  const [showMealDetailsModal, setShowMealDetailsModal] = useState(false)
+  const [selectedMeal, setSelectedMeal] = useState<HealthMeal | null>(null)
   const [selectedMealName, setSelectedMealName] = useState("")
   const [selectedMealIngredients, setSelectedMealIngredients] = useState<string[]>([])
   
@@ -305,7 +308,7 @@ const AIResponsePage: FC = () => {
     }
 
     try {
-      const response = await fetch(`${APP_CONFIG.api.ai_api_url}/process`, {
+      const response = await fetch(`${APP_CONFIG.api.ai_api_url}/generate_meals_from_ingredients`, {
         method: "POST",
         body: formData,
       })
@@ -316,8 +319,8 @@ const AIResponsePage: FC = () => {
 
       const data = await response.json()
       console.log("Detection response:", data)
-      console.log("Ingredients from API (data.response):", data.response)
-      console.log("Food suggestions from API:", data.food_suggestions)
+      console.log("Meal options from API:", data.meal_options)
+      console.log("Main ingredients from API:", data.main_ingredients)
 
       if (data.error) {
         Swal.fire({
@@ -329,11 +332,10 @@ const AIResponsePage: FC = () => {
         return
       }
 
-      // Parse detected ingredients with health info
-      // The API returns ingredients in the "response" array
-      const ingredientsArray = data.response || []
-      const ingredientsList = Array.isArray(ingredientsArray) 
-        ? ingredientsArray.map((ingredient: string) => ingredient.trim()).filter((s: string) => s.length > 0)
+      // Parse detected ingredients from main_ingredients
+      const mainIngredients = data.main_ingredients || ""
+      const ingredientsList = mainIngredients
+        ? mainIngredients.split(',').map((ingredient: string) => ingredient.trim()).filter((s: string) => s.length > 0)
         : []
       
       // Check if we got any ingredients
@@ -341,14 +343,14 @@ const AIResponsePage: FC = () => {
         Swal.fire({
           icon: 'warning',
           title: 'No Ingredients Detected',
-          text: 'Could not detect any ingredients from the image. Please try again with a clearer image.',
+          text: 'Could not detect any ingredients from the input. Please try again.',
           confirmButtonColor: '#1A76E3'
         })
         setIsLoading(false)
         return
       }
       
-      // Create ingredient objects with mock health info based on sickness type
+      // Create ingredient objects with health info based on sickness type
       const parsedIngredients: DetectedIngredient[] = ingredientsList.map((name: string) => {
         // Simple health assessment based on ingredient and condition
         const isHighRisk = checkIngredientRisk(name, sicknessSettings.sicknessType || "")
@@ -363,29 +365,19 @@ const AIResponsePage: FC = () => {
 
       setDetectedIngredients(parsedIngredients)
 
-      // Process meal options - check if meal_options exists, otherwise use food_suggestions if available
+      // Process meal options - should have full nutrition data
       let mealsWithImages: HealthMeal[] = []
       
       if (data.meal_options && Array.isArray(data.meal_options)) {
-        // Full meal objects with nutrition data
+        // Full meal objects with nutrition data from the new API
         mealsWithImages = data.meal_options.map((meal: HealthMeal, index: number) => ({
           ...meal,
           image: getMealImage(meal.food_suggestions?.[0] || "meal", index)
         }))
-      } else if (data.food_suggestions && Array.isArray(data.food_suggestions)) {
-        // If only food_suggestions array is available, create basic meal objects
-        // Note: These won't have nutrition data, but will display the suggestions
-        mealsWithImages = data.food_suggestions.map((foodName: string, index: number) => ({
-          food_suggestions: [foodName],
-          ingredients_used: ingredientsList,
-          calories: 0,
-          protein: 0,
-          carbs: 0,
-          fat: 0,
-          fiber: 0,
-          health_benefit: `A healthy meal suggestion using your detected ingredients`,
-          image: getMealImage(foodName, index)
-        }))
+      } else {
+        // Fallback if no meal_options (shouldn't happen with the new API)
+        console.warn("No meal_options in response, this shouldn't happen with /generate_meals_from_ingredients")
+        mealsWithImages = []
       }
 
       setHealthMeals(mealsWithImages)
@@ -435,12 +427,20 @@ const AIResponsePage: FC = () => {
     return foodImages[index % foodImages.length]
   }
 
-  const handleViewMealDetails = async (meal: HealthMeal) => {
-    const mealName = meal.food_suggestions?.[0] || "Health Meal"
-    setSelectedMealName(mealName)
-    setSelectedMealIngredients(meal.ingredients_used || [])
+  const handleViewMealDetails = (meal: HealthMeal) => {
+    setSelectedMeal(meal)
+    setShowMealDetailsModal(true)
+  }
+
+  const handleGetCookingInstructions = async () => {
+    if (!selectedMeal) return
     
-    // Open modal immediately so user sees it loading
+    const mealName = selectedMeal.food_suggestions?.[0] || "Health Meal"
+    setSelectedMealName(mealName)
+    setSelectedMealIngredients(selectedMeal.ingredients_used || [])
+    
+    // Close meal details modal and open cooking modal
+    setShowMealDetailsModal(false)
     setShowCookingModal(true)
     
     // Fetch instructions and resources, then save to history with complete data
@@ -452,7 +452,7 @@ const AIResponsePage: FC = () => {
       // 1. Get cooking instructions
       const requestBody: any = {
         food_name: mealName,
-        ingredients: meal.ingredients_used || []
+        ingredients: selectedMeal.ingredients_used || []
       }
 
       if (sicknessInfo) {
@@ -513,7 +513,7 @@ const AIResponsePage: FC = () => {
         recipe_type: "ingredient_detection",
         suggestion: mealName,
         instructions: instructions,
-        ingredients: JSON.stringify(meal.ingredients_used || []),
+        ingredients: JSON.stringify(selectedMeal.ingredients_used || []),
         detected_foods: JSON.stringify(detectedIngredients.map(i => i.name)),
         analysis_id: analysisId,
         youtube_link: youtubeLink,
@@ -546,6 +546,9 @@ const AIResponsePage: FC = () => {
     setIngredientList("")
     setDetectedIngredients([])
     setHealthMeals([])
+    setSelectedMeal(null)
+    setShowMealDetailsModal(false)
+    setShowCookingModal(false)
   }
 
   return (
@@ -833,6 +836,14 @@ const AIResponsePage: FC = () => {
           </div>
         </div>
       )}
+
+      {/* Meal Details Modal */}
+      <MealDetailsModal
+        isOpen={showMealDetailsModal}
+        onClose={() => setShowMealDetailsModal(false)}
+        meal={selectedMeal}
+        onGetCookingInstructions={handleGetCookingInstructions}
+      />
 
       {/* Cooking Tutorial Modal */}
       <CookingTutorialModal
