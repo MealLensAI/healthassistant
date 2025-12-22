@@ -14,7 +14,7 @@ const HeroSection = () => {
           <h1 className="text-3xl sm:text-6xl lg:text-6xl font-normal leading-[1.1] mb-8 text-foreground tracking-tight">
             {/* Using food to maintain
             <br /> */}
-            <span className="text-primary">Using foods as medicine to treat,maintain and restore chronic diseases with AI.</span>
+            <span className="text-primary">Using AI to help people with chronic diseases manage, improve and restore their health with just food they eat daily.</span>
           </h1>
 
           {/* Subheadline */}
