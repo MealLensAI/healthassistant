@@ -5,7 +5,7 @@ const FeaturesSection = () => {
         {/* Section Header */}
         <div className="max-w-3xl mb-20">
           <h2 className="text-3xl lg:text-5xl font-normal mb-6">
-            Using food to maintain,treat
+            Using food to maintain
             <br />
             <span className="text-muted-foreground font-normal">and restore or improve patient health</span>
           </h2>
