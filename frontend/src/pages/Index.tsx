@@ -1222,7 +1222,7 @@ const Index = () => {
                 {isHealthProfileComplete() ? (
                   <div className="space-y-2">
                     <p className="text-sm text-green-800">
-                      Your complete health profile will generate a <strong>doctor-approved meal plan</strong> with:
+                      Your complete health profile will generate a <strong>personalized meal plan</strong> with:
                     </p>
                     <ul className="text-xs text-green-700 space-y-1 ml-4">
                       <li>• Full nutritional breakdown (calories, protein, carbs, fats)</li>
@@ -1360,7 +1360,7 @@ const Index = () => {
                         <span className="text-3xl">🏥</span>
                         <div>
                           <h3 className="text-xl font-bold text-green-900">Medical AI Nutrition Plan</h3>
-                          <p className="text-sm text-green-700">Doctor-approved meal plans with detailed nutrition</p>
+                          <p className="text-sm text-green-700">Personalized meal plans with detailed nutrition</p>
                         </div>
                       </div>
                       <div className="p-4 bg-blue-100 border border-blue-300 rounded-lg">
