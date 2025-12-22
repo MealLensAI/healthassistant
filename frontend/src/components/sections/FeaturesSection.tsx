@@ -21,7 +21,7 @@ const FeaturesSection = () => {
               Tell our AI your sickness, get food recommendations
             </h3>
             <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-              If you have a chronic disease, you just tell our AI your sickness, and it recommends food that you can eat that will maintain your health and give you better health. At the same time, it can also restore or improve your health based on your health condition.
+              If you have a chronic condition, tell our AI your sickness, and it recommends food that you can eat that will maintain your health and give you better health. At the same time, it can also restore or improve your health based on your health condition.
             </p>
             
             <div className="mb-8">
