@@ -3,7 +3,6 @@ import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, C
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import EnhancedRecipeCard from '../components/EnhancedRecipeCard';
-import HealthAssessmentCard from '../components/HealthAssessmentCard';
 import MealTypeFilter from '../components/MealTypeFilter';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CookingTutorialModal from '../components/CookingTutorialModal';
@@ -1035,16 +1034,6 @@ const Index = () => {
         </div>
 
 
-
-        {/* Health Assessment Card */}
-        {currentPlan?.healthAssessment && (
-          <div className="mb-6">
-            <HealthAssessmentCard
-              healthAssessment={currentPlan.healthAssessment}
-              userInfo={currentPlan.userInfo}
-            />
-          </div>
-        )}
 
         {/* Main Content */}
         <div className="flex-1">

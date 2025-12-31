@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, User, Check, X, Trash2, Eye, RefreshCw, Clock, Heart, Shield, ArrowLeft } from 'lucide-react';
 import RecipeCard from '@/components/RecipeCard';
 import EnhancedRecipeCard from '@/components/EnhancedRecipeCard';
-import HealthAssessmentCard from '@/components/HealthAssessmentCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import CookingTutorialModal from '@/components/CookingTutorialModal';
 import MealPlanSkeleton from '@/components/MealPlanSkeleton';
@@ -1210,16 +1209,6 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                           </div>
                         )}
                       </div>
-
-                      {/* Health Assessment Card (detailed) */}
-                      {currentPlan.health_assessment && (
-                        <div className="mb-6">
-                          <HealthAssessmentCard
-                            healthAssessment={currentPlan.health_assessment}
-                            userInfo={currentPlan.user_info}
-                          />
-                        </div>
-                      )}
 
                       {/* Day Tabs */}
                       <div className="mb-6 overflow-x-auto">
