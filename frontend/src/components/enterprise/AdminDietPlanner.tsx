@@ -948,9 +948,9 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
               {/* Plans List */}
-              <div className="lg:col-span-1 space-y-3">
+              <div className="lg:col-span-1 space-y-3 order-2 lg:order-1">
                 <h3 className="font-semibold text-slate-700 px-1">Saved Plans</h3>
                 {userMealPlans.map((plan) => (
                   <div
@@ -1050,7 +1050,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         </div>
 
               {/* Plan Details */}
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 order-1 lg:order-2">
                 {currentPlan ? (
                   <Card>
                     <CardHeader>
@@ -1074,13 +1074,14 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                         </div>
                         {/* Action Buttons for Plan Details - Only show for unapproved plans */}
                         {!currentPlan.is_approved && (
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <Button
                               onClick={() => handleApprovePlan(currentPlan.id)}
                               className="bg-green-600 hover:bg-green-700 text-white"
                             >
                               <Check className="w-4 h-4 mr-2" />
-                              Approve & Send to User
+                              <span className="hidden sm:inline">Approve & Send to User</span>
+                              <span className="sm:hidden">Approve</span>
                             </Button>
                             <Button
                               variant="outline"

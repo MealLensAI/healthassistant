@@ -19,6 +19,7 @@ import {
   Trash2,
   X,
   CheckCircle,
+  Menu,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -133,6 +134,7 @@ export default function EnterpriseDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeSidebarItem, setActiveSidebarItem] = useState<"overview" | "activity" | "members" | "settings" | "history">("overview");
   const [activeTab, setActiveTab] = useState<"users" | "invitations">("invitations");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(PERIOD_OPTIONS[0]);
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
   const periodMenuRef = useRef<HTMLDivElement | null>(null);
@@ -846,10 +848,27 @@ export default function EnterpriseDashboard() {
         style={{ display: "none" }}
       />
 
-      <aside className="w-64 border-r border-slate-200 bg-white">
+      {/* Mobile Sidebar Overlay */}
+      {isMobileSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Hidden on mobile, visible on desktop */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-50 lg:z-auto
+        w-64 border-r border-slate-200 bg-white
+        transform transition-transform duration-300 ease-in-out
+        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         <EntrepriseSidebar 
           activeItem={activeSidebarItem}
-          onItemChange={setActiveSidebarItem}
+          onItemChange={(item) => {
+            setActiveSidebarItem(item);
+            setIsMobileSidebarOpen(false); // Close sidebar on mobile after selection
+          }}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           userName={user?.displayName}
@@ -859,8 +878,21 @@ export default function EnterpriseDashboard() {
         />
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="px-6 py-8 lg:px-12">
+      <main className="flex-1 overflow-y-auto lg:ml-0">
+        {/* Mobile Header with Hamburger */}
+        <div className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+          <button
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            aria-label="Toggle menu"
+          >
+            <Menu className="h-6 w-6 text-slate-700" />
+          </button>
+          <h1 className="text-lg font-semibold text-slate-900">Enterprise Dashboard</h1>
+          <div className="w-10" /> {/* Spacer for centering */}
+        </div>
+
+        <div className="px-4 py-6 sm:px-6 lg:px-12 lg:py-8">
           {/* Loading State - Show skeleton while initial load */}
           {isLoading && !cachedEnterprises && (
             <div className="space-y-8">
@@ -886,8 +918,8 @@ export default function EnterpriseDashboard() {
           {/* Header and Stats - Only show on Overview tab */}
           {activeSidebarItem === "overview" && !isLoading && (
             <>
-          <header className="mb-10">
-            <h1 className="text-4xl font-semibold text-slate-900">Enterprise Dashboard</h1>
+          <header className="mb-6 sm:mb-10">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-slate-900">Enterprise Dashboard</h1>
             <p className="mt-2 text-sm text-slate-500">Manage your organization and invite users</p>
             {selectedEnterprise && statistics?.owner_info && (
               <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-2 text-sm text-blue-700">
@@ -899,7 +931,7 @@ export default function EnterpriseDashboard() {
             )}
           </header>
 
-          <section className="grid gap-6 lg:grid-cols-3">
+          <section className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div>
                 <p className="text-sm font-medium text-slate-500">Total Users</p>
@@ -989,7 +1021,7 @@ export default function EnterpriseDashboard() {
 
           {/* Members View - Accepted Users */}
           {activeSidebarItem === "members" && (
-            <section className="mt-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+            <section className="mt-6 sm:mt-12 rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm">
               <div className="mb-8 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">Members</h2>
@@ -1067,19 +1099,19 @@ export default function EnterpriseDashboard() {
                         
                         return (
                           <Card key={user.id} className="hover:shadow-md transition-shadow">
-                            <CardContent className="p-6">
-                              <div className="flex justify-between items-start">
+                            <CardContent className="p-4 sm:p-6">
+                              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
                                 <div className="space-y-2 flex-1">
-                                  <div className="flex items-center gap-3">
-                                    <h4 className="font-semibold text-lg text-slate-900">{userName}</h4>
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                    <h4 className="font-semibold text-base sm:text-lg text-slate-900">{userName}</h4>
                                     {user.has_accepted_invitation && (
-                                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
+                                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs w-fit">
                                         ✓ Accepted Invitation
                                       </Badge>
                                     )}
                                   </div>
                                   <p className="text-sm text-slate-600">{user.email}</p>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex flex-wrap items-center gap-2">
                                     <Badge
                                       variant="outline"
                                       className="capitalize bg-slate-100 text-slate-700 border-slate-300"
@@ -1093,7 +1125,7 @@ export default function EnterpriseDashboard() {
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2 ml-4">
+                                <div className="flex items-center gap-2 sm:ml-4">
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -1101,10 +1133,10 @@ export default function EnterpriseDashboard() {
                                       handleEditUserSettings(user.user_id, user.email, user.first_name, user.last_name);
                                       setActiveSidebarItem("settings");
                                     }}
-                                    className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                                    className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs sm:text-sm"
                                   >
-                                    <Settings className="h-4 w-4 mr-1" />
-                                    Health Info
+                                    <Settings className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                                    <span className="hidden sm:inline">Health Info</span>
                                   </Button>
                                   <Button
                                     variant="outline"
@@ -1112,7 +1144,7 @@ export default function EnterpriseDashboard() {
                                     onClick={() => handleDeleteUser(user.id)}
                                     className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                   </Button>
                                 </div>
                               </div>
@@ -1246,17 +1278,17 @@ export default function EnterpriseDashboard() {
 
           {/* History View - Health Information History (Matches User History Page UI) */}
           {activeSidebarItem === "history" && (
-            <section className="mt-12">
-              <div className="mb-6 flex items-center justify-between">
+            <section className="mt-6 sm:mt-12">
+              <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Health Information History</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Health Information History</h2>
                   <p className="mt-1 text-sm text-slate-500">View all health information changes made by organization members</p>
               </div>
                 <Button
                   variant="outline"
                   onClick={() => selectedEnterprise?.id && loadSettingsHistory(selectedEnterprise.id)}
                   disabled={loadingHistory || !selectedEnterprise?.id}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 w-full sm:w-auto"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Refresh
@@ -1264,7 +1296,7 @@ export default function EnterpriseDashboard() {
               </div>
 
               {!selectedEnterprise ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-12 sm:p-24 text-center shadow-sm">
                   <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
                   <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
                   <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view history</p>
@@ -1283,10 +1315,10 @@ export default function EnterpriseDashboard() {
                   <p className="mt-2 text-sm text-slate-500">Health information changes will appear here when members update their profiles</p>
                 </div>
               ) : (
-                <Card className="rounded-2xl border border-slate-200 shadow-sm">
-                  <CardContent className="p-6">
-                    <div className="overflow-x-auto">
-                      <Table>
+                <Card className="rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                      <Table className="min-w-[600px]">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="font-semibold text-slate-700">Date & Time</TableHead>
@@ -1408,7 +1440,7 @@ export default function EnterpriseDashboard() {
               </div>
 
               {!selectedEnterprise ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-12 sm:p-24 text-center shadow-sm">
                   <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
                   <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
                   <p className="mt-2 text-sm text-slate-500">Please select or create an organization to manage meal plans</p>
@@ -1438,7 +1470,7 @@ export default function EnterpriseDashboard() {
               </div>
 
               {!selectedEnterprise ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-12 sm:p-24 text-center shadow-sm">
                   <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
                   <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
                   <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view food history</p>
@@ -1573,8 +1605,8 @@ export default function EnterpriseDashboard() {
                       <CardContent className="space-y-4 pt-6">
                         {userSettingsData && !isEditingHealthInfo ? (
                           /* TABLE VIEW */
-                          <div className="rounded-lg border">
-                            <Table>
+                          <div className="rounded-lg border overflow-x-auto">
+                            <Table className="min-w-[400px]">
                               <TableHeader>
                                 <TableRow>
                                   <TableHead className="font-semibold w-1/3">Field</TableHead>

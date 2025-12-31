@@ -151,11 +151,11 @@ const AdminFoodHistory: React.FC<AdminFoodHistoryProps> = ({
             Select User
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           {users.length === 0 ? (
             <p className="text-slate-500 text-center py-4">No users in this organization yet</p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {users.map((user) => (
                 <button
                   key={user.user_id}
@@ -183,24 +183,25 @@ const AdminFoodHistory: React.FC<AdminFoodHistoryProps> = ({
       {/* Detection History for Selected User */}
       {selectedUser && (
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                 <Utensils className="h-5 w-5" />
-                Food Detection History for {getUserName(selectedUser)}
+                <span className="truncate">Food Detection History for {getUserName(selectedUser)}</span>
               </CardTitle>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => loadDetectionHistory(selectedUser.user_id)}
                 disabled={loading}
+                className="w-full sm:w-auto"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -211,8 +212,8 @@ const AdminFoodHistory: React.FC<AdminFoodHistoryProps> = ({
                 <p className="text-slate-500">No food detection history found for this user</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
+              <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                <Table className="min-w-[600px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
