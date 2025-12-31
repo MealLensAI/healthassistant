@@ -338,9 +338,18 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
           title: "Plan Approved! ✅",
           description: "The meal plan is now visible to the user."
         });
+        // Refresh the meal plans list
         if (selectedUser) {
           loadUserMealPlans(selectedUser.user_id);
         }
+        // Update current plan if it's the one being approved
+        if (currentPlan?.id === planId) {
+          setCurrentPlan({ ...currentPlan, is_approved: true });
+        }
+        // Update the plan in the list immediately for better UX
+        setUserMealPlans(prev => prev.map(plan => 
+          plan.id === planId ? { ...plan, is_approved: true } : plan
+        ));
       } else {
         toast({
           title: "Error",
