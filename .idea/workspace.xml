@@ -5,10 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8b490bbb-0141-4b56-b6c0-741c58db7ad3" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/backend/migrations/009_create_enterprise_meal_plan_staging.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/routes/enterprise_routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/routes/enterprise_routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/services/supabase_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/services/supabase_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/enterprise/AdminDietPlanner.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/enterprise/AdminDietPlanner.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,6 +94,7 @@
       <workItem from="1765753820110" duration="24000" />
       <workItem from="1765881127110" duration="2515000" />
       <workItem from="1767134877089" duration="5031000" />
+      <workItem from="1767195752253" duration="988000" />
     </task>
     <servers />
   </component>
