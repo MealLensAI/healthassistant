@@ -132,7 +132,7 @@ export default function EnterpriseDashboard() {
 
   // misc
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeSidebarItem, setActiveSidebarItem] = useState<"overview" | "activity" | "members" | "settings" | "history">("overview");
+  const [activeSidebarItem, setActiveSidebarItem] = useState<"overview" | "activity" | "members" | "settings" | "history" | "meal-plans" | "food-history">("overview");
   const [activeTab, setActiveTab] = useState<"users" | "invitations">("invitations");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(PERIOD_OPTIONS[0]);
