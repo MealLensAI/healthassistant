@@ -3,11 +3,7 @@ import {
   Utensils, 
   User, 
   RefreshCw, 
-  ChevronDown, 
-  ChevronRight,
-  Calendar,
-  Eye,
-  X
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
+import CookingTutorialModal from '@/components/CookingTutorialModal';
 
 interface DetectionRecord {
   id: string;
@@ -52,7 +49,7 @@ const AdminFoodHistory: React.FC<AdminFoodHistoryProps> = ({
   const [detectionHistory, setDetectionHistory] = useState<DetectionRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<DetectionRecord | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
 
   // Load detection history when a user is selected
   useEffect(() => {
@@ -132,16 +129,6 @@ const AdminFoodHistory: React.FC<AdminFoodHistoryProps> = ({
       }
     } catch {}
     return "Unknown";
-  };
-
-  const parseDetectedFoods = (detected_foods?: string): string[] => {
-    if (!detected_foods) return [];
-    try {
-      const parsed = JSON.parse(detected_foods);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
   };
 
   const parseIngredients = (ingredients?: string): string[] => {
@@ -252,7 +239,7 @@ const AdminFoodHistory: React.FC<AdminFoodHistoryProps> = ({
                             size="sm"
                             onClick={() => {
                               setSelectedRecord(record);
-                              setShowDetails(true);
+                              setShowTutorialModal(true);
                             }}
                           >
                             <Eye className="w-4 h-4 mr-1" />
@@ -269,117 +256,16 @@ const AdminFoodHistory: React.FC<AdminFoodHistoryProps> = ({
         </Card>
       )}
 
-      {/* Record Details Panel */}
-      {showDetails && selectedRecord && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Utensils className="h-5 w-5" />
-                Detection Details
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowDetails(false);
-                  setSelectedRecord(null);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <div className="flex flex-wrap gap-3">
-                {getRecipeTypeBadge(selectedRecord.recipe_type)}
-                <span className="text-sm text-slate-600">
-                  <Calendar className="w-4 h-4 inline mr-1" />
-                  {formatDate(selectedRecord.created_at)}
-                </span>
-              </div>
-
-              {/* Suggestion/Name */}
-              {selectedRecord.suggestion && (
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-2">Recipe Suggestion</h4>
-                  <p className="text-slate-700 bg-slate-50 p-3 rounded-lg">{selectedRecord.suggestion}</p>
-                </div>
-              )}
-
-              {/* Detected Foods */}
-              {selectedRecord.detected_foods && (
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-2">Detected Foods</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {parseDetectedFoods(selectedRecord.detected_foods).map((food, idx) => (
-                      <Badge key={idx} variant="outline" className="bg-green-50 text-green-700">
-                        {food}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Ingredients */}
-              {selectedRecord.ingredients && (
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-2">Ingredients</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {parseIngredients(selectedRecord.ingredients).map((ingredient, idx) => (
-                      <Badge key={idx} variant="outline" className="bg-blue-50 text-blue-700">
-                        {ingredient}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Instructions */}
-              {selectedRecord.instructions && (
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-2">Instructions</h4>
-                  <div 
-                    className="text-slate-700 bg-slate-50 p-4 rounded-lg prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: selectedRecord.instructions }}
-                  />
-                </div>
-              )}
-
-              {/* External Links */}
-              {(selectedRecord.youtube || selectedRecord.google) && (
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-2">Resources</h4>
-                  <div className="flex flex-wrap gap-3">
-                    {selectedRecord.youtube && (
-                      <a 
-                        href={selectedRecord.youtube}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors"
-                      >
-                        📺 YouTube Tutorial
-                      </a>
-                    )}
-                    {selectedRecord.google && (
-                      <a 
-                        href={selectedRecord.google}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
-                      >
-                        🔍 Google Search
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Cooking Tutorial Modal - Same UI as user sees */}
+      <CookingTutorialModal
+        isOpen={showTutorialModal}
+        onClose={() => {
+          setShowTutorialModal(false);
+          setSelectedRecord(null);
+        }}
+        recipeName={selectedRecord ? getItemName(selectedRecord) : ''}
+        ingredients={selectedRecord ? parseIngredients(selectedRecord.ingredients) : []}
+      />
     </div>
   );
 };
