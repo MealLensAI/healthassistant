@@ -990,14 +990,16 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                         </div>
                         
                         {/* Quick Stats */}
-                        {plan.health_assessment?.dailyTargets && (
+                        {plan.health_assessment?.daily_calories && (
                           <div className="flex flex-wrap gap-1 mt-2">
                             <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded">
-                              {plan.health_assessment.dailyTargets.calories} kcal
+                              {Math.round(plan.health_assessment.daily_calories)} kcal/day
                             </span>
-                            <span className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
-                              P: {plan.health_assessment.dailyTargets.protein}g
-                            </span>
+                            {plan.health_assessment.bmr && (
+                              <span className="text-xs bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded">
+                                BMR: {Math.round(plan.health_assessment.bmr)}
+                              </span>
+                            )}
                           </div>
                         )}
 
@@ -1109,97 +1111,105 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                             </div>
                           )}
                           
-                          {/* User Info from health_assessment or user_info */}
-                          {(currentPlan.health_assessment?.userInfo || currentPlan.user_info) && (
+                          {/* User Info from user_info */}
+                          {currentPlan.user_info && (
                             <>
-                              {(currentPlan.health_assessment?.userInfo?.age || currentPlan.user_info?.age) && (
+                              {currentPlan.user_info.age && (
                                 <div className="bg-white p-3 rounded-lg border border-slate-100">
                                   <div className="text-xs text-slate-500 font-medium">Age</div>
                                   <div className="text-sm font-semibold text-slate-800">
-                                    {currentPlan.health_assessment?.userInfo?.age || currentPlan.user_info?.age} years
-                </div>
+                                    {currentPlan.user_info.age} years
+                                  </div>
                                 </div>
                               )}
-                              {(currentPlan.health_assessment?.userInfo?.weight || currentPlan.user_info?.weight) && (
+                              {currentPlan.user_info.weight && (
                                 <div className="bg-white p-3 rounded-lg border border-slate-100">
                                   <div className="text-xs text-slate-500 font-medium">Weight</div>
                                   <div className="text-sm font-semibold text-slate-800">
-                                    {currentPlan.health_assessment?.userInfo?.weight || currentPlan.user_info?.weight} kg
+                                    {currentPlan.user_info.weight} kg
                                   </div>
                                 </div>
                               )}
-                              {(currentPlan.health_assessment?.userInfo?.height || currentPlan.user_info?.height) && (
+                              {currentPlan.user_info.height && (
                                 <div className="bg-white p-3 rounded-lg border border-slate-100">
                                   <div className="text-xs text-slate-500 font-medium">Height</div>
                                   <div className="text-sm font-semibold text-slate-800">
-                                    {currentPlan.health_assessment?.userInfo?.height || currentPlan.user_info?.height} cm
+                                    {currentPlan.user_info.height} cm
                                   </div>
                                 </div>
                               )}
-              </>
-            )}
-                          
-                          {/* Nutrition Targets from health_assessment */}
-                          {currentPlan.health_assessment?.dailyTargets && (
-                            <>
-                              <div className="bg-white p-3 rounded-lg border border-green-100">
-                                <div className="text-xs text-green-600 font-medium">Daily Calories</div>
-                                <div className="text-sm font-semibold text-green-700">
-                                  {currentPlan.health_assessment.dailyTargets.calories || 'N/A'} kcal
-          </div>
-        </div>
-                              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                                <div className="text-xs text-blue-600 font-medium">Protein</div>
-                                <div className="text-sm font-semibold text-blue-700">
-                                  {currentPlan.health_assessment.dailyTargets.protein || 'N/A'}g
+                              {currentPlan.user_info.gender && (
+                                <div className="bg-white p-3 rounded-lg border border-slate-100">
+                                  <div className="text-xs text-slate-500 font-medium">Gender</div>
+                                  <div className="text-sm font-semibold text-slate-800 capitalize">
+                                    {currentPlan.user_info.gender}
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="bg-white p-3 rounded-lg border border-orange-100">
-                                <div className="text-xs text-orange-600 font-medium">Carbs</div>
-                                <div className="text-sm font-semibold text-orange-700">
-                                  {currentPlan.health_assessment.dailyTargets.carbs || 'N/A'}g
-                                </div>
-                              </div>
-                              <div className="bg-white p-3 rounded-lg border border-purple-100">
-                                <div className="text-xs text-purple-600 font-medium">Fat</div>
-                                <div className="text-sm font-semibold text-purple-700">
-                                  {currentPlan.health_assessment.dailyTargets.fat || 'N/A'}g
-                                </div>
-                              </div>
+                              )}
                             </>
                           )}
                           
-                          {/* BMR if available */}
-                          {currentPlan.health_assessment?.bmr && (
-                            <div className="bg-white p-3 rounded-lg border border-teal-100">
-                              <div className="text-xs text-teal-600 font-medium">BMR</div>
-                              <div className="text-sm font-semibold text-teal-700">
-                                {Math.round(currentPlan.health_assessment.bmr)} kcal
-          </div>
-                            </div>
+                          {/* Health Assessment Data */}
+                          {currentPlan.health_assessment && (
+                            <>
+                              {/* Daily Calories */}
+                              {currentPlan.health_assessment.daily_calories && (
+                                <div className="bg-white p-3 rounded-lg border border-green-100">
+                                  <div className="text-xs text-green-600 font-medium">Daily Calories</div>
+                                  <div className="text-sm font-semibold text-green-700">
+                                    {Math.round(currentPlan.health_assessment.daily_calories)} kcal
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* BMR */}
+                              {currentPlan.health_assessment.bmr && (
+                                <div className="bg-white p-3 rounded-lg border border-yellow-100">
+                                  <div className="text-xs text-yellow-600 font-medium">BMR</div>
+                                  <div className="text-sm font-semibold text-yellow-700">
+                                    {Math.round(currentPlan.health_assessment.bmr)} kcal
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* WHtR */}
+                              {currentPlan.health_assessment.whtr && (
+                                <div className="bg-white p-3 rounded-lg border border-blue-100">
+                                  <div className="text-xs text-blue-600 font-medium">WHtR</div>
+                                  <div className="text-sm font-semibold text-blue-700">
+                                    {currentPlan.health_assessment.whtr.toFixed(2)}
+                                  </div>
+                                  {currentPlan.health_assessment.whtr_category && (
+                                    <div className="text-xs text-blue-500 mt-1">
+                                      {currentPlan.health_assessment.whtr_category}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </>
                           )}
-                          
-                          {/* TDEE if available */}
-                          {currentPlan.health_assessment?.tdee && (
-                            <div className="bg-white p-3 rounded-lg border border-indigo-100">
-                              <div className="text-xs text-indigo-600 font-medium">TDEE</div>
-                              <div className="text-sm font-semibold text-indigo-700">
-                                {Math.round(currentPlan.health_assessment.tdee)} kcal
-                              </div>
-                            </div>
-                          )}
-        </div>
-
+                        </div>
+                        
                         {/* Health Goal if available */}
-                        {(currentPlan.health_assessment?.goal || currentPlan.user_info?.healthGoal) && (
+                        {currentPlan.user_info?.goal && (
                           <div className="mt-3 pt-3 border-t border-slate-200">
                             <span className="text-xs text-slate-500">Health Goal: </span>
                             <span className="text-sm font-medium text-slate-700 capitalize">
-                              {currentPlan.health_assessment?.goal || currentPlan.user_info?.healthGoal}
-            </span>
+                              {currentPlan.user_info.goal.replace('_', ' ')}
+                            </span>
                           </div>
                         )}
-          </div>
+                        
+                        {/* Condition if available */}
+                        {currentPlan.user_info?.condition && (
+                          <div className="mt-2">
+                            <span className="text-xs text-slate-500">Condition: </span>
+                            <span className="text-sm font-medium text-red-600 capitalize">
+                              {currentPlan.user_info.condition}
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
                       {/* Health Assessment Card (detailed) */}
                       {currentPlan.health_assessment && (

@@ -2158,6 +2158,10 @@ def get_user_meal_plans(enterprise_id, user_id):
         # Get ALL meal plans for this user (admin sees both approved and pending)
         result = supabase.table('meal_plan_management').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
         
+        current_app.logger.info(f'Fetched {len(result.data or [])} meal plans for user {user_id}')
+        for p in result.data or []:
+            current_app.logger.info(f'Plan {p.get("id")}: is_approved={p.get("is_approved")}')
+        
         meal_plans = []
         for plan in result.data or []:
             meal_plans.append({
@@ -2235,7 +2239,12 @@ def create_user_meal_plan(enterprise_id, user_id):
             'updated_at': now
         }
         
+        current_app.logger.info(f'Creating meal plan with is_approved=False for user {user_id}')
+        current_app.logger.info(f'Insert data: {insert_data}')
+        
         result = supabase.table('meal_plan_management').insert(insert_data).execute()
+        
+        current_app.logger.info(f'Insert result: {result.data}')
         
         if result.data and len(result.data) > 0:
             plan = result.data[0]
@@ -2310,14 +2319,19 @@ def approve_meal_plan(enterprise_id, plan_id):
         
         now = datetime.now(timezone.utc).isoformat()
         
+        current_app.logger.info(f'Approving meal plan {plan_id}, setting is_approved=True')
+        
         # Set is_approved to TRUE
         update_result = supabase.table('meal_plan_management').update({
             'is_approved': True,
             'updated_at': now
         }).eq('id', plan_id).execute()
         
+        current_app.logger.info(f'Update result: {update_result.data}')
+        
         if update_result.data:
             approved_plan = update_result.data[0]
+            current_app.logger.info(f'Approved plan is_approved value: {approved_plan.get("is_approved")}')
             return jsonify({
                 'success': True,
                 'message': 'Meal plan approved! User can now see this plan.',
