@@ -2155,11 +2155,16 @@ def get_user_meal_plans(enterprise_id, user_id):
                 'error': 'User is not a member of this organization'
             }), 404
         
-        # Get meal plans for the user
-        result = supabase.table('meal_plan_management').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
+        # Get STAGING meal plans (pending approval) for this user in this enterprise
+        staging_result = supabase.table('enterprise_meal_plan_staging').select('*').eq('enterprise_id', enterprise_id).eq('user_id', user_id).order('updated_at', desc=True).execute()
+        
+        # Get APPROVED meal plans (already visible to user)
+        approved_result = supabase.table('meal_plan_management').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
         
         meal_plans = []
-        for plan in result.data or []:
+        
+        # Add staging plans (not yet approved - need admin action)
+        for plan in staging_result.data or []:
             meal_plans.append({
                 'id': plan['id'],
                 'name': plan.get('name'),
@@ -2171,7 +2176,25 @@ def get_user_meal_plans(enterprise_id, user_id):
                 'has_sickness': plan.get('has_sickness', False),
                 'sickness_type': plan.get('sickness_type', ''),
                 'health_assessment': plan.get('health_assessment'),
-                'user_info': plan.get('user_info')
+                'user_info': plan.get('user_info'),
+                'is_staging': True  # This plan needs approval
+            })
+        
+        # Add approved plans (already visible to user)
+        for plan in approved_result.data or []:
+            meal_plans.append({
+                'id': plan['id'],
+                'name': plan.get('name'),
+                'start_date': plan.get('start_date'),
+                'end_date': plan.get('end_date'),
+                'meal_plan': plan.get('meal_plan'),
+                'created_at': plan.get('created_at'),
+                'updated_at': plan.get('updated_at'),
+                'has_sickness': plan.get('has_sickness', False),
+                'sickness_type': plan.get('sickness_type', ''),
+                'health_assessment': plan.get('health_assessment'),
+                'user_info': plan.get('user_info'),
+                'is_staging': False  # This plan is already approved and visible to user
             })
         
         return jsonify({
@@ -2193,7 +2216,8 @@ def get_user_meal_plans(enterprise_id, user_id):
 def create_user_meal_plan(enterprise_id, user_id):
     """
     Create a meal plan for a specific user in the enterprise.
-    Admin generates meal plan for the user.
+    Admin generates meal plan - stored in staging table until approved.
+    When approved, it gets moved to the user's actual meal_plan_management table.
     """
     try:
         data = request.get_json()
@@ -2215,12 +2239,14 @@ def create_user_meal_plan(enterprise_id, user_id):
                 'error': 'User is not a member of this organization'
             }), 404
         
-        # Create meal plan for the user
-        # Plans saved here are already approved (admin approved before saving)
+        # Store meal plan in STAGING table (not visible to user yet)
+        # User only sees plans in meal_plan_management table
         now = datetime.now(timezone.utc).isoformat()
         
         insert_data = {
+            'enterprise_id': enterprise_id,
             'user_id': user_id,
+            'admin_id': request.user_id,
             'name': data.get('name'),
             'start_date': data.get('start_date') or data.get('startDate'),
             'end_date': data.get('end_date') or data.get('endDate'),
@@ -2233,13 +2259,14 @@ def create_user_meal_plan(enterprise_id, user_id):
             'updated_at': now
         }
         
-        result = supabase.table('meal_plan_management').insert(insert_data).execute()
+        # Insert into staging table
+        result = supabase.table('enterprise_meal_plan_staging').insert(insert_data).execute()
         
         if result.data and len(result.data) > 0:
             plan = result.data[0]
             return jsonify({
                 'success': True,
-                'message': 'Meal plan created and approved. User can now see this plan.',
+                'message': 'Meal plan created and ready for review. Click Approve to send it to the user.',
                 'meal_plan': {
                     'id': plan['id'],
                     'name': plan.get('name'),
@@ -2251,7 +2278,8 @@ def create_user_meal_plan(enterprise_id, user_id):
                     'health_assessment': plan.get('health_assessment'),
                     'user_info': plan.get('user_info'),
                     'created_at': plan.get('created_at'),
-                    'updated_at': plan.get('updated_at')
+                    'updated_at': plan.get('updated_at'),
+                    'is_staging': True
                 }
             }), 201
         else:
@@ -2273,8 +2301,8 @@ def create_user_meal_plan(enterprise_id, user_id):
 def approve_meal_plan(enterprise_id, plan_id):
     """
     Approve a meal plan for a user.
-    Approved meal plans are visible to the user.
-    This simply marks the plan as approved by updating the updated_at timestamp.
+    This MOVES the plan from staging table to the user's actual meal_plan_management table.
+    Once moved, the user can see it.
     """
     try:
         supabase = get_supabase_client(use_admin=True)
@@ -2287,16 +2315,16 @@ def approve_meal_plan(enterprise_id, plan_id):
                 'error': f'Access denied: {reason}'
             }), 403
         
-        # Get the meal plan
-        plan_result = supabase.table('meal_plan_management').select('*, user_id').eq('id', plan_id).execute()
-        if not plan_result.data:
+        # Get the staging meal plan
+        staging_result = supabase.table('enterprise_meal_plan_staging').select('*').eq('id', plan_id).eq('enterprise_id', enterprise_id).execute()
+        if not staging_result.data:
             return jsonify({
                 'success': False,
-                'error': 'Meal plan not found'
+                'error': 'Staging meal plan not found'
             }), 404
         
-        plan = plan_result.data[0]
-        target_user_id = plan['user_id']
+        staging_plan = staging_result.data[0]
+        target_user_id = staging_plan['user_id']
         
         # Verify the user belongs to this enterprise
         membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', target_user_id).execute()
@@ -2306,15 +2334,41 @@ def approve_meal_plan(enterprise_id, plan_id):
                 'error': 'User is not a member of this organization'
             }), 403
         
-        # Note: With the new flow, plans are saved to DB only when approved.
-        # This endpoint is kept for backwards compatibility but now just confirms the plan exists.
-        # The actual approval happens when the admin saves the plan via createUserMealPlan.
+        now = datetime.now(timezone.utc).isoformat()
         
-        return jsonify({
-            'success': True,
-            'message': 'Meal plan is approved and visible to the user.',
-            'meal_plan': plan
-        }), 200
+        # MOVE the plan: Insert into user's actual meal_plan_management table
+        insert_data = {
+            'user_id': target_user_id,
+            'name': staging_plan.get('name'),
+            'start_date': staging_plan.get('start_date'),
+            'end_date': staging_plan.get('end_date'),
+            'meal_plan': staging_plan.get('meal_plan'),
+            'has_sickness': staging_plan.get('has_sickness', False),
+            'sickness_type': staging_plan.get('sickness_type', ''),
+            'health_assessment': staging_plan.get('health_assessment'),
+            'user_info': staging_plan.get('user_info'),
+            'created_at': staging_plan.get('created_at'),
+            'updated_at': now
+        }
+        
+        # Insert into user's meal plan table
+        insert_result = supabase.table('meal_plan_management').insert(insert_data).execute()
+        
+        if insert_result.data and len(insert_result.data) > 0:
+            # Delete from staging table
+            supabase.table('enterprise_meal_plan_staging').delete().eq('id', plan_id).execute()
+            
+            approved_plan = insert_result.data[0]
+            return jsonify({
+                'success': True,
+                'message': 'Meal plan approved! User can now see this plan.',
+                'meal_plan': approved_plan
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to approve meal plan'
+            }), 500
             
     except Exception as e:
         current_app.logger.error(f'Failed to approve meal plan: {str(e)}')
@@ -2329,7 +2383,7 @@ def approve_meal_plan(enterprise_id, plan_id):
 def reject_meal_plan(enterprise_id, plan_id):
     """
     Reject a meal plan for a user.
-    Rejected meal plans are deleted so user never sees them.
+    Deletes the staging plan - user never sees it.
     """
     try:
         supabase = get_supabase_client(use_admin=True)
@@ -2342,27 +2396,8 @@ def reject_meal_plan(enterprise_id, plan_id):
                 'error': f'Access denied: {reason}'
             }), 403
         
-        # Get the meal plan
-        plan_result = supabase.table('meal_plan_management').select('*, user_id').eq('id', plan_id).execute()
-        if not plan_result.data:
-            return jsonify({
-                'success': False,
-                'error': 'Meal plan not found'
-            }), 404
-        
-        plan = plan_result.data[0]
-        target_user_id = plan['user_id']
-        
-        # Verify the user belongs to this enterprise
-        membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', target_user_id).execute()
-        if not membership.data:
-            return jsonify({
-                'success': False,
-                'error': 'User is not a member of this organization'
-            }), 403
-        
-        # Delete the meal plan so user never sees it
-        delete_result = supabase.table('meal_plan_management').delete().eq('id', plan_id).execute()
+        # Delete from staging table
+        delete_result = supabase.table('enterprise_meal_plan_staging').delete().eq('id', plan_id).eq('enterprise_id', enterprise_id).execute()
         
         if delete_result.data:
             return jsonify({

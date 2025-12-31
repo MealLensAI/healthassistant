@@ -86,7 +86,7 @@ interface SavedMealPlan {
   sickness_type?: string;
   health_assessment?: any;
   user_info?: any;
-  is_pending?: boolean; // Local state only - not saved to DB. Pending plans are not yet in the database.
+  is_staging?: boolean;  // true = needs approval, false = already approved and visible to user
 }
 
 interface UserInfo {
@@ -127,8 +127,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
   
   // User selection state
   const [selectedUser, setSelectedUser] = useState<UserInfo | null>(null);
-  const [userMealPlans, setUserMealPlans] = useState<SavedMealPlan[]>([]); // Approved plans from DB
-  const [pendingMealPlans, setPendingMealPlans] = useState<SavedMealPlan[]>([]); // Pending plans (local only, not in DB yet)
+  const [userMealPlans, setUserMealPlans] = useState<SavedMealPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   
   // Current plan viewing state
@@ -161,11 +160,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
     if (selectedUser) {
       loadUserMealPlans(selectedUser.user_id);
       loadUserHealthProfile(selectedUser.user_id);
-      // Clear pending plans when switching users (pending plans are user-specific)
-      setPendingMealPlans([]);
     } else {
       setUserMealPlans([]);
-      setPendingMealPlans([]);
       setCurrentPlan(null);
       setUserHealthProfile(null);
     }
@@ -326,8 +322,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         });
       }
     } catch (err: any) {
-      toast({
-        title: "Error",
+        toast({
+          title: "Error",
         description: err?.message || "Failed to delete meal plan",
         variant: "destructive"
       });
@@ -335,46 +331,23 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
   };
 
   const handleApprovePlan = async (planId: string) => {
-    // Find the pending plan
-    const pendingPlan = pendingMealPlans.find(p => p.id === planId);
-    if (!pendingPlan || !selectedUser) {
-        toast({
-          title: "Error",
-        description: "Plan not found or no user selected",
-        variant: "destructive"
-        });
-        return;
-    }
-
     try {
-      // Save the plan to the database (this makes it visible to the user)
-      const result: any = await api.createUserMealPlan(enterpriseId, selectedUser.user_id, {
-        name: pendingPlan.name,
-        start_date: pendingPlan.start_date,
-        end_date: pendingPlan.end_date,
-        meal_plan: pendingPlan.meal_plan,
-        has_sickness: pendingPlan.has_sickness,
-        sickness_type: pendingPlan.sickness_type,
-        health_assessment: pendingPlan.health_assessment,
-        user_info: pendingPlan.user_info
-      });
-
+      const result: any = await api.approveMealPlan(enterpriseId, planId);
       if (result.success) {
         toast({
           title: "Plan Approved! ✅",
           description: "The meal plan is now visible to the user."
         });
         
-        // Remove from pending list
-        setPendingMealPlans(prev => prev.filter(p => p.id !== planId));
+        // Remove the staging plan from the list and add the approved one
+        // The plan moves from staging to approved, so we need to refresh
+        if (selectedUser) {
+          loadUserMealPlans(selectedUser.user_id);
+        }
         
-        // Add to approved list with the new ID from database
-        const approvedPlan = { ...pendingPlan, id: result.meal_plan?.id || pendingPlan.id, is_pending: false };
-        setUserMealPlans(prev => [approvedPlan, ...prev]);
-        
-        // Update current plan if it was the one being approved
+        // Clear current plan if it was the one approved (it's now in a different state)
         if (currentPlan?.id === planId) {
-          setCurrentPlan(approvedPlan);
+          setCurrentPlan(null);
         }
       } else {
         toast({
@@ -393,22 +366,37 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
   };
 
   const handleRejectPlan = async (planId: string) => {
-    if (!window.confirm("Are you sure you want to reject this meal plan? It will be discarded and the user will not see it.")) {
+    if (!window.confirm("Are you sure you want to reject this meal plan? It will be deleted and the user will not see it.")) {
         return;
       }
     
-    // Simply remove from pending list (it was never saved to DB)
-    setPendingMealPlans(prev => prev.filter(p => p.id !== planId));
-    
-    // Clear current plan if it was the one being rejected
-    if (currentPlan?.id === planId) {
-      setCurrentPlan(null);
+    try {
+      const result: any = await api.rejectMealPlan(enterpriseId, planId);
+      if (result.success) {
+        toast({
+          title: "Plan Rejected",
+          description: "The meal plan has been deleted."
+        });
+        if (selectedUser) {
+          loadUserMealPlans(selectedUser.user_id);
+        }
+        if (currentPlan?.id === planId) {
+          setCurrentPlan(null);
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to reject meal plan",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to reject meal plan",
+        variant: "destructive"
+      });
     }
-    
-          toast({
-      title: "Plan Rejected",
-      description: "The meal plan has been discarded. User will not see it."
-    });
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -697,26 +685,21 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         }
       }
 
-      // Create a pending meal plan (NOT saved to database yet - admin must approve first)
-      const pendingPlan: SavedMealPlan = {
-        id: `pending-${Date.now()}`, // Temporary ID for local state
+      // Save the meal plan for the user via enterprise API
+      const planData = {
         name: weekDates.name,
         start_date: weekDates.startDate,
         end_date: weekDates.endDate,
         meal_plan: mealPlanData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
         has_sickness: hasSickness,
         sickness_type: sicknessType,
         health_assessment: healthAssessment,
-        user_info: userInfoData,
-        is_pending: true
+        user_info: userInfoData
       };
 
-      // Add to pending list (not saved to DB yet)
-      setPendingMealPlans(prev => [pendingPlan, ...prev]);
-      setCurrentPlan(pendingPlan);
-
+      const saveResult: any = await api.createUserMealPlan(enterpriseId, selectedUser.user_id, planData);
+      
+      if (saveResult.success) {
         setShowInputModal(false);
         setIngredientList('');
         setSelectedImage(null);
@@ -724,19 +707,25 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         setLocation('');
         setBudget('');
         setIsAutoGenerateEnabled(false);
-      setInputType('ingredient_list');
+        setInputType('ingredient_list');
 
         Swal.fire({
-        icon: 'info',
-        title: 'Meal Plan Generated!',
-        html: `<p>Meal plan for <strong>${getUserName(selectedUser)}</strong> has been generated.</p>
-               <p class="mt-2 text-orange-600 font-semibold">⚠️ Please review and click "Approve" to make it visible to the user.</p>`,
-        confirmButtonColor: '#1A76E3',
-      });
+          icon: 'success',
+          title: 'Meal Plan Created!',
+          text: `Meal plan for ${getUserName(selectedUser)} has been created. The user can now see this plan.`,
+          confirmButtonColor: '#1A76E3',
+          timer: 3000
+        });
+
+        // Refresh the meal plans list
+        loadUserMealPlans(selectedUser.user_id);
+        } else {
+        throw new Error(saveResult.error || 'Failed to save meal plan');
+        }
 
     } catch (error: any) {
       console.error('Error generating meal plan:', error);
-
+      
       let errorMessage = error?.message || 'Failed to generate meal plan';
       if (errorMessage.includes('duplicate key value') && errorMessage.includes('unique_user_week')) {
         Swal.fire({
@@ -942,7 +931,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                 <Plus className="h-4 w-4 mr-2" />
                 Create New Plan
               </Button>
-              </div>
+          </div>
         </div>
 
           {/* Meal Plans List */}
@@ -950,7 +939,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
             </div>
-          ) : (userMealPlans.length === 0 && pendingMealPlans.length === 0) ? (
+          ) : userMealPlans.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-300" />
@@ -965,122 +954,84 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
             <div className="grid gap-4 lg:grid-cols-3">
               {/* Plans List */}
               <div className="lg:col-span-1 space-y-3">
-                {/* Pending Plans Section - Plans awaiting approval */}
-                {pendingMealPlans.length > 0 && (
-                  <>
-                    <h3 className="font-semibold text-orange-600 px-1 flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      Awaiting Approval ({pendingMealPlans.length})
-                    </h3>
-                    {pendingMealPlans.map((plan) => (
-                      <div
-                        key={plan.id}
-                        onClick={() => setCurrentPlan(plan)}
-                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          currentPlan?.id === plan.id
-                            ? 'border-orange-500 bg-orange-50'
-                            : 'border-orange-200 hover:border-orange-300 bg-orange-50/50'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-slate-900 truncate">{plan.name}</h4>
-                            <div className="flex flex-wrap items-center gap-2 mt-1">
-                              {renderSicknessIndicator(plan)}
-                              <Badge className="bg-orange-100 text-orange-700 text-xs">
-                                <Clock className="w-3 h-3 mr-1" />
-                                Awaiting Approval
-                              </Badge>
-                </div>
-                            <p className="text-xs text-orange-600 mt-2">
-                              ⚠️ User cannot see this yet
-                            </p>
-                            
-                            {/* Approve/Reject Buttons */}
-                            <div className="flex gap-2 mt-3">
-                              <Button
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleApprovePlan(plan.id);
-                                }}
-                                className="bg-green-600 hover:bg-green-700 text-white text-xs h-7"
-                              >
-                                <Check className="w-3 h-3 mr-1" />
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRejectPlan(plan.id);
-                                }}
-                                className="text-red-600 border-red-300 hover:bg-red-50 text-xs h-7"
-                              >
-                                <X className="w-3 h-3 mr-1" />
-                                Reject
-                              </Button>
-          </div>
-        </div>
+                <h3 className="font-semibold text-slate-700 px-1">Saved Plans</h3>
+                {userMealPlans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    onClick={() => setCurrentPlan(plan)}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      currentPlan?.id === plan.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : plan.is_staging 
+                          ? 'border-orange-200 hover:border-orange-300 bg-orange-50/50'
+                          : 'border-green-200 hover:border-green-300 bg-green-50/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-slate-900 truncate">{plan.name}</h4>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          {renderSicknessIndicator(plan)}
+                          {/* Status Badge - Only show for staging plans */}
+                          {plan.is_staging && (
+                            <Badge className="bg-orange-100 text-orange-700 text-xs">
+                              <Eye className="w-3 h-3 mr-1" />
+                              Ready for Review
+                            </Badge>
+                          )}
                         </div>
-                      </div>
-                    ))}
-                  </>
-                )}
+                        <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
+                          <Clock className="w-3 h-3" />
+                          <span>Updated {new Date(plan.updated_at).toLocaleDateString()}</span>
+          </div>
 
-                {/* Approved Plans Section - Plans visible to user */}
-                {userMealPlans.length > 0 && (
-                  <>
-                    <h3 className="font-semibold text-green-600 px-1 flex items-center gap-2 mt-4">
-                      <Check className="w-4 h-4" />
-                      Approved Plans ({userMealPlans.length})
-                    </h3>
-                    {userMealPlans.map((plan) => (
-                      <div
-                        key={plan.id}
-                        onClick={() => setCurrentPlan(plan)}
-                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          currentPlan?.id === plan.id
-                            ? 'border-green-500 bg-green-50'
-                            : 'border-green-200 hover:border-green-300 bg-green-50/50'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-slate-900 truncate">{plan.name}</h4>
-                            <div className="flex flex-wrap items-center gap-2 mt-1">
-                              {renderSicknessIndicator(plan)}
-                              <Badge className="bg-green-100 text-green-700 text-xs">
-                                <Check className="w-3 h-3 mr-1" />
-                                Approved
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
-                              <Clock className="w-3 h-3" />
-                              <span>Updated {new Date(plan.updated_at).toLocaleDateString()}</span>
-                            </div>
-                            <p className="text-xs text-green-600 mt-1">
-                              ✓ User can see this plan
-                            </p>
+                        {/* Approve/Reject Buttons - Only show for staging plans */}
+                        {plan.is_staging && (
+                          <div className="flex gap-2 mt-3">
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleApprovePlan(plan.id);
+                              }}
+                              className="bg-green-600 hover:bg-green-700 text-white text-xs h-7"
+                            >
+                              <Check className="w-3 h-3 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRejectPlan(plan.id);
+                              }}
+                              className="text-red-600 border-red-300 hover:bg-red-50 text-xs h-7"
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Reject
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeletePlan(plan.id);
-                            }}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                        )}
                       </div>
-                    ))}
-                  </>
-                )}
-          </div>
+                      {/* Delete button - only for approved plans (staging plans use Reject) */}
+                      {!plan.is_staging && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeletePlan(plan.id);
+                          }}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+        </div>
 
               {/* Plan Details */}
               <div className="lg:col-span-2">
@@ -1092,28 +1043,28 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                           <CardTitle>{currentPlan.name}</CardTitle>
                           <div className="flex flex-wrap items-center gap-2 mt-2">
                             {renderSicknessIndicator(currentPlan)}
-                            {currentPlan.is_pending ? (
+                            {currentPlan.is_staging ? (
                               <Badge className="bg-orange-100 text-orange-700">
-                                <Clock className="w-3 h-3 mr-1" />
-                                Awaiting Approval - User cannot see this yet
+                                <Eye className="w-3 h-3 mr-1" />
+                                Ready for Review - User cannot see this yet
                               </Badge>
                             ) : (
                               <Badge className="bg-green-100 text-green-700">
                                 <Check className="w-3 h-3 mr-1" />
-                                Approved - User can see this
+                                Sent to User
                               </Badge>
                             )}
-                          </div>
+          </div>
                         </div>
-                        {/* Action Buttons for Plan Details - Only show for pending plans */}
-                        {currentPlan.is_pending && (
+                        {/* Action Buttons for Plan Details - Only show for staging plans */}
+                        {currentPlan.is_staging && (
                           <div className="flex gap-2">
                             <Button
                               onClick={() => handleApprovePlan(currentPlan.id)}
                               className="bg-green-600 hover:bg-green-700 text-white"
                             >
                               <Check className="w-4 h-4 mr-2" />
-                              Approve Plan
+                              Approve & Send to User
                             </Button>
                             <Button
                               variant="outline"
@@ -1123,9 +1074,9 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                               <X className="w-4 h-4 mr-2" />
                               Reject
                             </Button>
-        </div>
+                          </div>
                         )}
-          </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       {/* Health Assessment */}

@@ -441,7 +441,7 @@ class SupabaseService:
             print(f"[DEBUG] meal_plan type: {type(meal_plan)}")
 
             # Create insert data matching React structure
-            # All plans saved to this table are approved (visible to user)
+            # User-created meal plans go directly to meal_plan_management (no approval needed)
             insert_data = {
                 'user_id': user_id,
                 'name': name,
@@ -534,7 +534,7 @@ class SupabaseService:
             print(f"[DEBUG] Fetching meal plans for user: {user_id}")
             
             # Query the meal_plan_management table directly
-            # All plans in this table are approved (admin approves before saving)
+            # All plans in this table are approved (staging plans are in enterprise_meal_plan_staging)
             result = self.supabase.table('meal_plan_management').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
             
             print(f"[DEBUG] Query result: {result.data}")
