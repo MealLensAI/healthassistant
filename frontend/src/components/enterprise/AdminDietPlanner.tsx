@@ -987,7 +987,19 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                         <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
                           <Clock className="w-3 h-3" />
                           <span>Updated {new Date(plan.updated_at).toLocaleDateString()}</span>
-          </div>
+                        </div>
+                        
+                        {/* Quick Stats */}
+                        {plan.health_assessment?.dailyTargets && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded">
+                              {plan.health_assessment.dailyTargets.calories} kcal
+                            </span>
+                            <span className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
+                              P: {plan.health_assessment.dailyTargets.protein}g
+                            </span>
+                          </div>
+                        )}
 
                         {/* Approve/Reject Buttons - Only show for unapproved plans */}
                         {!plan.is_approved && (
@@ -1078,12 +1090,118 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                               <X className="w-4 h-4 mr-2" />
                               Reject
                             </Button>
-                          </div>
+              </div>
                         )}
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {/* Health Assessment */}
+                      {/* Meal Plan Summary */}
+                      <div className="mb-6 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
+                        <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                          <span className="text-lg">📊</span> Meal Plan Summary
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {/* Sickness Info */}
+                          {currentPlan.has_sickness && currentPlan.sickness_type && (
+                            <div className="bg-white p-3 rounded-lg border border-red-100">
+                              <div className="text-xs text-red-600 font-medium">Health Condition</div>
+                              <div className="text-sm font-semibold text-red-700 capitalize">{currentPlan.sickness_type}</div>
+                            </div>
+                          )}
+                          
+                          {/* User Info from health_assessment or user_info */}
+                          {(currentPlan.health_assessment?.userInfo || currentPlan.user_info) && (
+                            <>
+                              {(currentPlan.health_assessment?.userInfo?.age || currentPlan.user_info?.age) && (
+                                <div className="bg-white p-3 rounded-lg border border-slate-100">
+                                  <div className="text-xs text-slate-500 font-medium">Age</div>
+                                  <div className="text-sm font-semibold text-slate-800">
+                                    {currentPlan.health_assessment?.userInfo?.age || currentPlan.user_info?.age} years
+                </div>
+                                </div>
+                              )}
+                              {(currentPlan.health_assessment?.userInfo?.weight || currentPlan.user_info?.weight) && (
+                                <div className="bg-white p-3 rounded-lg border border-slate-100">
+                                  <div className="text-xs text-slate-500 font-medium">Weight</div>
+                                  <div className="text-sm font-semibold text-slate-800">
+                                    {currentPlan.health_assessment?.userInfo?.weight || currentPlan.user_info?.weight} kg
+                                  </div>
+                                </div>
+                              )}
+                              {(currentPlan.health_assessment?.userInfo?.height || currentPlan.user_info?.height) && (
+                                <div className="bg-white p-3 rounded-lg border border-slate-100">
+                                  <div className="text-xs text-slate-500 font-medium">Height</div>
+                                  <div className="text-sm font-semibold text-slate-800">
+                                    {currentPlan.health_assessment?.userInfo?.height || currentPlan.user_info?.height} cm
+                                  </div>
+                                </div>
+                              )}
+              </>
+            )}
+                          
+                          {/* Nutrition Targets from health_assessment */}
+                          {currentPlan.health_assessment?.dailyTargets && (
+                            <>
+                              <div className="bg-white p-3 rounded-lg border border-green-100">
+                                <div className="text-xs text-green-600 font-medium">Daily Calories</div>
+                                <div className="text-sm font-semibold text-green-700">
+                                  {currentPlan.health_assessment.dailyTargets.calories || 'N/A'} kcal
+          </div>
+        </div>
+                              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                                <div className="text-xs text-blue-600 font-medium">Protein</div>
+                                <div className="text-sm font-semibold text-blue-700">
+                                  {currentPlan.health_assessment.dailyTargets.protein || 'N/A'}g
+                                </div>
+                              </div>
+                              <div className="bg-white p-3 rounded-lg border border-orange-100">
+                                <div className="text-xs text-orange-600 font-medium">Carbs</div>
+                                <div className="text-sm font-semibold text-orange-700">
+                                  {currentPlan.health_assessment.dailyTargets.carbs || 'N/A'}g
+                                </div>
+                              </div>
+                              <div className="bg-white p-3 rounded-lg border border-purple-100">
+                                <div className="text-xs text-purple-600 font-medium">Fat</div>
+                                <div className="text-sm font-semibold text-purple-700">
+                                  {currentPlan.health_assessment.dailyTargets.fat || 'N/A'}g
+                                </div>
+                              </div>
+                            </>
+                          )}
+                          
+                          {/* BMR if available */}
+                          {currentPlan.health_assessment?.bmr && (
+                            <div className="bg-white p-3 rounded-lg border border-teal-100">
+                              <div className="text-xs text-teal-600 font-medium">BMR</div>
+                              <div className="text-sm font-semibold text-teal-700">
+                                {Math.round(currentPlan.health_assessment.bmr)} kcal
+          </div>
+                            </div>
+                          )}
+                          
+                          {/* TDEE if available */}
+                          {currentPlan.health_assessment?.tdee && (
+                            <div className="bg-white p-3 rounded-lg border border-indigo-100">
+                              <div className="text-xs text-indigo-600 font-medium">TDEE</div>
+                              <div className="text-sm font-semibold text-indigo-700">
+                                {Math.round(currentPlan.health_assessment.tdee)} kcal
+                              </div>
+                            </div>
+                          )}
+        </div>
+
+                        {/* Health Goal if available */}
+                        {(currentPlan.health_assessment?.goal || currentPlan.user_info?.healthGoal) && (
+                          <div className="mt-3 pt-3 border-t border-slate-200">
+                            <span className="text-xs text-slate-500">Health Goal: </span>
+                            <span className="text-sm font-medium text-slate-700 capitalize">
+                              {currentPlan.health_assessment?.goal || currentPlan.user_info?.healthGoal}
+            </span>
+                          </div>
+                        )}
+          </div>
+
+                      {/* Health Assessment Card (detailed) */}
                       {currentPlan.health_assessment && (
                         <div className="mb-6">
                           <HealthAssessmentCard
