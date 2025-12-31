@@ -1099,7 +1099,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                       {/* Meal Plan Summary */}
                       <div className="mb-6 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
                         <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                          <span className="text-lg">💊</span> Health Profile & Nutrition Goals
+                          Health Profile & Nutrition Goals
                         </h4>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           {/* Sickness Info */}
