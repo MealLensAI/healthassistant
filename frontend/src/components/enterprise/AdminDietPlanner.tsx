@@ -86,7 +86,7 @@ interface SavedMealPlan {
   sickness_type?: string;
   health_assessment?: any;
   user_info?: any;
-  is_staging?: boolean;  // true = needs approval, false = already approved and visible to user
+  is_approved?: boolean;  // false = needs approval, true = approved and visible to user
 }
 
 interface UserInfo {
@@ -339,15 +339,14 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
           description: "The meal plan is now visible to the user."
         });
         
-        // Remove the staging plan from the list and add the approved one
-        // The plan moves from staging to approved, so we need to refresh
-        if (selectedUser) {
-          loadUserMealPlans(selectedUser.user_id);
-        }
+        // Update the plan in the list to show as approved
+        setUserMealPlans(prev => prev.map(plan => 
+          plan.id === planId ? { ...plan, is_approved: true } : plan
+        ));
         
-        // Clear current plan if it was the one approved (it's now in a different state)
+        // Update current plan if it was the one approved
         if (currentPlan?.id === planId) {
-          setCurrentPlan(null);
+          setCurrentPlan(prev => prev ? { ...prev, is_approved: true } : null);
         }
       } else {
         toast({
@@ -962,9 +961,9 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                     className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                       currentPlan?.id === plan.id
                         ? 'border-blue-500 bg-blue-50'
-                        : plan.is_staging 
-                          ? 'border-orange-200 hover:border-orange-300 bg-orange-50/50'
-                          : 'border-green-200 hover:border-green-300 bg-green-50/50'
+                        : plan.is_approved 
+                          ? 'border-green-200 hover:border-green-300 bg-green-50/50'
+                          : 'border-orange-200 hover:border-orange-300 bg-orange-50/50'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -972,11 +971,16 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                         <h4 className="font-semibold text-slate-900 truncate">{plan.name}</h4>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           {renderSicknessIndicator(plan)}
-                          {/* Status Badge - Only show for staging plans */}
-                          {plan.is_staging && (
+                          {/* Status Badge */}
+                          {plan.is_approved ? (
+                            <Badge className="bg-green-100 text-green-700 text-xs">
+                              <Check className="w-3 h-3 mr-1" />
+                              Approved
+                            </Badge>
+                          ) : (
                             <Badge className="bg-orange-100 text-orange-700 text-xs">
                               <Eye className="w-3 h-3 mr-1" />
-                              Ready for Review
+                              Pending Review
                             </Badge>
                           )}
                         </div>
@@ -985,8 +989,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                           <span>Updated {new Date(plan.updated_at).toLocaleDateString()}</span>
           </div>
 
-                        {/* Approve/Reject Buttons - Only show for staging plans */}
-                        {plan.is_staging && (
+                        {/* Approve/Reject Buttons - Only show for unapproved plans */}
+                        {!plan.is_approved && (
                           <div className="flex gap-2 mt-3">
                             <Button
                               size="sm"
@@ -1014,8 +1018,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                           </div>
                         )}
                       </div>
-                      {/* Delete button - only for approved plans (staging plans use Reject) */}
-                      {!plan.is_staging && (
+                      {/* Delete button - only for approved plans */}
+                      {plan.is_approved && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1043,21 +1047,21 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                           <CardTitle>{currentPlan.name}</CardTitle>
                           <div className="flex flex-wrap items-center gap-2 mt-2">
                             {renderSicknessIndicator(currentPlan)}
-                            {currentPlan.is_staging ? (
-                              <Badge className="bg-orange-100 text-orange-700">
-                                <Eye className="w-3 h-3 mr-1" />
-                                Ready for Review - User cannot see this yet
-                              </Badge>
-                            ) : (
+                            {currentPlan.is_approved ? (
                               <Badge className="bg-green-100 text-green-700">
                                 <Check className="w-3 h-3 mr-1" />
-                                Sent to User
+                                Approved - User can see this
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-orange-100 text-orange-700">
+                                <Eye className="w-3 h-3 mr-1" />
+                                Pending Review - User cannot see this yet
                               </Badge>
                             )}
-          </div>
+                          </div>
                         </div>
-                        {/* Action Buttons for Plan Details - Only show for staging plans */}
-                        {currentPlan.is_staging && (
+                        {/* Action Buttons for Plan Details - Only show for unapproved plans */}
+                        {!currentPlan.is_approved && (
                           <div className="flex gap-2">
                             <Button
                               onClick={() => handleApprovePlan(currentPlan.id)}

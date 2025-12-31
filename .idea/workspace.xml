@@ -5,7 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8b490bbb-0141-4b56-b6c0-741c58db7ad3" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/migrations/009_create_enterprise_meal_plan_staging.sql" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/routes/enterprise_routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/routes/enterprise_routes.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/services/supabase_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/services/supabase_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/components/enterprise/AdminDietPlanner.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/enterprise/AdminDietPlanner.tsx" afterDir="false" />
