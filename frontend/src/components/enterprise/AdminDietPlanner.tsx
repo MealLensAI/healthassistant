@@ -11,6 +11,7 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Swal from 'sweetalert2';
 
 // Countries list for the dropdown
@@ -874,26 +875,57 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
           {users.length === 0 ? (
             <p className="text-slate-500 text-center py-4">No users in this organization yet</p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {users.map((user) => (
-            <button
-                  key={user.user_id}
-                  onClick={() => setSelectedUser(user)}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    selectedUser?.user_id === user.user_id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="font-medium text-slate-900">{getUserName(user)}</div>
-                  <div className="text-sm text-slate-500">{user.email}</div>
-                  {user.role && (
-                    <Badge variant="outline" className="mt-2 text-xs capitalize">
-                      {user.role}
-                    </Badge>
-                  )}
-            </button>
-              ))}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow 
+                      key={user.user_id}
+                      className={`cursor-pointer transition-colors ${
+                        selectedUser?.user_id === user.user_id
+                          ? 'bg-blue-50 hover:bg-blue-100'
+                          : 'hover:bg-slate-50'
+                      }`}
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      <TableCell className="font-medium text-slate-900">
+                        {getUserName(user)}
+                      </TableCell>
+                      <TableCell className="text-slate-600">
+                        {user.email}
+                      </TableCell>
+                      <TableCell>
+                        {user.role && (
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {user.role}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant={selectedUser?.user_id === user.user_id ? "default" : "outline"}
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedUser(user);
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          {selectedUser?.user_id === user.user_id ? 'Selected' : 'Select'}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
