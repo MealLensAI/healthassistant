@@ -196,47 +196,51 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
 
   const loadUserHealthProfile = async (userId: string) => {
     try {
-      // Use the settings endpoint which returns the current health profile from user_settings table
-      const result: any = await api.getEnterpriseUserSettings(enterpriseId, userId);
-      console.log('[AdminDietPlanner] User settings result:', result);
+      // Use the health history endpoint to get the most recent health profile
+      // This contains all historical settings data ordered by created_at desc
+      const result: any = await api.getUserHealthHistory(enterpriseId, userId);
+      console.log('[AdminDietPlanner] User health history result:', result);
       
-      if (result.success && result.settings) {
-        // The settings object contains the health profile data directly
-        // Handle both camelCase and snake_case field names
-        const settings = result.settings;
-        const hasSickness = settings.has_sickness || settings.hasSickness || false;
-        const sicknessType = settings.sickness_type || settings.sicknessType || '';
-        const activityLevel = settings.activity_level || settings.activityLevel || '';
+      if (result.success && result.health_history && result.health_history.length > 0) {
+        // Get the most recent health history record (first in the array since it's ordered by created_at desc)
+        const mostRecentRecord = result.health_history[0];
         
-        // Always set the health profile if we have settings data
-        // This allows the admin to see the user's health info even if hasSickness is false
+        // The health data is stored in the settings_data field
+        const settingsData = mostRecentRecord.settings_data || mostRecentRecord;
+        console.log('[AdminDietPlanner] Most recent settings_data:', settingsData);
+        
+        // Handle both camelCase and snake_case field names
+        const hasSickness = settingsData.hasSickness || settingsData.has_sickness || false;
+        const sicknessType = settingsData.sicknessType || settingsData.sickness_type || '';
+        const activityLevel = settingsData.activityLevel || settingsData.activity_level || '';
+        
         const healthProfile = {
           has_sickness: hasSickness,
           sickness_type: sicknessType,
-          age: settings.age,
-          weight: settings.weight,
-          height: settings.height,
-          waist: settings.waist,
-          gender: settings.gender,
+          age: settingsData.age,
+          weight: settingsData.weight,
+          height: settingsData.height,
+          waist: settingsData.waist,
+          gender: settingsData.gender,
           activity_level: activityLevel,
-          goal: settings.goal,
-          location: settings.location
+          goal: settingsData.goal,
+          location: settingsData.location
         };
         
-        console.log('[AdminDietPlanner] Parsed health profile:', healthProfile);
+        console.log('[AdminDietPlanner] Parsed health profile from history:', healthProfile);
         
         // Set the health profile if user has sickness OR has basic health data
-        if (hasSickness || settings.age || settings.weight || settings.height) {
+        if (hasSickness || settingsData.age || settingsData.weight || settingsData.height) {
           setUserHealthProfile(healthProfile);
         } else {
           setUserHealthProfile(null);
         }
       } else {
-        console.log('[AdminDietPlanner] No settings found in response');
+        console.log('[AdminDietPlanner] No health history found for user');
         setUserHealthProfile(null);
       }
     } catch (err) {
-      console.error('[AdminDietPlanner] Error loading health profile:', err);
+      console.error('[AdminDietPlanner] Error loading health profile from history:', err);
       setUserHealthProfile(null);
     }
   };
