@@ -2171,8 +2171,7 @@ def get_user_meal_plans(enterprise_id, user_id):
                 'has_sickness': plan.get('has_sickness', False),
                 'sickness_type': plan.get('sickness_type', ''),
                 'health_assessment': plan.get('health_assessment'),
-                'user_info': plan.get('user_info'),
-                'is_approved': plan.get('is_approved', False)
+                'user_info': plan.get('user_info')
             })
         
         return jsonify({
@@ -2217,7 +2216,7 @@ def create_user_meal_plan(enterprise_id, user_id):
             }), 404
         
         # Create meal plan for the user
-        # is_approved defaults to false - admin must approve before user can see it
+        # Plans saved here are already approved (admin approved before saving)
         now = datetime.now(timezone.utc).isoformat()
         
         insert_data = {
@@ -2228,7 +2227,8 @@ def create_user_meal_plan(enterprise_id, user_id):
             'meal_plan': data.get('meal_plan') or data.get('mealPlan'),
             'has_sickness': data.get('has_sickness', False),
             'sickness_type': data.get('sickness_type', ''),
-            'is_approved': False,
+            'health_assessment': data.get('health_assessment'),
+            'user_info': data.get('user_info'),
             'created_at': now,
             'updated_at': now
         }
@@ -2239,14 +2239,17 @@ def create_user_meal_plan(enterprise_id, user_id):
             plan = result.data[0]
             return jsonify({
                 'success': True,
-                'message': 'Meal plan created successfully. Please approve it before the user can see it.',
+                'message': 'Meal plan created and approved. User can now see this plan.',
                 'meal_plan': {
                     'id': plan['id'],
                     'name': plan.get('name'),
                     'start_date': plan.get('start_date'),
                     'end_date': plan.get('end_date'),
                     'meal_plan': plan.get('meal_plan'),
-                    'is_approved': plan.get('is_approved', False),
+                    'has_sickness': plan.get('has_sickness', False),
+                    'sickness_type': plan.get('sickness_type', ''),
+                    'health_assessment': plan.get('health_assessment'),
+                    'user_info': plan.get('user_info'),
                     'created_at': plan.get('created_at'),
                     'updated_at': plan.get('updated_at')
                 }
@@ -2303,36 +2306,15 @@ def approve_meal_plan(enterprise_id, plan_id):
                 'error': 'User is not a member of this organization'
             }), 403
         
-        # Meal plan is approved - set is_approved to true so user can see it
-        now = datetime.now(timezone.utc).isoformat()
+        # Note: With the new flow, plans are saved to DB only when approved.
+        # This endpoint is kept for backwards compatibility but now just confirms the plan exists.
+        # The actual approval happens when the admin saves the plan via createUserMealPlan.
         
-        # Try to update with is_approved column, fall back to just updating timestamp if column doesn't exist
-        try:
-            update_result = supabase.table('meal_plan_management').update({
-                'is_approved': True,
-                'updated_at': now
-            }).eq('id', plan_id).execute()
-        except Exception as col_error:
-            # Column might not exist yet, just update timestamp
-            current_app.logger.warning(f'is_approved column may not exist, updating timestamp only: {col_error}')
-            update_result = supabase.table('meal_plan_management').update({
-                'updated_at': now
-            }).eq('id', plan_id).execute()
-        
-        if update_result.data:
-            # Return the plan with is_approved = True regardless of database state
-            approved_plan = update_result.data[0]
-            approved_plan['is_approved'] = True
-            return jsonify({
-                'success': True,
-                'message': 'Meal plan approved successfully. User can now see this plan.',
-                'meal_plan': approved_plan
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to approve meal plan'
-            }), 500
+        return jsonify({
+            'success': True,
+            'message': 'Meal plan is approved and visible to the user.',
+            'meal_plan': plan
+        }), 200
             
     except Exception as e:
         current_app.logger.error(f'Failed to approve meal plan: {str(e)}')
