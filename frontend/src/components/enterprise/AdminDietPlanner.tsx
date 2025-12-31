@@ -117,7 +117,7 @@ const mapGoalToBackendFormat = (goal: string | undefined): string => {
   const lowerGoal = normalizedGoal.toLowerCase();
   for (const [key, value] of Object.entries(goalMap)) {
     if (key.toLowerCase() === lowerGoal) return value;
-  }
+    }
   return lowerGoal.includes('maintain') ? 'maintain' : 'heal';
 };
 
@@ -181,8 +181,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
           title: "Error",
           description: result.error || "Failed to load meal plans",
           variant: "destructive"
-        });
-      }
+      });
+    }
     } catch (err: any) {
       toast({
         title: "Error",
@@ -198,31 +198,45 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
     try {
       // Use the settings endpoint which returns the current health profile from user_settings table
       const result: any = await api.getEnterpriseUserSettings(enterpriseId, userId);
+      console.log('[AdminDietPlanner] User settings result:', result);
+      
       if (result.success && result.settings) {
         // The settings object contains the health profile data directly
-        // Check for has_sickness or hasSickness field
+        // Handle both camelCase and snake_case field names
         const settings = result.settings;
-        if (settings.has_sickness || settings.hasSickness) {
-          setUserHealthProfile({
-            has_sickness: settings.has_sickness || settings.hasSickness,
-            sickness_type: settings.sickness_type || settings.sicknessType,
-            age: settings.age,
-            weight: settings.weight,
-            height: settings.height,
-            waist: settings.waist,
-            gender: settings.gender,
-            activity_level: settings.activity_level || settings.activityLevel,
-            goal: settings.goal,
-            location: settings.location
-          });
+        const hasSickness = settings.has_sickness || settings.hasSickness || false;
+        const sicknessType = settings.sickness_type || settings.sicknessType || '';
+        const activityLevel = settings.activity_level || settings.activityLevel || '';
+        
+        // Always set the health profile if we have settings data
+        // This allows the admin to see the user's health info even if hasSickness is false
+        const healthProfile = {
+          has_sickness: hasSickness,
+          sickness_type: sicknessType,
+          age: settings.age,
+          weight: settings.weight,
+          height: settings.height,
+          waist: settings.waist,
+          gender: settings.gender,
+          activity_level: activityLevel,
+          goal: settings.goal,
+          location: settings.location
+        };
+        
+        console.log('[AdminDietPlanner] Parsed health profile:', healthProfile);
+        
+        // Set the health profile if user has sickness OR has basic health data
+        if (hasSickness || settings.age || settings.weight || settings.height) {
+          setUserHealthProfile(healthProfile);
         } else {
           setUserHealthProfile(null);
         }
       } else {
+        console.log('[AdminDietPlanner] No settings found in response');
         setUserHealthProfile(null);
       }
     } catch (err) {
-      console.log('No health profile found for user');
+      console.error('[AdminDietPlanner] Error loading health profile:', err);
       setUserHealthProfile(null);
     }
   };
@@ -520,7 +534,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         formData.append('ingredient_list', ingredientList);
         } else if (inputType === 'image' && selectedImage) {
           formData.append('image', selectedImage);
-        }
+      }
 
         if (hasSickness && healthProfile) {
           // Use sick_smart_plan
@@ -633,7 +647,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         loadUserMealPlans(selectedUser.user_id);
         } else {
         throw new Error(saveResult.error || 'Failed to save meal plan');
-      }
+        }
 
     } catch (error: any) {
       console.error('Error generating meal plan:', error);
@@ -815,7 +829,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
 
       {/* Selected User's Meal Plans */}
       {selectedUser && (
-        <>
+              <>
           {/* Header with Create Button */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white rounded-xl p-4 shadow-sm border">
             <div>
@@ -875,8 +889,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                       currentPlan?.id === plan.id
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
+              }`}
+            >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-slate-900 truncate">{plan.name}</h4>
@@ -1061,14 +1075,51 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                 <div className="flex items-center gap-2 mb-2">
                       <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                       <span className="text-sm font-semibold text-green-900">🏥 Medical-Grade AI Nutrition Plan</span>
-                </div>
-                  <div className="space-y-2">
-                {userHealthProfile?.has_sickness ? (
+              </div>
+              <div className="space-y-2">
+                {userHealthProfile ? (
                   <>
-                    <p className="text-sm text-green-800">
-                      User has health condition: <strong>{userHealthProfile.sickness_type}</strong>
-                    </p>
-                    <ul className="text-xs text-green-700 space-y-1 ml-4">
+                    {userHealthProfile.has_sickness && userHealthProfile.sickness_type ? (
+                      <p className="text-sm text-green-800">
+                        User has health condition: <strong>{userHealthProfile.sickness_type}</strong>
+                      </p>
+                    ) : userHealthProfile.has_sickness ? (
+                      <p className="text-sm text-orange-700">
+                        User has health condition but <strong>condition type not specified</strong>
+                      </p>
+                    ) : (
+                      <p className="text-sm text-green-800">
+                        Creating <strong>health-aware meal plan</strong> using user's profile data
+                      </p>
+                    )}
+                    {/* Show user's health data summary */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 p-2 bg-white/50 rounded-lg text-xs">
+                      {userHealthProfile.age && (
+                        <div><span className="text-gray-500">Age:</span> <strong>{userHealthProfile.age}</strong></div>
+                      )}
+                      {userHealthProfile.gender && (
+                        <div><span className="text-gray-500">Gender:</span> <strong className="capitalize">{userHealthProfile.gender}</strong></div>
+                      )}
+                      {userHealthProfile.height && (
+                        <div><span className="text-gray-500">Height:</span> <strong>{userHealthProfile.height}cm</strong></div>
+                      )}
+                      {userHealthProfile.weight && (
+                        <div><span className="text-gray-500">Weight:</span> <strong>{userHealthProfile.weight}kg</strong></div>
+                      )}
+                      {userHealthProfile.waist && (
+                        <div><span className="text-gray-500">Waist:</span> <strong>{userHealthProfile.waist}cm</strong></div>
+                      )}
+                      {userHealthProfile.activity_level && (
+                        <div><span className="text-gray-500">Activity:</span> <strong className="capitalize">{userHealthProfile.activity_level.replace('_', ' ')}</strong></div>
+                      )}
+                      {userHealthProfile.goal && (
+                        <div><span className="text-gray-500">Goal:</span> <strong className="capitalize">{userHealthProfile.goal}</strong></div>
+                      )}
+                      {userHealthProfile.location && (
+                        <div><span className="text-gray-500">Location:</span> <strong>{userHealthProfile.location}</strong></div>
+                  )}
+                </div>
+                    <ul className="text-xs text-green-700 space-y-1 ml-4 mt-2">
                       <li>• Full nutritional breakdown (calories, protein, carbs, fats)</li>
                       <li>• Health assessment (WHtR, BMR, daily calorie needs)</li>
                       <li>• Condition-specific health benefits for each meal</li>
@@ -1208,6 +1259,25 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                         <p className="text-sm text-green-700">Personalized meal plans with detailed nutrition for {getUserName(selectedUser)}</p>
                         </div>
                       </div>
+                    
+                    {/* Show user's health profile data if available */}
+                    {userHealthProfile && (
+                      <div className="p-3 bg-white/70 border border-green-200 rounded-lg mb-4">
+                        <div className="text-xs font-semibold text-green-800 mb-2">Using Health Profile Data:</div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-green-700">
+                          {userHealthProfile.age && <div>Age: <strong>{userHealthProfile.age}</strong></div>}
+                          {userHealthProfile.gender && <div>Gender: <strong className="capitalize">{userHealthProfile.gender}</strong></div>}
+                          {userHealthProfile.height && <div>Height: <strong>{userHealthProfile.height}cm</strong></div>}
+                          {userHealthProfile.weight && <div>Weight: <strong>{userHealthProfile.weight}kg</strong></div>}
+                          {userHealthProfile.waist && <div>Waist: <strong>{userHealthProfile.waist}cm</strong></div>}
+                          {userHealthProfile.activity_level && <div>Activity: <strong className="capitalize">{userHealthProfile.activity_level.replace('_', ' ')}</strong></div>}
+                          {userHealthProfile.sickness_type && <div>Condition: <strong>{userHealthProfile.sickness_type}</strong></div>}
+                          {userHealthProfile.goal && <div>Goal: <strong className="capitalize">{userHealthProfile.goal}</strong></div>}
+                          {userHealthProfile.location && <div>Location: <strong>{userHealthProfile.location}</strong></div>}
+                        </div>
+                      </div>
+                    )}
+                    
                       <div className="p-4 bg-blue-100 border border-blue-300 rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-blue-600">✨</span>
@@ -1225,12 +1295,24 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                         </ul>
                       </div>
                     </div>
-                  {!userHealthProfile?.has_sickness && (
+                  
+                  {/* Warning only if no health profile at all */}
+                  {!userHealthProfile && (
                     <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
                       <p className="text-sm text-orange-800">
                         <strong>⚠️ Note:</strong> This user doesn't have a health profile configured. 
                         The Medical AI will generate a general health-aware meal plan with default values. 
                         For best results, set up the user's health profile in the Health Information section first.
+                      </p>
+                        </div>
+                  )}
+                  
+                  {/* Warning if health condition is marked but no condition type specified */}
+                  {userHealthProfile?.has_sickness && !userHealthProfile?.sickness_type && (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        <strong>💡 Tip:</strong> User has marked "has health condition" but hasn't specified the condition type. 
+                        For better meal recommendations, update the user's health profile with their specific condition.
                       </p>
                     </div>
                   )}

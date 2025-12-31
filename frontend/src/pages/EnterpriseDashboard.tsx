@@ -1624,12 +1624,13 @@ export default function EnterpriseDashboard() {
                             </Table>
                           </div>
                         ) : (
-                          /* EDIT FORM */
+                          /* EDIT FORM - Matching user Settings page layout */
                           <>
-                            <div className="space-y-4">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-6">
+                              {/* Basic Info Grid */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                  <Label htmlFor="age">Age</Label>
+                                  <Label htmlFor="age" className="text-center block">Age</Label>
                                   <Input
                                     id="age"
                                     type="number"
@@ -1638,11 +1639,12 @@ export default function EnterpriseDashboard() {
                                       ...userSettingsData,
                                       age: e.target.value ? parseInt(e.target.value) : undefined
                                     })}
+                                    className="text-center"
                                   />
                                 </div>
 
                                 <div className="space-y-2">
-                                  <Label>Gender</Label>
+                                  <Label className="text-center block">Gender</Label>
                                   <Select
                                     value={userSettingsData?.gender || ''}
                                     onValueChange={(value) => setUserSettingsData({
@@ -1662,7 +1664,7 @@ export default function EnterpriseDashboard() {
                                 </div>
 
                                 <div className="space-y-2">
-                                  <Label>Height (cm)</Label>
+                                  <Label className="text-center block">Height (cm)</Label>
                                   <Input
                                     type="number"
                                     value={userSettingsData?.height || ''}
@@ -1670,11 +1672,12 @@ export default function EnterpriseDashboard() {
                                       ...userSettingsData,
                                       height: e.target.value ? parseFloat(e.target.value) : undefined
                                     })}
+                                    className="text-center"
                                   />
                                 </div>
 
                                 <div className="space-y-2">
-                                  <Label>Weight (kg)</Label>
+                                  <Label className="text-center block">Weight (kg)</Label>
                                   <Input
                                     type="number"
                                     value={userSettingsData?.weight || ''}
@@ -1682,11 +1685,12 @@ export default function EnterpriseDashboard() {
                                       ...userSettingsData,
                                       weight: e.target.value ? parseFloat(e.target.value) : undefined
                                     })}
+                                    className="text-center"
                                   />
                                 </div>
 
                                 <div className="space-y-2">
-                                  <Label>Waist Circumference (cm)</Label>
+                                  <Label className="text-center block">Waist Circumference (cm)</Label>
                                   <Input
                                     type="number"
                                     value={userSettingsData?.waist || ''}
@@ -1694,11 +1698,12 @@ export default function EnterpriseDashboard() {
                                       ...userSettingsData,
                                       waist: e.target.value ? parseFloat(e.target.value) : undefined
                                     })}
+                                    className="text-center"
                                   />
                                 </div>
 
                                 <div className="space-y-2">
-                                  <Label>Activity Level</Label>
+                                  <Label className="text-center block">Activity Level</Label>
                                   <Select
                                     value={userSettingsData?.activityLevel || ''}
                                     onValueChange={(value) => setUserSettingsData({
@@ -1720,7 +1725,7 @@ export default function EnterpriseDashboard() {
                                 </div>
 
                                 <div className="space-y-2">
-                                  <Label>Health Goal</Label>
+                                  <Label className="text-center block">Health Goal</Label>
                                   <Select
                                     value={userSettingsData?.goal || ''}
                                     onValueChange={(value) => setUserSettingsData({
@@ -1732,31 +1737,32 @@ export default function EnterpriseDashboard() {
                                       <SelectValue placeholder="Select goal" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="heal">Heal & Manage Condition</SelectItem>
-                                      <SelectItem value="maintain">Maintain Health</SelectItem>
-                                      <SelectItem value="lose_weight">Lose Weight</SelectItem>
-                                      <SelectItem value="gain_weight">Gain Weight</SelectItem>
-                                      <SelectItem value="improve_fitness">Improve Fitness</SelectItem>
+                                      <SelectItem value="Heal">Heal</SelectItem>
+                                      <SelectItem value="Improve">Improve</SelectItem>
+                                      <SelectItem value="Manage">Manage</SelectItem>
+                                      <SelectItem value="Restore">Restore</SelectItem>
+                                      <SelectItem value="Maintain">Maintain</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </div>
 
                                 <div className="space-y-2">
-                                  <Label>Location</Label>
+                                  <Label className="text-center block">Location</Label>
                                   <Input
                                     value={userSettingsData?.location || ''}
                                     onChange={(e) => setUserSettingsData({
                                       ...userSettingsData,
                                       location: e.target.value
                                     })}
+                                    className="text-center"
                                   />
                                 </div>
                               </div>
 
-                              {/* Health Condition Section - Prominent */}
-                              <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                              {/* Health Condition Section - Prominent Blue Box */}
+                              <div className="space-y-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
                                 <div className="space-y-2">
-                                  <Label className="text-base font-semibold text-blue-900">Health Condition Status</Label>
+                                  <Label className="text-center block text-base font-semibold text-blue-900">Health Condition Status</Label>
                                   <Select
                                     value={userSettingsData?.hasSickness ? 'yes' : 'no'}
                                     onValueChange={(value) => setUserSettingsData({
@@ -1765,7 +1771,7 @@ export default function EnterpriseDashboard() {
                                       ...(value === 'no' ? { sicknessType: '' } : {})
                                     })}
                                   >
-                                    <SelectTrigger className="bg-white">
+                                    <SelectTrigger className="bg-white border-2 border-blue-300">
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -1776,7 +1782,7 @@ export default function EnterpriseDashboard() {
                                 </div>
                                 {userSettingsData?.hasSickness && (
                                   <div className="space-y-2">
-                                    <Label className="text-blue-900">Condition Type</Label>
+                                    <Label className="text-center block text-blue-900">Condition Type</Label>
                                     <Input
                                       value={userSettingsData?.sicknessType || ''}
                                       onChange={(e) => setUserSettingsData({
@@ -1784,7 +1790,7 @@ export default function EnterpriseDashboard() {
                                         sicknessType: e.target.value
                                       })}
                                       placeholder="Enter the specific health condition"
-                                      className="bg-white"
+                                      className="bg-white text-center"
                                     />
                                   </div>
                                 )}
