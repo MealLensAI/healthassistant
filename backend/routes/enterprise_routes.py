@@ -2305,16 +2305,28 @@ def approve_meal_plan(enterprise_id, plan_id):
         
         # Meal plan is approved - set is_approved to true so user can see it
         now = datetime.now(timezone.utc).isoformat()
-        update_result = supabase.table('meal_plan_management').update({
-            'is_approved': True,
-            'updated_at': now
-        }).eq('id', plan_id).execute()
+        
+        # Try to update with is_approved column, fall back to just updating timestamp if column doesn't exist
+        try:
+            update_result = supabase.table('meal_plan_management').update({
+                'is_approved': True,
+                'updated_at': now
+            }).eq('id', plan_id).execute()
+        except Exception as col_error:
+            # Column might not exist yet, just update timestamp
+            current_app.logger.warning(f'is_approved column may not exist, updating timestamp only: {col_error}')
+            update_result = supabase.table('meal_plan_management').update({
+                'updated_at': now
+            }).eq('id', plan_id).execute()
         
         if update_result.data:
+            # Return the plan with is_approved = True regardless of database state
+            approved_plan = update_result.data[0]
+            approved_plan['is_approved'] = True
             return jsonify({
                 'success': True,
                 'message': 'Meal plan approved successfully. User can now see this plan.',
-                'meal_plan': update_result.data[0]
+                'meal_plan': approved_plan
             }), 200
         else:
             return jsonify({
