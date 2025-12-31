@@ -11,7 +11,8 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Swal from 'sweetalert2';
 
 // Countries list for the dropdown
@@ -863,73 +864,39 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
 
   return (
     <div className="space-y-6">
-      {/* User Selection Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Select User to Manage Meal Plans
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {users.length === 0 ? (
-            <p className="text-slate-500 text-center py-4">No users in this organization yet</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow 
-                      key={user.user_id}
-                      className={`cursor-pointer transition-colors ${
-                        selectedUser?.user_id === user.user_id
-                          ? 'bg-blue-50 hover:bg-blue-100'
-                          : 'hover:bg-slate-50'
-                      }`}
-                      onClick={() => setSelectedUser(user)}
-                    >
-                      <TableCell className="font-medium text-slate-900">
-                        {getUserName(user)}
-                      </TableCell>
-                      <TableCell className="text-slate-600">
-                        {user.email}
-                      </TableCell>
-                      <TableCell>
-                        {user.role && (
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {user.role}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant={selectedUser?.user_id === user.user_id ? "default" : "outline"}
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedUser(user);
-                          }}
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          {selectedUser?.user_id === user.user_id ? 'Selected' : 'Select'}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* User Selection */}
+      <div className="mb-6">
+        <Label htmlFor="user-select" className="text-sm font-semibold text-slate-700 mb-2 block">
+          Select Member to Manage Meal Plans
+        </Label>
+        <Select
+          value={selectedUser?.user_id || ""}
+          onValueChange={(userId) => {
+            const user = users.find(u => u.user_id === userId);
+            if (user) {
+              setSelectedUser(user);
+            }
+          }}
+        >
+          <SelectTrigger id="user-select" className="w-full max-w-md">
+            <SelectValue placeholder="Choose a user to manage their meal plans" />
+          </SelectTrigger>
+          <SelectContent>
+            {users.length === 0 ? (
+              <SelectItem value="no-users" disabled>No members available</SelectItem>
+            ) : (
+              users.map((user) => {
+                const userName = getUserName(user);
+                return (
+                  <SelectItem key={user.user_id} value={user.user_id}>
+                    {userName} ({user.email})
+                  </SelectItem>
+                );
+              })
+            )}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Selected User's Meal Plans */}
       {selectedUser && (
