@@ -86,6 +86,7 @@ interface SavedMealPlan {
   sickness_type?: string;
   health_assessment?: any;
   user_info?: any;
+  is_approved?: boolean;
 }
 
 interface UserInfo {
@@ -329,28 +330,89 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
     }
   };
 
+  const handleApprovePlan = async (planId: string) => {
+    try {
+      const result: any = await api.approveMealPlan(enterpriseId, planId);
+      if (result.success) {
+        toast({
+          title: "Plan Approved! ✅",
+          description: "The meal plan is now visible to the user."
+        });
+        if (selectedUser) {
+          loadUserMealPlans(selectedUser.user_id);
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to approve meal plan",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to approve meal plan",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRejectPlan = async (planId: string) => {
+    if (!window.confirm("Are you sure you want to reject this meal plan? It will be deleted and the user will not see it.")) {
+      return;
+    }
+    
+    try {
+      const result: any = await api.rejectMealPlan(enterpriseId, planId);
+      if (result.success) {
+        toast({
+          title: "Plan Rejected",
+          description: "The meal plan has been deleted."
+        });
+        if (selectedUser) {
+          loadUserMealPlans(selectedUser.user_id);
+        }
+        if (currentPlan?.id === planId) {
+          setCurrentPlan(null);
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to reject meal plan",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to reject meal plan",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!selectedUser) {
-        toast({
+          toast({
           title: "Error",
         description: "Please select a user first",
-          variant: "destructive",
-        });
-        return;
-      }
+            variant: "destructive",
+          });
+          return;
+        }
 
     // Validation
     if (!isAutoGenerateEnabled && inputType !== 'auto_medical') {
       if (inputType === 'ingredient_list' && !ingredientList.trim()) {
-        toast({
+          toast({
           title: "Error",
           description: "Please enter ingredients list",
-          variant: "destructive",
-        });
-        return;
-      }
+            variant: "destructive",
+          });
+          return;
+        }
       if (inputType === 'image' && !selectedImage) {
         toast({
           title: "Error",
@@ -892,19 +954,62 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                     className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                       currentPlan?.id === plan.id
                         ? 'border-blue-500 bg-blue-50'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-              }`}
-            >
+                        : plan.is_approved 
+                          ? 'border-green-200 hover:border-green-300 bg-green-50/50'
+                          : 'border-orange-200 hover:border-orange-300 bg-orange-50/50'
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-slate-900 truncate">{plan.name}</h4>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           {renderSicknessIndicator(plan)}
-          </div>
+                          {/* Approval Status Badge */}
+                          {plan.is_approved ? (
+                            <Badge className="bg-green-100 text-green-700 text-xs">
+                              <Check className="w-3 h-3 mr-1" />
+                              Approved
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-orange-100 text-orange-700 text-xs">
+                              <Clock className="w-3 h-3 mr-1" />
+                              Pending
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
                           <Clock className="w-3 h-3" />
                           <span>Updated {new Date(plan.updated_at).toLocaleDateString()}</span>
-                        </div>
+          </div>
+
+                        {/* Approve/Reject Buttons - Only show for pending plans */}
+                        {!plan.is_approved && (
+                          <div className="flex gap-2 mt-3">
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleApprovePlan(plan.id);
+                              }}
+                              className="bg-green-600 hover:bg-green-700 text-white text-xs h-7"
+                            >
+                              <Check className="w-3 h-3 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRejectPlan(plan.id);
+                              }}
+                              className="text-red-600 border-red-300 hover:bg-red-50 text-xs h-7"
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
+                        )}
                       </div>
                       <Button
                         variant="ghost"
@@ -927,14 +1032,44 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                 {currentPlan ? (
                   <Card>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div>
                           <CardTitle>{currentPlan.name}</CardTitle>
-                          <div className="flex items-center gap-2 mt-2">
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
                             {renderSicknessIndicator(currentPlan)}
-                            <Badge className="bg-green-100 text-green-700">Active - User can see this</Badge>
+                            {currentPlan.is_approved ? (
+                              <Badge className="bg-green-100 text-green-700">
+                                <Check className="w-3 h-3 mr-1" />
+                                Approved - User can see this
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-orange-100 text-orange-700">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Pending Approval - User cannot see this yet
+                              </Badge>
+                            )}
           </div>
                         </div>
+                        {/* Action Buttons for Plan Details */}
+                        {!currentPlan.is_approved && (
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => handleApprovePlan(currentPlan.id)}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              <Check className="w-4 h-4 mr-2" />
+                              Approve Plan
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => handleRejectPlan(currentPlan.id)}
+                              className="text-red-600 border-red-300 hover:bg-red-50"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Reject
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent>

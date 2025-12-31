@@ -2171,7 +2171,8 @@ def get_user_meal_plans(enterprise_id, user_id):
                 'has_sickness': plan.get('has_sickness', False),
                 'sickness_type': plan.get('sickness_type', ''),
                 'health_assessment': plan.get('health_assessment'),
-                'user_info': plan.get('user_info')
+                'user_info': plan.get('user_info'),
+                'is_approved': plan.get('is_approved', False)
             })
         
         return jsonify({
@@ -2216,6 +2217,7 @@ def create_user_meal_plan(enterprise_id, user_id):
             }), 404
         
         # Create meal plan for the user
+        # is_approved defaults to false - admin must approve before user can see it
         now = datetime.now(timezone.utc).isoformat()
         
         insert_data = {
@@ -2226,6 +2228,7 @@ def create_user_meal_plan(enterprise_id, user_id):
             'meal_plan': data.get('meal_plan') or data.get('mealPlan'),
             'has_sickness': data.get('has_sickness', False),
             'sickness_type': data.get('sickness_type', ''),
+            'is_approved': False,
             'created_at': now,
             'updated_at': now
         }
@@ -2236,14 +2239,14 @@ def create_user_meal_plan(enterprise_id, user_id):
             plan = result.data[0]
             return jsonify({
                 'success': True,
-                'message': 'Meal plan created successfully',
+                'message': 'Meal plan created successfully. Please approve it before the user can see it.',
                 'meal_plan': {
                     'id': plan['id'],
                     'name': plan.get('name'),
                     'start_date': plan.get('start_date'),
                     'end_date': plan.get('end_date'),
                     'meal_plan': plan.get('meal_plan'),
-                    'status': plan.get('status', 'pending'),
+                    'is_approved': plan.get('is_approved', False),
                     'created_at': plan.get('created_at'),
                     'updated_at': plan.get('updated_at')
                 }
@@ -2300,10 +2303,10 @@ def approve_meal_plan(enterprise_id, plan_id):
                 'error': 'User is not a member of this organization'
             }), 403
         
-        # Meal plan is approved - it stays in the database and user can see it
-        # Just update the timestamp to confirm approval
+        # Meal plan is approved - set is_approved to true so user can see it
         now = datetime.now(timezone.utc).isoformat()
         update_result = supabase.table('meal_plan_management').update({
+            'is_approved': True,
             'updated_at': now
         }).eq('id', plan_id).execute()
         

@@ -441,6 +441,7 @@ class SupabaseService:
             print(f"[DEBUG] meal_plan type: {type(meal_plan)}")
 
             # Create insert data matching React structure
+            # User-created meal plans are auto-approved (is_approved = True)
             insert_data = {
                 'user_id': user_id,
                 'name': name,
@@ -449,6 +450,7 @@ class SupabaseService:
                 'meal_plan': meal_plan,
                 'has_sickness': has_sickness,
                 'sickness_type': sickness_type,
+                'is_approved': True,
                 'created_at': plan_data.get('created_at') or datetime.utcnow().isoformat() + 'Z',
                 'updated_at': plan_data.get('updated_at') or datetime.utcnow().isoformat() + 'Z'
             }
@@ -533,7 +535,9 @@ class SupabaseService:
             print(f"[DEBUG] Fetching meal plans for user: {user_id}")
             
             # Query the meal_plan_management table directly
-            result = self.supabase.table('meal_plan_management').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
+            # Only return approved meal plans (is_approved = true)
+            # This ensures users only see meal plans that have been approved by admin
+            result = self.supabase.table('meal_plan_management').select('*').eq('user_id', user_id).eq('is_approved', True).order('updated_at', desc=True).execute()
             
             print(f"[DEBUG] Query result: {result.data}")
             
