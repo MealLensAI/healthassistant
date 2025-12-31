@@ -535,6 +535,40 @@ class APIService {
   async updateEnterpriseTimeRestrictions(enterpriseId: string, data: any): Promise<APIResponse> {
     return this.put(`/enterprise/${enterpriseId}/time-restrictions`, data)
   }
+
+  // Enterprise Admin Meal Plan Management
+  async getUserMealPlans(enterpriseId: string, userId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/user/${userId}/meal-plans`)
+  }
+
+  async createUserMealPlan(enterpriseId: string, userId: string, planData: any): Promise<APIResponse> {
+    return this.post(`/enterprise/${enterpriseId}/user/${userId}/meal-plans`, planData)
+  }
+
+  async updateUserMealPlan(enterpriseId: string, planId: string, planData: any): Promise<APIResponse> {
+    return this.put(`/enterprise/${enterpriseId}/meal-plan/${planId}`, planData)
+  }
+
+  async deleteUserMealPlan(enterpriseId: string, planId: string): Promise<APIResponse> {
+    return this.delete(`/enterprise/${enterpriseId}/meal-plan/${planId}`)
+  }
+
+  async approveMealPlan(enterpriseId: string, planId: string): Promise<APIResponse> {
+    return this.post(`/enterprise/${enterpriseId}/meal-plan/${planId}/approve`, {})
+  }
+
+  async rejectMealPlan(enterpriseId: string, planId: string, reason?: string): Promise<APIResponse> {
+    return this.post(`/enterprise/${enterpriseId}/meal-plan/${planId}/reject`, { reason })
+  }
+
+  // Enterprise Admin Detection History
+  async getUserDetectionHistory(enterpriseId: string, userId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/user/${userId}/detection-history`)
+  }
+
+  async getUserHealthHistory(enterpriseId: string, userId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/user/${userId}/health-history`)
+  }
 }
 
 // Create singleton instance

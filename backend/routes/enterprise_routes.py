@@ -2123,3 +2123,496 @@ def get_enterprise_statistics(enterprise_id):
             'success': False,
             'error': f'Failed to fetch statistics: {str(e)}'
         }), 500
+
+
+# ============================================================================
+# ADMIN MEAL PLAN MANAGEMENT ROUTES
+# ============================================================================
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/meal-plans', methods=['GET'])
+@require_auth
+def get_user_meal_plans(enterprise_id, user_id):
+    """
+    Get all meal plans for a specific user in the enterprise.
+    Admin can view all meal plans for users in their organization.
+    """
+    try:
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
+        
+        # Verify target user belongs to this enterprise
+        membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+        if not membership.data:
+            return jsonify({
+                'success': False,
+                'error': 'User is not a member of this organization'
+            }), 404
+        
+        # Get meal plans for the user
+        result = supabase.table('meal_plan_management').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
+        
+        meal_plans = []
+        for plan in result.data or []:
+            meal_plans.append({
+                'id': plan['id'],
+                'name': plan.get('name'),
+                'start_date': plan.get('start_date'),
+                'end_date': plan.get('end_date'),
+                'meal_plan': plan.get('meal_plan'),
+                'created_at': plan.get('created_at'),
+                'updated_at': plan.get('updated_at'),
+                'has_sickness': plan.get('has_sickness', False),
+                'sickness_type': plan.get('sickness_type', ''),
+                'health_assessment': plan.get('health_assessment'),
+                'user_info': plan.get('user_info')
+            })
+        
+        return jsonify({
+            'success': True,
+            'meal_plans': meal_plans,
+            'total_count': len(meal_plans)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to fetch user meal plans: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to fetch meal plans: {str(e)}'
+        }), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/meal-plans', methods=['POST'])
+@require_auth
+def create_user_meal_plan(enterprise_id, user_id):
+    """
+    Create a meal plan for a specific user in the enterprise.
+    Admin generates meal plan for the user.
+    """
+    try:
+        data = request.get_json()
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
+        
+        # Verify target user belongs to this enterprise
+        membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+        if not membership.data:
+            return jsonify({
+                'success': False,
+                'error': 'User is not a member of this organization'
+            }), 404
+        
+        # Create meal plan for the user
+        now = datetime.now(timezone.utc).isoformat()
+        
+        insert_data = {
+            'user_id': user_id,
+            'name': data.get('name'),
+            'start_date': data.get('start_date') or data.get('startDate'),
+            'end_date': data.get('end_date') or data.get('endDate'),
+            'meal_plan': data.get('meal_plan') or data.get('mealPlan'),
+            'has_sickness': data.get('has_sickness', False),
+            'sickness_type': data.get('sickness_type', ''),
+            'created_at': now,
+            'updated_at': now
+        }
+        
+        result = supabase.table('meal_plan_management').insert(insert_data).execute()
+        
+        if result.data and len(result.data) > 0:
+            plan = result.data[0]
+            return jsonify({
+                'success': True,
+                'message': 'Meal plan created successfully',
+                'meal_plan': {
+                    'id': plan['id'],
+                    'name': plan.get('name'),
+                    'start_date': plan.get('start_date'),
+                    'end_date': plan.get('end_date'),
+                    'meal_plan': plan.get('meal_plan'),
+                    'status': plan.get('status', 'pending'),
+                    'created_at': plan.get('created_at'),
+                    'updated_at': plan.get('updated_at')
+                }
+            }), 201
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to create meal plan'
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f'Failed to create user meal plan: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to create meal plan: {str(e)}'
+        }), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/meal-plan/<plan_id>/approve', methods=['POST'])
+@require_auth
+def approve_meal_plan(enterprise_id, plan_id):
+    """
+    Approve a meal plan for a user.
+    Approved meal plans are visible to the user.
+    This simply marks the plan as approved by updating the updated_at timestamp.
+    """
+    try:
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
+        
+        # Get the meal plan
+        plan_result = supabase.table('meal_plan_management').select('*, user_id').eq('id', plan_id).execute()
+        if not plan_result.data:
+            return jsonify({
+                'success': False,
+                'error': 'Meal plan not found'
+            }), 404
+        
+        plan = plan_result.data[0]
+        target_user_id = plan['user_id']
+        
+        # Verify the user belongs to this enterprise
+        membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', target_user_id).execute()
+        if not membership.data:
+            return jsonify({
+                'success': False,
+                'error': 'User is not a member of this organization'
+            }), 403
+        
+        # Meal plan is approved - it stays in the database and user can see it
+        # Just update the timestamp to confirm approval
+        now = datetime.now(timezone.utc).isoformat()
+        update_result = supabase.table('meal_plan_management').update({
+            'updated_at': now
+        }).eq('id', plan_id).execute()
+        
+        if update_result.data:
+            return jsonify({
+                'success': True,
+                'message': 'Meal plan approved successfully. User can now see this plan.',
+                'meal_plan': update_result.data[0]
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to approve meal plan'
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f'Failed to approve meal plan: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to approve meal plan: {str(e)}'
+        }), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/meal-plan/<plan_id>/reject', methods=['POST'])
+@require_auth
+def reject_meal_plan(enterprise_id, plan_id):
+    """
+    Reject a meal plan for a user.
+    Rejected meal plans are deleted so user never sees them.
+    """
+    try:
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
+        
+        # Get the meal plan
+        plan_result = supabase.table('meal_plan_management').select('*, user_id').eq('id', plan_id).execute()
+        if not plan_result.data:
+            return jsonify({
+                'success': False,
+                'error': 'Meal plan not found'
+            }), 404
+        
+        plan = plan_result.data[0]
+        target_user_id = plan['user_id']
+        
+        # Verify the user belongs to this enterprise
+        membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', target_user_id).execute()
+        if not membership.data:
+            return jsonify({
+                'success': False,
+                'error': 'User is not a member of this organization'
+            }), 403
+        
+        # Delete the meal plan so user never sees it
+        delete_result = supabase.table('meal_plan_management').delete().eq('id', plan_id).execute()
+        
+        if delete_result.data:
+            return jsonify({
+                'success': True,
+                'message': 'Meal plan rejected and deleted. User will not see this plan.'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to reject meal plan'
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f'Failed to reject meal plan: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to reject meal plan: {str(e)}'
+        }), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/meal-plan/<plan_id>', methods=['PUT'])
+@require_auth
+def update_user_meal_plan(enterprise_id, plan_id):
+    """
+    Update a meal plan for a user in the enterprise.
+    """
+    try:
+        data = request.get_json()
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
+        
+        # Get the meal plan
+        plan_result = supabase.table('meal_plan_management').select('*, user_id').eq('id', plan_id).execute()
+        if not plan_result.data:
+            return jsonify({
+                'success': False,
+                'error': 'Meal plan not found'
+            }), 404
+        
+        plan = plan_result.data[0]
+        target_user_id = plan['user_id']
+        
+        # Verify the user belongs to this enterprise
+        membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', target_user_id).execute()
+        if not membership.data:
+            return jsonify({
+                'success': False,
+                'error': 'User is not a member of this organization'
+            }), 403
+        
+        # Update meal plan
+        now = datetime.now(timezone.utc).isoformat()
+        update_data = {
+            'updated_at': now
+        }
+        
+        # Only update provided fields
+        if 'name' in data:
+            update_data['name'] = data['name']
+        if 'start_date' in data or 'startDate' in data:
+            update_data['start_date'] = data.get('start_date') or data.get('startDate')
+        if 'end_date' in data or 'endDate' in data:
+            update_data['end_date'] = data.get('end_date') or data.get('endDate')
+        if 'meal_plan' in data or 'mealPlan' in data:
+            update_data['meal_plan'] = data.get('meal_plan') or data.get('mealPlan')
+        if 'has_sickness' in data:
+            update_data['has_sickness'] = data['has_sickness']
+        if 'sickness_type' in data:
+            update_data['sickness_type'] = data['sickness_type']
+        if 'status' in data:
+            update_data['status'] = data['status']
+        
+        update_result = supabase.table('meal_plan_management').update(update_data).eq('id', plan_id).execute()
+        
+        if update_result.data:
+            return jsonify({
+                'success': True,
+                'message': 'Meal plan updated successfully',
+                'meal_plan': update_result.data[0]
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to update meal plan'
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f'Failed to update user meal plan: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to update meal plan: {str(e)}'
+        }), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/meal-plan/<plan_id>', methods=['DELETE'])
+@require_auth
+def delete_user_meal_plan(enterprise_id, plan_id):
+    """
+    Delete a meal plan for a user in the enterprise.
+    """
+    try:
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
+        
+        # Get the meal plan to verify ownership
+        plan_result = supabase.table('meal_plan_management').select('user_id').eq('id', plan_id).execute()
+        if not plan_result.data:
+            return jsonify({
+                'success': False,
+                'error': 'Meal plan not found'
+            }), 404
+        
+        target_user_id = plan_result.data[0]['user_id']
+        
+        # Verify the user belongs to this enterprise
+        membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', target_user_id).execute()
+        if not membership.data:
+            return jsonify({
+                'success': False,
+                'error': 'User is not a member of this organization'
+            }), 403
+        
+        # Delete the meal plan
+        delete_result = supabase.table('meal_plan_management').delete().eq('id', plan_id).execute()
+        
+        if delete_result.data:
+            return jsonify({
+                'success': True,
+                'message': 'Meal plan deleted successfully'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to delete meal plan'
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f'Failed to delete user meal plan: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to delete meal plan: {str(e)}'
+        }), 500
+
+
+# ============================================================================
+# ADMIN FOOD DETECTION HISTORY ROUTES
+# ============================================================================
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/detection-history', methods=['GET'])
+@require_auth
+def get_user_detection_history(enterprise_id, user_id):
+    """
+    Get all food detection history for a specific user in the enterprise.
+    Admin can view all detection history for users in their organization.
+    """
+    try:
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
+        
+        # Verify target user belongs to this enterprise
+        membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+        if not membership.data:
+            return jsonify({
+                'success': False,
+                'error': 'User is not a member of this organization'
+            }), 404
+        
+        # Get detection history for the user
+        result = supabase.table('detection_history').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
+        
+        detection_history = result.data or []
+        
+        return jsonify({
+            'success': True,
+            'detection_history': detection_history,
+            'total_count': len(detection_history)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to fetch user detection history: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to fetch detection history: {str(e)}'
+        }), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/health-history', methods=['GET'])
+@require_auth
+def get_user_health_history(enterprise_id, user_id):
+    """
+    Get health settings history for a specific user in the enterprise.
+    Admin can view all health history for users in their organization.
+    """
+    try:
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
+        
+        # Verify target user belongs to this enterprise
+        membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+        if not membership.data:
+            return jsonify({
+                'success': False,
+                'error': 'User is not a member of this organization'
+            }), 404
+        
+        # Get settings history for the user
+        result = supabase.table('user_settings_history').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
+        
+        health_history = result.data or []
+        
+        return jsonify({
+            'success': True,
+            'health_history': health_history,
+            'total_count': len(health_history)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to fetch user health history: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to fetch health history: {str(e)}'
+        }), 500

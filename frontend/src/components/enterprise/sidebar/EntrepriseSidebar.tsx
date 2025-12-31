@@ -4,11 +4,13 @@ import { Input } from '@/components/ui/input';
 import {
   Activity,
   Building2,
+  Calendar,
   ChevronDown,
   History,
   LayoutDashboard,
   Search,
   Settings,
+  Utensils,
   Users,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
@@ -18,7 +20,9 @@ const navItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'activity', label: 'Activity', icon: Activity },
   { id: 'members', label: 'Members', icon: Users },
-  { id: 'history', label: 'History', icon: History },
+  { id: 'meal-plans', label: 'Meal Plans', icon: Calendar },
+  { id: 'food-history', label: 'Food History', icon: Utensils },
+  { id: 'history', label: 'Health History', icon: History },
   { id: 'settings', label: 'Health Information', icon: Settings },
 ] as const;
 

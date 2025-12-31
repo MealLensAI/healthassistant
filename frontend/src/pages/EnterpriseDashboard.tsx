@@ -33,6 +33,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { EnterpriseRegistrationForm } from "@/components/enterprise/EnterpriseRegistrationForm";
 import { InviteUserForm } from "@/components/enterprise/InviteUserForm";
+import AdminDietPlanner from "@/components/enterprise/AdminDietPlanner";
+import AdminFoodHistory from "@/components/enterprise/AdminFoodHistory";
 import { api } from "@/lib/api";
 import { useAuth, safeGetItem } from "@/lib/utils";
 import EntrepriseSidebar from "@/components/enterprise/sidebar/EntrepriseSidebar";
@@ -1393,6 +1395,65 @@ export default function EnterpriseDashboard() {
                     </div>
                   </CardContent>
                 </Card>
+              )}
+            </section>
+          )}
+
+          {/* Meal Plans View - Admin Meal Plan Management */}
+          {activeSidebarItem === "meal-plans" && (
+            <section className="mt-12">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">Meal Plan Management</h2>
+                <p className="mt-1 text-sm text-slate-500">Generate, view, and approve meal plans for organization members</p>
+              </div>
+
+              {!selectedEnterprise ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                  <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
+                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
+                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to manage meal plans</p>
+                </div>
+              ) : (
+                <AdminDietPlanner
+                  enterpriseId={selectedEnterprise.id}
+                  users={users.map(u => ({
+                    user_id: u.user_id,
+                    email: u.email,
+                    first_name: u.first_name,
+                    last_name: u.last_name,
+                    role: u.role
+                  }))}
+                  onRefresh={() => loadEnterpriseDetails(selectedEnterprise.id)}
+                />
+              )}
+            </section>
+          )}
+
+          {/* Food History View - Admin Food Detection History */}
+          {activeSidebarItem === "food-history" && (
+            <section className="mt-12">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">Food Detection History</h2>
+                <p className="mt-1 text-sm text-slate-500">View food detection history for organization members</p>
+              </div>
+
+              {!selectedEnterprise ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                  <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
+                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
+                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view food history</p>
+                </div>
+              ) : (
+                <AdminFoodHistory
+                  enterpriseId={selectedEnterprise.id}
+                  users={users.map(u => ({
+                    user_id: u.user_id,
+                    email: u.email,
+                    first_name: u.first_name,
+                    last_name: u.last_name,
+                    role: u.role
+                  }))}
+                />
               )}
             </section>
           )}
