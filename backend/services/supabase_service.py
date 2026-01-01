@@ -443,6 +443,15 @@ class SupabaseService:
             # Create insert data matching React structure
             # User-created meal plans are AUTO-APPROVED (is_approved = TRUE)
             # They can see their own plans immediately
+            # Get creator's email from profiles table using user_id
+            creator_email = None
+            try:
+                profile_result = self.supabase.table('profiles').select('email').eq('id', user_id).limit(1).execute()
+                if profile_result.data and len(profile_result.data) > 0:
+                    creator_email = profile_result.data[0].get('email')
+            except:
+                pass
+            
             insert_data = {
                 'user_id': user_id,
                 'name': name,
@@ -455,6 +464,19 @@ class SupabaseService:
                 'created_at': plan_data.get('created_at') or datetime.utcnow().isoformat() + 'Z',
                 'updated_at': plan_data.get('updated_at') or datetime.utcnow().isoformat() + 'Z'
             }
+            
+            # Store creator email in user_info if it exists, otherwise create it
+            if creator_email:
+                existing_user_info = plan_data.get('user_info') or {}
+                if isinstance(existing_user_info, dict):
+                    existing_user_info['creator_email'] = creator_email
+                    existing_user_info['is_created_by_user'] = True
+                    insert_data['user_info'] = existing_user_info
+                else:
+                    insert_data['user_info'] = {
+                        'creator_email': creator_email,
+                        'is_created_by_user': True
+                    }
 
             # Insert directly into table using Python client syntax
             result = self.supabase.table('meal_plan_management').insert(insert_data).execute()

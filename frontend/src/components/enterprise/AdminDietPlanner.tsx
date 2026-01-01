@@ -88,6 +88,8 @@ interface SavedMealPlan {
   health_assessment?: any;
   user_info?: any;
   is_approved?: boolean;  // false = needs approval, true = approved and visible to user
+  creator_email?: string;  // Email of who created this meal plan
+  is_created_by_user?: boolean;  // true if user created it, false if admin created it
 }
 
 interface UserInfo {
@@ -862,6 +864,28 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
     );
   };
 
+  const renderCreatorIndicator = (plan: SavedMealPlan) => {
+    // Check if we have creator information
+    const isCreatedByUser = plan.is_created_by_user !== undefined ? plan.is_created_by_user : true;
+    const creatorEmail = plan.creator_email;
+    
+    if (isCreatedByUser) {
+      return (
+        <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-full text-xs font-medium border border-blue-200">
+          <User className="w-3 h-3" />
+          <span>{creatorEmail ? `Created by ${creatorEmail}` : 'Created by User'}</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-1 rounded-full text-xs font-medium border border-purple-200">
+          <ChefHat className="w-3 h-3" />
+          <span>{creatorEmail ? `Created by ${creatorEmail}` : 'Created by Admin'}</span>
+        </div>
+      );
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* User Selection */}
@@ -969,6 +993,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                         <h4 className="font-semibold text-slate-900 truncate">{plan.name}</h4>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           {renderSicknessIndicator(plan)}
+                          {renderCreatorIndicator(plan)}
                           {/* Status Badge */}
                           {plan.is_approved ? (
                             <Badge className="bg-green-100 text-green-700 text-xs">

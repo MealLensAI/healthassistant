@@ -14,7 +14,8 @@ import {
   RefreshCw,
   User,
   Clock,
-  ChevronDown
+  ChevronDown,
+  ChefHat
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,6 +63,8 @@ interface SavedMealPlan {
   sickness_type?: string;
   health_assessment?: any;
   user_info?: any;
+  creator_email?: string;  // Email of who created this meal plan
+  is_created_by_user?: boolean;  // true if user created it, false if admin created it
 }
 
 interface UserInfo {
@@ -247,6 +250,29 @@ const AdminMealPlanManager: React.FC<AdminMealPlanManagerProps> = ({
         </div>
       );
     }
+  };
+
+  const renderCreatorIndicator = (plan: SavedMealPlan) => {
+    // Check if we have creator information
+    const isCreatedByUser = plan.is_created_by_user !== undefined ? plan.is_created_by_user : true;
+    const creatorEmail = plan.creator_email;
+    
+    if (isCreatedByUser) {
+      return (
+        <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-full text-xs font-medium border border-blue-200">
+          <User className="w-3 h-3" />
+          <span>{creatorEmail ? `Created by ${creatorEmail}` : 'Created by User'}</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-1 rounded-full text-xs font-medium border border-purple-200">
+          <ChefHat className="w-3 h-3" />
+          <span>{creatorEmail ? `Created by ${creatorEmail}` : 'Created by Admin'}</span>
+        </div>
+      );
+    }
+  };
     return (
       <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs font-medium">
         <Shield className="w-3 h-3" />
@@ -347,6 +373,7 @@ const AdminMealPlanManager: React.FC<AdminMealPlanManagerProps> = ({
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           <h4 className="font-semibold text-slate-900">{plan.name}</h4>
                           {renderSicknessIndicator(plan)}
+                          {renderCreatorIndicator(plan)}
                           <Badge className="bg-green-100 text-green-700 border-green-300">Active</Badge>
                         </div>
                         <p className="text-sm text-slate-600">

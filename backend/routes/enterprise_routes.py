@@ -2279,6 +2279,12 @@ def get_user_meal_plans(enterprise_id, user_id):
                 'user_info': plan.get('user_info'),
                 'is_approved': plan.get('is_approved', True)  # Default to true for backwards compatibility
             })
+            
+            # Extract creator info from user_info if available
+            user_info = plan.get('user_info')
+            if isinstance(user_info, dict):
+                meal_plans[-1]['creator_email'] = user_info.get('creator_email')
+                meal_plans[-1]['is_created_by_user'] = user_info.get('is_created_by_user', True)
         
         return jsonify({
             'success': True,
@@ -2323,7 +2329,29 @@ def create_user_meal_plan(enterprise_id, user_id):
         
         # Admin-created meal plans start as NOT approved
         # User won't see them until admin clicks Approve
+        # Store admin's email in user_info to track who created it
         now = datetime.now(timezone.utc).isoformat()
+        
+        # Get admin's email
+        admin_email = request.user_email if hasattr(request, 'user_email') else None
+        if not admin_email:
+            try:
+                admin_user = supabase.auth.admin.get_user_by_id(request.user_id)
+                if admin_user and hasattr(admin_user, 'user'):
+                    admin_email = admin_user.user.email
+            except:
+                pass
+        
+        # Prepare user_info with creator email
+        user_info = data.get('user_info') or {}
+        if isinstance(user_info, dict):
+            user_info['creator_email'] = admin_email
+            user_info['is_created_by_user'] = False  # Admin created it
+        else:
+            user_info = {
+                'creator_email': admin_email,
+                'is_created_by_user': False
+            }
         
         insert_data = {
             'user_id': user_id,
@@ -2334,7 +2362,7 @@ def create_user_meal_plan(enterprise_id, user_id):
             'has_sickness': data.get('has_sickness', False),
             'sickness_type': data.get('sickness_type', ''),
             'health_assessment': data.get('health_assessment'),
-            'user_info': data.get('user_info'),
+            'user_info': user_info,
             'is_approved': False,  # Admin must approve before user sees it
             'created_at': now,
             'updated_at': now
@@ -2349,6 +2377,7 @@ def create_user_meal_plan(enterprise_id, user_id):
         
         if result.data and len(result.data) > 0:
             plan = result.data[0]
+            plan_user_info = plan.get('user_info') or {}
             return jsonify({
                 'success': True,
                 'message': 'Meal plan created. Click Approve to send it to the user.',
@@ -2363,6 +2392,8 @@ def create_user_meal_plan(enterprise_id, user_id):
                     'health_assessment': plan.get('health_assessment'),
                     'user_info': plan.get('user_info'),
                     'is_approved': plan.get('is_approved', False),
+                    'creator_email': plan_user_info.get('creator_email') if isinstance(plan_user_info, dict) else None,
+                    'is_created_by_user': plan_user_info.get('is_created_by_user', False) if isinstance(plan_user_info, dict) else False,
                     'created_at': plan.get('created_at'),
                     'updated_at': plan.get('updated_at')
                 }
