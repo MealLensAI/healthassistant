@@ -275,8 +275,9 @@ class APIService {
           throw new APIError(fallbackMessage, response.status, data)
         }
 
-        // Handle other client errors
-        const errorMessage = data?.message || data || `HTTP ${response.status}: ${response.statusText}`
+        // Handle other client errors (400, etc.)
+        // Check for error field first (common in backend responses), then message, then use data as fallback
+        const errorMessage = data?.error || data?.message || (typeof data === 'string' ? data : `HTTP ${response.status}: ${response.statusText}`)
         throw new APIError(errorMessage, response.status, data)
       }
 

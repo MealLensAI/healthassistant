@@ -158,21 +158,34 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess, teamName }: I
       // Extract the actual error message from the backend
       let description = "Failed to send invitation.";
       
-      // Handle APIError objects
-      if (error?.message && typeof error.message === 'string') {
-        description = error.message;
-      } else if (error?.data?.error) {
+      // Handle APIError objects - check data.error first (backend format), then message
+      if (error?.data?.error && typeof error.data.error === 'string') {
         description = error.data.error;
-      } else if (error?.data?.message) {
+      } else if (error?.message && typeof error.message === 'string') {
+        description = error.message;
+      } else if (error?.data?.message && typeof error.data.message === 'string') {
         description = error.data.message;
-      } else if (error?.error) {
-        description = typeof error.error === 'string' ? error.error : JSON.stringify(error.error);
+      } else if (error?.error && typeof error.error === 'string') {
+        description = error.error;
       } else if (typeof error === 'string') {
         description = error;
       } else {
-        // Last resort: stringify the error
+        // Last resort: try to extract meaningful error
         try {
-          description = JSON.stringify(error);
+          if (error?.data && typeof error.data === 'object') {
+            // Try to find any string field in the data object
+            const errorFields = ['error', 'message', 'detail', 'description'];
+            for (const field of errorFields) {
+              if (error.data[field] && typeof error.data[field] === 'string') {
+                description = error.data[field];
+                break;
+              }
+            }
+          }
+          // If still no good message, use a generic one
+          if (description === "Failed to send invitation.") {
+            description = "Failed to send invitation. Please try again.";
+          }
         } catch {
           description = "Failed to send invitation. Please try again.";
         }

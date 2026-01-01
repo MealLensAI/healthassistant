@@ -5,6 +5,7 @@ Handles organization/enterprise registration, user invitations, and management
 
 from flask import Blueprint, request, jsonify, current_app
 from functools import wraps
+from typing import Optional
 import uuid
 import secrets
 import os
@@ -133,6 +134,103 @@ def check_user_is_org_admin(user_id: str, enterprise_id: str, supabase: Client) 
     except Exception as e:
         current_app.logger.error(f"[PERMISSION] ❌ Exception: {str(e)}", exc_info=True)
         return False, f"Error checking user permissions: {str(e)}"
+
+
+def check_user_exists_by_email(supabase: Client, email: str) -> tuple[bool, Optional[str]]:
+    """
+    Check if a user with the given email already exists in Supabase.
+    
+    Uses multiple methods to check:
+    1. Check profiles table (fastest)
+    2. Try admin.get_user_by_email (if available)
+    3. Fallback to paginated list_users
+    
+    Returns:
+        tuple: (user_exists, user_id_if_found)
+    """
+    normalized_email = email.lower().strip()
+    current_app.logger.info(f"[USER_CHECK] Checking if user exists with email: {normalized_email}")
+    
+    # Method 1: Check profiles table (fastest and most reliable)
+    admin_client = None
+    try:
+        admin_client = get_supabase_client(use_admin=True)
+        if admin_client:
+            profile_check = admin_client.table('profiles').select('id, email').ilike('email', normalized_email).limit(1).execute()
+            if profile_check.data and len(profile_check.data) > 0:
+                user_id = profile_check.data[0].get('id')
+                current_app.logger.info(f"[USER_CHECK] ✅ User found in profiles table: {user_id}")
+                return True, user_id
+    except Exception as profiles_err:
+        current_app.logger.warning(f"[USER_CHECK] Profiles check failed: {str(profiles_err)}")
+    
+    # Method 2: Try admin.get_user_by_email (if available)
+    try:
+        if not admin_client:
+            admin_client = get_supabase_client(use_admin=True)
+        if admin_client and hasattr(admin_client, 'auth') and hasattr(admin_client.auth, 'admin'):
+            try:
+                user_res = getattr(admin_client.auth.admin, 'get_user_by_email', None)
+                if callable(user_res):
+                    res = admin_client.auth.admin.get_user_by_email(normalized_email)
+                    # Handle different response formats
+                    maybe_user = getattr(res, 'user', None)
+                    if maybe_user is None and isinstance(res, dict):
+                        maybe_user = res.get('user') or res.get('data')
+                    
+                    if maybe_user is not None:
+                        user_id = getattr(maybe_user, 'id', None) or (maybe_user.get('id') if isinstance(maybe_user, dict) else None)
+                        if user_id:
+                            current_app.logger.info(f"[USER_CHECK] ✅ User found via get_user_by_email: {user_id}")
+                            return True, user_id
+            except Exception as get_email_err:
+                current_app.logger.info(f"[USER_CHECK] get_user_by_email unavailable/failed, falling back to list: {str(get_email_err)}")
+                
+                # Method 3: Paginated list fallback
+                try:
+                    per_page = 200
+                    for page in range(1, 6):  # Check first 5 pages (1000 users max)
+                        try:
+                            try:
+                                admin_res = admin_client.auth.admin.list_users(page=page, per_page=per_page)
+                            except TypeError:
+                                admin_res = admin_client.auth.admin.list_users(page, per_page)
+                        except Exception as list_err:
+                            current_app.logger.warning(f"[USER_CHECK] list_users failed on page {page}: {str(list_err)}")
+                            break
+                        
+                        users_list = []
+                        try:
+                            data_obj = getattr(admin_res, 'data', None)
+                            if isinstance(data_obj, dict) and isinstance(data_obj.get('users'), list):
+                                users_list = data_obj.get('users')
+                            else:
+                                users_list = getattr(admin_res, 'users', None) or (data_obj if isinstance(data_obj, list) else [])
+                        except Exception:
+                            pass
+                        
+                        if not users_list:
+                            break
+                        
+                        # Search for matching email
+                        for user in users_list:
+                            user_email = getattr(user, 'email', None) or (user.get('email') if isinstance(user, dict) else None)
+                            if user_email and user_email.lower() == normalized_email:
+                                user_id = getattr(user, 'id', None) or (user.get('id') if isinstance(user, dict) else None)
+                                if user_id:
+                                    current_app.logger.info(f"[USER_CHECK] ✅ User found via list_users: {user_id}")
+                                    return True, user_id
+                        
+                        # If we got fewer users than per_page, we've reached the end
+                        if len(users_list) < per_page:
+                            break
+                except Exception as list_fallback_err:
+                    current_app.logger.warning(f"[USER_CHECK] List fallback failed: {str(list_fallback_err)}")
+    except Exception as e:
+        current_app.logger.warning(f"[USER_CHECK] Error checking user existence: {str(e)}")
+    
+    current_app.logger.info(f"[USER_CHECK] ❌ User not found with email: {normalized_email}")
+    return False, None
 
 
 def check_user_can_create_organizations(user_id: str, supabase: Client, user_metadata: dict | None = None) -> tuple[bool, str]:
@@ -635,39 +733,42 @@ def invite_user(enterprise_id):
             current_app.logger.error(f"[INVITE] User limit reached")
             return jsonify({'success': False, 'error': f"Maximum user limit ({max_users}) reached"}), 400
         
-        # Check if user is already invited or a member
+        # Check if user already has an account with meallensai
+        # This prevents inviting users who already have accounts
+        current_app.logger.info(f"[INVITE] Checking if user with email {email} already has an account")
+        user_exists = False
+        existing_user_id = None
+        try:
+            user_exists, existing_user_id = check_user_exists_by_email(supabase, email)
+            if user_exists:
+                current_app.logger.warning(f"[INVITE] ❌ User with email {email} already has an account (user_id: {existing_user_id})")
+                
+                # Also check if they're already a member of this organization
+                if existing_user_id:
+                    try:
+                        existing_member = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', existing_user_id).execute()
+                        if existing_member.data:
+                            current_app.logger.warning(f"[INVITE] User is already a member")
+                            return jsonify({'success': False, 'error': 'User is already a member of this organization'}), 400
+                    except Exception as member_check_error:
+                        current_app.logger.warning(f"[INVITE] Could not check existing membership: {str(member_check_error)}")
+                
+                return jsonify({
+                    'success': False,
+                    'error': 'This user already has an account with MealLens AI. They cannot be invited.',
+                    'error_code': 'USER_ALREADY_EXISTS'
+                }), 400
+        except Exception as user_check_error:
+            # If we can't check (e.g., rate limit), log but continue
+            # We'll catch duplicates later if needed
+            current_app.logger.warning(f"[INVITE] Could not check if user exists: {str(user_check_error)}")
+        
+        # Check if user is already invited
         current_app.logger.info(f"[INVITE] Checking for existing invitation")
         existing_invitation = supabase.table('invitations').select('id').eq('enterprise_id', enterprise_id).eq('email', email).eq('status', 'pending').execute()
         if existing_invitation.data:
             current_app.logger.warning(f"[INVITE] User already has pending invitation")
             return jsonify({'success': False, 'error': 'User already has a pending invitation'}), 400
-        
-        # Check if user with this email is already a member
-        # First, try to find if a user with this email exists in auth
-        current_app.logger.info(f"[INVITE] Checking if user with email {email} is already a member")
-        try:
-            # Try to get user by email from auth
-            # Note: This will only work if the user already has an account
-            # If they don't have an account yet, they can't be a member, so we skip this check
-            user_list = supabase.auth.admin.list_users()
-            existing_user = None
-            if user_list and hasattr(user_list, 'users'):
-                for user in user_list.users:
-                    if user.email and user.email.lower() == email.lower():
-                        existing_user = user
-                        break
-            
-            if existing_user:
-                # Check if this user is already a member
-                existing_member = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', existing_user.id).execute()
-                if existing_member.data:
-                    current_app.logger.warning(f"[INVITE] User is already a member")
-                    return jsonify({'success': False, 'error': 'User is already a member of this organization'}), 400
-        except Exception as member_check_error:
-            # If we can't check (e.g., rate limit), just log and continue
-            # Better to allow a duplicate invitation than block legitimate invites
-            current_app.logger.warning(f"[INVITE] Could not check existing membership: {str(member_check_error)}")
-            pass
         
         # Generate unique invitation token
         invitation_token = secrets.token_urlsafe(32)
