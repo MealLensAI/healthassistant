@@ -14,8 +14,7 @@ import {
   RefreshCw,
   User,
   Clock,
-  ChevronDown,
-  ChefHat
+  ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -267,7 +266,7 @@ const AdminMealPlanManager: React.FC<AdminMealPlanManagerProps> = ({
     } else {
       return (
         <div className="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-1 rounded-full text-xs font-medium border border-purple-200">
-          <ChefHat className="w-3 h-3" />
+          <User className="w-3 h-3" />
           <span>{creatorEmail ? `Created by ${creatorEmail}` : 'Created by Admin'}</span>
         </div>
       );

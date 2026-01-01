@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, User, Check, X, Trash2, Eye, RefreshCw, Clock, Heart, Shield, ArrowLeft } from 'lucide-react';
+import { Camera, List, Upload, Utensils, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, User, Check, X, Trash2, Eye, RefreshCw, Clock, Heart, Shield, ArrowLeft } from 'lucide-react';
 import RecipeCard from '@/components/RecipeCard';
 import EnhancedRecipeCard from '@/components/EnhancedRecipeCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -879,7 +879,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
     } else {
       return (
         <div className="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-1 rounded-full text-xs font-medium border border-purple-200">
-          <ChefHat className="w-3 h-3" />
+          <User className="w-3 h-3" />
           <span>{creatorEmail ? `Created by ${creatorEmail}` : 'Created by Admin'}</span>
         </div>
       );
