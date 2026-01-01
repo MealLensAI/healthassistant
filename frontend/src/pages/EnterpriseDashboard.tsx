@@ -922,9 +922,9 @@ export default function EnterpriseDashboard() {
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-slate-900">Enterprise Dashboard</h1>
             <p className="mt-2 text-sm text-slate-500">Manage your organization and invite users</p>
             {selectedEnterprise && statistics?.owner_info && (
-              <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-2 text-sm text-blue-700">
-                <Building2 className="h-4 w-4" />
-                <span>
+              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 px-3 sm:px-4 py-2 text-xs sm:text-sm text-blue-700">
+                <Building2 className="h-4 w-4 flex-shrink-0" />
+                <span className="break-words">
                   <strong>{statistics.owner_info.name}</strong> ({statistics.owner_info.email}) • Organization Owner
                 </span>
               </div>
@@ -963,15 +963,15 @@ export default function EnterpriseDashboard() {
             </div>
           </section>
 
-          <div className="mt-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="relative">
+          <div className="mt-6 sm:mt-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
+              <div className="relative flex-1 sm:flex-initial min-w-0">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search members, teams, invitations"
-                  className="h-11 rounded-xl border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700"
+                  className="h-11 w-full sm:w-auto rounded-xl border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700"
                 />
               </div>
 
@@ -979,7 +979,7 @@ export default function EnterpriseDashboard() {
                 <button
                   type="button"
                   onClick={() => setIsPeriodMenuOpen((prev) => !prev)}
-                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600"
+                  className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600"
                 >
                   {selectedPeriod}
                   <ChevronDown className={`h-4 w-4 transition ${isPeriodMenuOpen ? "rotate-180" : ""}`} />
@@ -1007,11 +1007,12 @@ export default function EnterpriseDashboard() {
               <Button
                 onClick={() => handleInviteMemberClick()}
                 disabled={isLoading}
-                className="h-11 rounded-xl bg-blue-500 px-6 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-11 w-full sm:w-auto rounded-xl bg-blue-500 px-4 sm:px-6 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="inline-flex items-center gap-2">
                   <Mail className="h-4 w-4" />
-                  {isLoading ? 'Loading...' : 'Send Invitation'}
+                  <span className="hidden sm:inline">{isLoading ? 'Loading...' : 'Send Invitation'}</span>
+                  <span className="sm:hidden">{isLoading ? 'Loading...' : 'Invite'}</span>
                 </span>
               </Button>
             </div>
@@ -1022,16 +1023,16 @@ export default function EnterpriseDashboard() {
           {/* Members View - Accepted Users */}
           {activeSidebarItem === "members" && (
             <section className="mt-6 sm:mt-12 rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm">
-              <div className="mb-8 flex items-center justify-between">
+              <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Members</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Members</h2>
                   <p className="mt-1 text-sm text-slate-500">Users who have accepted your invitations</p>
                 </div>
                 <Button
                   variant="outline"
                   onClick={() => selectedEnterprise?.id && loadEnterpriseDetails(selectedEnterprise.id)}
                   disabled={isLoading || !selectedEnterprise?.id}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 w-full sm:w-auto"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Refresh
@@ -1078,7 +1079,7 @@ export default function EnterpriseDashboard() {
                       placeholder="Search members by name or email..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="max-w-md"
+                      className="w-full sm:max-w-md"
                     />
                   </div>
 
@@ -1160,17 +1161,17 @@ export default function EnterpriseDashboard() {
 
           {/* Activity View - Settings History */}
           {activeSidebarItem === "activity" && (
-            <section className="mt-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="mb-8 flex items-center justify-between">
+            <section className="mt-6 sm:mt-12 rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm">
+              <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Settings Activity</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Settings Activity</h2>
                   <p className="mt-1 text-sm text-slate-500">Track when users change their health settings</p>
                 </div>
                 <Button
                   variant="outline"
                   onClick={() => selectedEnterprise?.id && loadSettingsHistory(selectedEnterprise.id)}
                   disabled={loadingHistory || !selectedEnterprise?.id}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 w-full sm:w-auto"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Refresh
@@ -1198,16 +1199,16 @@ export default function EnterpriseDashboard() {
                     const changeDate = change.created_at ? new Date(change.created_at) : new Date();
 
                     return (
-                      <div key={change.id || idx} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                      <div key={change.id || idx} className="rounded-lg border border-slate-200 bg-white p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 flex-shrink-0">
                                 <Settings className="h-5 w-5 text-blue-600" />
                               </div>
-                              <div>
-                                <h3 className="font-semibold text-slate-900">{change.user_name || change.user_email || "Unknown User"}</h3>
-                                <p className="text-sm text-slate-500">{change.user_email}</p>
+                              <div className="min-w-0 flex-1">
+                                <h3 className="font-semibold text-slate-900 truncate">{change.user_name || change.user_email || "Unknown User"}</h3>
+                                <p className="text-sm text-slate-500 truncate">{change.user_email}</p>
                               </div>
                             </div>
 
@@ -1227,22 +1228,22 @@ export default function EnterpriseDashboard() {
 
                                   return (
                                     <div key={fieldIdx} className="rounded-md bg-slate-50 p-3">
-                                      <div className="flex items-center justify-between">
+                                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                         <span className="text-sm font-medium text-slate-700 capitalize">
                                           {field.replace(/([A-Z])/g, " $1").trim()}
                                         </span>
-                                        <Badge variant="outline" className="ml-2 text-xs">
+                                        <Badge variant="outline" className="text-xs w-fit">
                                           Updated
                                         </Badge>
                                       </div>
-                                      <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
+                                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                                         <div>
                                           <p className="text-slate-500">Previous</p>
-                                          <p className="mt-1 font-medium text-slate-700">{formatValue(oldValue)}</p>
+                                          <p className="mt-1 font-medium text-slate-700 break-words">{formatValue(oldValue)}</p>
                                         </div>
                                         <div>
                                           <p className="text-slate-500">New</p>
-                                          <p className="mt-1 font-medium text-emerald-700">{formatValue(newValue)}</p>
+                                          <p className="mt-1 font-medium text-emerald-700 break-words">{formatValue(newValue)}</p>
                                         </div>
                                       </div>
                                     </div>
@@ -1252,7 +1253,7 @@ export default function EnterpriseDashboard() {
                             </div>
                           </div>
 
-                          <div className="ml-4 text-right">
+                          <div className="sm:ml-4 sm:text-right text-left flex-shrink-0">
                             <p className="text-xs text-slate-500">
                               {changeDate.toLocaleDateString("en-US", {
                                 month: "short",
@@ -1316,15 +1317,15 @@ export default function EnterpriseDashboard() {
                 </div>
               ) : (
                 <Card className="rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                  <CardContent className="p-0 sm:p-4 sm:p-6">
+                    <div className="overflow-x-auto -mx-4 sm:mx-0">
                       <Table className="min-w-[600px]">
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="font-semibold text-slate-700">Date & Time</TableHead>
-                            <TableHead className="font-semibold text-slate-700">Member</TableHead>
-                            <TableHead className="font-semibold text-slate-700">Changes Made</TableHead>
-                            <TableHead className="font-semibold text-slate-700">Details</TableHead>
+                            <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Date & Time</TableHead>
+                            <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Member</TableHead>
+                            <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Changes Made</TableHead>
+                            <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Details</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1433,9 +1434,9 @@ export default function EnterpriseDashboard() {
 
           {/* Meal Plans View - Admin Meal Plan Management */}
           {activeSidebarItem === "meal-plans" && (
-            <section className="mt-12">
+            <section className="mt-6 sm:mt-12">
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">Meal Plan Management</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Meal Plan Management</h2>
                 <p className="mt-1 text-sm text-slate-500">Generate, view, and approve meal plans for organization members</p>
               </div>
 
@@ -1463,9 +1464,9 @@ export default function EnterpriseDashboard() {
 
           {/* Food History View - Admin Food Detection History */}
           {activeSidebarItem === "food-history" && (
-            <section className="mt-12">
+            <section className="mt-6 sm:mt-12">
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">Food Detection History</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Food Detection History</h2>
                 <p className="mt-1 text-sm text-slate-500">View food detection history for organization members</p>
               </div>
 
@@ -1492,13 +1493,13 @@ export default function EnterpriseDashboard() {
 
           {/* Health Information View - User Health Information Management */}
           {activeSidebarItem === "settings" && selectedEnterprise && (
-            <section className="mt-12 space-y-8">
+            <section className="mt-6 sm:mt-12 space-y-6 sm:space-y-8">
               {/* User Health Information Management */}
               {selectedEnterprise && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-                  <div className="mb-8 flex items-center justify-between">
+                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm">
+                  <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                      <h2 className="text-2xl font-bold text-slate-900">Member Health Information</h2>
+                      <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Member Health Information</h2>
                       <p className="mt-1 text-sm text-slate-500">View and edit health information for organization members</p>
                     </div>
                     <Button
@@ -1527,7 +1528,7 @@ export default function EnterpriseDashboard() {
                           });
                         }
                       }}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 w-full sm:w-auto"
                       disabled={!editingUserSettings?.userId}
                     >
                       <RefreshCw className="h-4 w-4" />
@@ -1574,15 +1575,15 @@ export default function EnterpriseDashboard() {
                   {/* User Health Information Display/Edit */}
                   {editingUserSettings && (
                     <Card className="border-slate-200">
-                      <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200">
-                        <CardTitle>Current Health Info</CardTitle>
+                      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
+                        <CardTitle className="text-lg sm:text-xl">Current Health Info</CardTitle>
                         <div className="flex items-center gap-2">
                           {!isEditingHealthInfo && userSettingsData && (
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => setIsEditingHealthInfo(true)}
-                              className="flex items-center gap-2"
+                              className="flex items-center gap-2 w-full sm:w-auto"
                             >
                               <Edit className="h-4 w-4" />
                               Edit
@@ -1597,20 +1598,21 @@ export default function EnterpriseDashboard() {
                               setIsEditingHealthInfo(false);
                               setUserHealthHistory([]);
                             }}
+                            className="w-full sm:w-auto"
                           >
                             <X className="h-4 w-4" />
                           </Button>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-4 pt-6">
+                      <CardContent className="space-y-4 pt-4 sm:pt-6">
                         {userSettingsData && !isEditingHealthInfo ? (
                           /* TABLE VIEW */
-                          <div className="rounded-lg border overflow-x-auto">
+                          <div className="rounded-lg border overflow-x-auto -mx-4 sm:mx-0">
                             <Table className="min-w-[400px]">
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead className="font-semibold w-1/3">Field</TableHead>
-                                  <TableHead className="font-semibold">Value</TableHead>
+                                  <TableHead className="font-semibold w-1/3 whitespace-nowrap">Field</TableHead>
+                                  <TableHead className="font-semibold whitespace-nowrap">Value</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1829,16 +1831,17 @@ export default function EnterpriseDashboard() {
                               </div>
                             </div>
 
-                            <div className="flex justify-between gap-2 pt-4 border-t">
+                            <div className="flex flex-col sm:flex-row sm:justify-between gap-3 pt-4 border-t">
                               <Button
                                 variant="destructive"
                                 onClick={handleDeleteUserSettings}
                                 disabled={savingUserSettings}
+                                className="w-full sm:w-auto"
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete Settings
                               </Button>
-                              <div className="flex gap-2">
+                              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                 <Button
                                   variant="outline"
                                   onClick={() => {
@@ -1850,12 +1853,14 @@ export default function EnterpriseDashboard() {
                                     }
                                   }}
                                   disabled={savingUserSettings}
+                                  className="w-full sm:w-auto"
                                 >
                                   Cancel
                                 </Button>
                                 <Button
                                   onClick={handleSaveUserSettings}
                                   disabled={savingUserSettings}
+                                  className="w-full sm:w-auto"
                                 >
                                   <Edit className="h-4 w-4 mr-2" />
                                   {savingUserSettings ? 'Saving...' : 'Save Changes'}
@@ -1871,9 +1876,9 @@ export default function EnterpriseDashboard() {
                   {/* User's Health Information History - Show when user is selected */}
                   {editingUserSettings && (
                     <Card className="mt-6 border-slate-200">
-                      <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200">
-                        <div>
-                          <CardTitle className="text-lg">Health Information History for {editingUserSettings.userName}</CardTitle>
+                      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4">
+                        <div className="min-w-0">
+                          <CardTitle className="text-base sm:text-lg break-words">Health Information History for {editingUserSettings.userName}</CardTitle>
                           <p className="text-sm text-slate-500 mt-1">View all changes made to this member's health profile</p>
                         </div>
                         <Button
@@ -1892,28 +1897,28 @@ export default function EnterpriseDashboard() {
                               });
                             }
                           }}
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0"
                           disabled={!editingUserSettings?.userId}
                         >
                           <RefreshCw className="h-4 w-4" />
                           Refresh
                         </Button>
                       </CardHeader>
-                      <CardContent className="p-6">
+                      <CardContent className="p-4 sm:p-6">
                         {userHealthHistory.length === 0 ? (
-                          <div className="py-12 text-center">
+                          <div className="py-8 sm:py-12 text-center">
                             <Settings className="mx-auto mb-4 h-12 w-12 text-slate-300" />
                             <h3 className="text-lg font-semibold text-slate-900">No history yet</h3>
                             <p className="mt-2 text-sm text-slate-500">Changes to this member's health profile will appear here</p>
                           </div>
                         ) : (
-                          <div className="overflow-x-auto">
-                            <Table>
+                          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                            <Table className="min-w-[500px]">
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead className="font-semibold text-slate-700">Date & Time</TableHead>
-                                  <TableHead className="font-semibold text-slate-700">Changes Made</TableHead>
-                                  <TableHead className="font-semibold text-slate-700">Details</TableHead>
+                                  <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Date & Time</TableHead>
+                                  <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Changes Made</TableHead>
+                                  <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Details</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -2033,15 +2038,15 @@ export default function EnterpriseDashboard() {
 
           {/* Overview View - Users and Invitations */}
           {activeSidebarItem === "overview" && (
-          <section className="mt-12 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="mt-6 sm:mt-12 rounded-2xl sm:rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
             {/* Info Box */}
             {selectedEnterprise && (
-              <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="mb-4 sm:mb-6 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4">
                 <div className="flex items-start gap-3">
-                  <Users className="h-5 w-5 text-blue-600 mt-0.5" />
-                  <div className="flex-1">
+                  <Users className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-semibold text-blue-900">User Management</h3>
-                    <p className="mt-1 text-sm text-blue-700">
+                    <p className="mt-1 text-sm text-blue-700 break-words">
                       <strong>Total Users:</strong> {totalUsers} invited user{totalUsers !== 1 ? 's' : ''} 
                       {statistics?.max_users && ` (${statistics.max_users - totalUsers} slots remaining)`}
                     </p>
@@ -2053,17 +2058,17 @@ export default function EnterpriseDashboard() {
               </div>
             )}
             
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Section</p>
-                <h2 className="text-2xl font-semibold text-slate-900">Users & Invitations</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold text-slate-900">Users & Invitations</h2>
               </div>
-              <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
+              <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1 w-full sm:w-auto justify-center sm:justify-start">
                 {["users", "invitations"].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab as "users" | "invitations")}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    className={`rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition flex-1 sm:flex-initial ${
                       activeTab === tab
                         ? "bg-white text-slate-900 shadow"
                         : "text-slate-500"
@@ -2077,7 +2082,7 @@ export default function EnterpriseDashboard() {
 
             {activeTab === "invitations" ? (
               <>
-                <div className="mt-6 flex items-center justify-between">
+                <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
                     <p className="text-sm text-slate-600">
                       {filteredInvitations.length} invitation{filteredInvitations.length !== 1 ? 's' : ''} total
@@ -2098,7 +2103,7 @@ export default function EnterpriseDashboard() {
                         });
                       }
                     }}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 w-full sm:w-auto"
                   >
                     <RefreshCw className="h-4 w-4" />
                     Refresh Now
@@ -2124,28 +2129,28 @@ export default function EnterpriseDashboard() {
                     No invitations yet.
                   </div>
                 ) : (
-                  <div className="mt-8 overflow-hidden rounded-2xl border border-slate-100">
-                    <table className="w-full table-auto text-left text-sm text-slate-700">
+                  <div className="mt-6 sm:mt-8 overflow-x-auto rounded-xl sm:rounded-2xl border border-slate-100 -mx-4 sm:mx-0">
+                    <table className="w-full table-auto text-left text-sm text-slate-700 min-w-[600px]">
                       <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                          <th className="px-6 py-3 font-semibold">#</th>
-                          <th className="px-6 py-3 font-semibold">Email</th>
-                          <th className="px-6 py-3 font-semibold">Role</th>
-                          <th className="px-6 py-3 font-semibold">Sent</th>
-                          <th className="px-6 py-3 font-semibold">Status</th>
-                          <th className="px-6 py-3"></th>
+                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">#</th>
+                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Email</th>
+                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Role</th>
+                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Sent</th>
+                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Status</th>
+                          <th className="px-3 sm:px-6 py-3 whitespace-nowrap"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredInvitations.map((inv, idx) => (
                           <tr key={inv.id || idx} className="border-t border-slate-100">
-                            <td className="px-6 py-4 text-slate-500">{idx + 1}</td>
-                            <td className="px-6 py-4 font-medium text-slate-900">{inv.email}</td>
-                            <td className="px-6 py-4 text-slate-600">{inv.role ?? "—"}</td>
-                            <td className="px-6 py-4 text-slate-600">
+                            <td className="px-3 sm:px-6 py-4 text-slate-500">{idx + 1}</td>
+                            <td className="px-3 sm:px-6 py-4 font-medium text-slate-900 break-words">{inv.email}</td>
+                            <td className="px-3 sm:px-6 py-4 text-slate-600 whitespace-nowrap">{inv.role ?? "—"}</td>
+                            <td className="px-3 sm:px-6 py-4 text-slate-600 whitespace-nowrap">
                               {inv.sent_at ? new Date(inv.sent_at).toLocaleDateString() : "—"}
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-3 sm:px-6 py-4">
                               <div className="flex flex-col gap-1">
                                 <Badge 
                                   variant={
@@ -2156,28 +2161,28 @@ export default function EnterpriseDashboard() {
                                   }
                                   className={
                                     inv.status === "accepted" 
-                                      ? "bg-green-600 text-white font-semibold" 
-                                      : ""
+                                      ? "bg-green-600 text-white font-semibold w-fit" 
+                                      : "w-fit"
                                   }
                                 >
                                   {inv.status === "accepted" ? "✓ Accepted" : (inv.status ?? "pending")}
                               </Badge>
                                 {inv.status === "accepted" && inv.accepted_at && (
                                   <div className="mt-2 flex items-center gap-1 text-xs text-green-600 font-medium">
-                                    <CheckCircle className="h-3 w-3" />
-                                    <span>
+                                    <CheckCircle className="h-3 w-3 flex-shrink-0" />
+                                    <span className="break-words">
                                       Accepted on {new Date(inv.accepted_at).toLocaleDateString()} at {new Date(inv.accepted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                   </div>
                                 )}
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="px-3 sm:px-6 py-4 text-right">
                               {inv.status === "pending" && (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="rounded-full border-slate-200 px-4 text-xs font-semibold"
+                                  className="rounded-full border-slate-200 px-3 sm:px-4 text-xs font-semibold"
                                   onClick={() => cancelInvitation(inv.id)}
                                 >
                                   Cancel
@@ -2193,9 +2198,9 @@ export default function EnterpriseDashboard() {
               </>
             ) : (
               <>
-                <div className="mt-6 flex items-center justify-between">
+                <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-slate-600 break-words">
                       {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} who accepted invitation{filteredUsers.length !== 1 ? 's' : ''}
                       {filteredUsers.length > 0 && (
                         <span className="ml-2 text-green-600 font-semibold">
@@ -2213,7 +2218,7 @@ export default function EnterpriseDashboard() {
                     onClick={() => {
                       setActiveSidebarItem("members");
                     }}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 w-full sm:w-auto"
                   >
                     <Users className="h-4 w-4" />
                     Go to Members
