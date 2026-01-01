@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowRight, ArrowLeft, User, MapPin, HeartPulse, Sparkles } from "lucide-react"
 import { useSicknessSettings, type SicknessSettings } from "@/hooks/useSicknessSettings"
@@ -18,25 +19,29 @@ const Onboarding: React.FC = () => {
     const { toast } = useToast()
     const { settings: existingSettings, saveSettings } = useSicknessSettings()
 
-    // Simplified form - only essentials
-    // Set hasSickness to true by default since this is a sickness app
+    // Complete form data with all required fields
     const [formData, setFormData] = useState({
         age: existingSettings.age,
         gender: existingSettings.gender,
+        height: existingSettings.height,
+        weight: existingSettings.weight,
+        waist: existingSettings.waist,
+        activityLevel: existingSettings.activityLevel,
         location: existingSettings.location || '',
         hasSickness: true, // Always true for sickness app
-        sicknessType: existingSettings.sicknessType || ''
+        sicknessType: existingSettings.sicknessType || '',
+        goal: existingSettings.goal || ''
     })
 
     const [currentStep, setCurrentStep] = useState<number>(0)
     const [isSaving, setIsSaving] = useState(false)
 
-    // Simplified steps - only 4 steps now
+    // Steps for onboarding
     const steps = [
         {
             id: 'welcome',
             title: "Welcome to MealLensAI",
-            subtitle: "Let's set up your profile in just 3 quick steps",
+            subtitle: "Let's set up your profile",
             icon: <Sparkles className="h-6 w-6" />,
         },
         {
@@ -95,6 +100,30 @@ const Onboarding: React.FC = () => {
                 })
                 return false
             }
+            if (!formData.height || formData.height < 50 || formData.height > 250) {
+                toast({
+                    title: "Height Required",
+                    description: "Please enter your height in cm (50-250).",
+                    variant: "destructive"
+                })
+                return false
+            }
+            if (!formData.weight || formData.weight < 20 || formData.weight > 300) {
+                toast({
+                    title: "Weight Required",
+                    description: "Please enter your weight in kg (20-300).",
+                    variant: "destructive"
+                })
+                return false
+            }
+            if (!formData.waist || formData.waist < 60 || formData.waist > 150) {
+                toast({
+                    title: "Waist Circumference Required",
+                    description: "Please enter your waist circumference in cm (60-150).",
+                    variant: "destructive"
+                })
+                return false
+            }
         }
 
         if (stepId === 'location') {
@@ -117,6 +146,22 @@ const Onboarding: React.FC = () => {
                 })
                 return false
             }
+            if (!formData.activityLevel) {
+                toast({
+                    title: "Activity Level Required",
+                    description: "Please select your activity level.",
+                    variant: "destructive"
+                })
+                return false
+            }
+            if (!formData.goal) {
+                toast({
+                    title: "Health Goal Required",
+                    description: "Please select your health goal.",
+                    variant: "destructive"
+                })
+                return false
+            }
         }
 
         return true
@@ -129,20 +174,25 @@ const Onboarding: React.FC = () => {
 
         setIsSaving(true)
         try {
-            // Save only the basic information
+            // Save all form data
             const dataToSave: Partial<SicknessSettings> = {
                 age: formData.age,
                 gender: formData.gender as 'male' | 'female' | 'other',
+                height: formData.height,
+                weight: formData.weight,
+                waist: formData.waist,
+                activityLevel: formData.activityLevel as 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active',
                 location: formData.location,
                 hasSickness: true, // Always true for sickness app
-                sicknessType: formData.sicknessType
+                sicknessType: formData.sicknessType,
+                goal: formData.goal
             }
 
             const res = await saveSettings(dataToSave as SicknessSettings)
             if (res.success) {
                 toast({ 
                     title: "Profile Created! 🎉", 
-                    description: "You can complete your detailed health profile in Settings anytime.",
+                    description: "Your health profile has been saved successfully.",
                     duration: 5000
                 })
                 navigate('/ai-kitchen', { replace: true })
@@ -198,7 +248,7 @@ const Onboarding: React.FC = () => {
                                 </li>
                             </ul>
                         </div>
-                        <p className="text-sm text-gray-500">Let's get you set up in just 3 quick steps!</p>
+                        <p className="text-sm text-gray-500">Let's get you set up!</p>
                     </div>
                 )
 
@@ -215,44 +265,81 @@ const Onboarding: React.FC = () => {
                         </div>
 
                         <div className="space-y-4 pt-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="age" className="text-sm font-medium text-gray-700">Age *</Label>
-                                <Input
-                                    id="age"
-                                    type="number"
-                                    placeholder="Enter your age"
-                                    value={formData.age || ''}
-                                    onChange={(e) => updateFormData('age', parseInt(e.target.value) || undefined)}
-                                    min="10"
-                                    max="120"
-                                    className="text-center text-lg h-12"
-                                />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="age" className="text-sm font-medium text-gray-700">Age *</Label>
+                                    <Input
+                                        id="age"
+                                        type="number"
+                                        placeholder="Enter your age"
+                                        value={formData.age || ''}
+                                        onChange={(e) => updateFormData('age', parseInt(e.target.value) || undefined)}
+                                        min="10"
+                                        max="120"
+                                        className="h-12"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium text-gray-700">Gender *</Label>
+                                    <Select
+                                        value={formData.gender || ''}
+                                        onValueChange={(value) => updateFormData('gender', value)}
+                                    >
+                                        <SelectTrigger className="h-12">
+                                            <SelectValue placeholder="Select gender" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="male">Male</SelectItem>
+                                            <SelectItem value="female">Female</SelectItem>
+                                            <SelectItem value="other">Other</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
-                            <div className="space-y-3">
-                                <Label className="text-sm font-medium text-gray-700">Gender *</Label>
-                                <RadioGroup value={formData.gender || ''} onValueChange={(value) => updateFormData('gender', value)}>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <label htmlFor="male" className="cursor-pointer">
-                                            <div className={`border-2 rounded-lg p-4 text-center transition-all ${formData.gender === 'male' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                                                <RadioGroupItem value="male" id="male" className="sr-only" />
-                                                <div className="font-medium">Male</div>
-                                            </div>
-                                        </label>
-                                        <label htmlFor="female" className="cursor-pointer">
-                                            <div className={`border-2 rounded-lg p-4 text-center transition-all ${formData.gender === 'female' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                                                <RadioGroupItem value="female" id="female" className="sr-only" />
-                                                <div className="font-medium">Female</div>
-                                            </div>
-                                        </label>
-                                        <label htmlFor="other" className="cursor-pointer">
-                                            <div className={`border-2 rounded-lg p-4 text-center transition-all ${formData.gender === 'other' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                                                <RadioGroupItem value="other" id="other" className="sr-only" />
-                                                <div className="font-medium">Other</div>
-                                            </div>
-                                        </label>
-                                    </div>
-                                </RadioGroup>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="height" className="text-sm font-medium text-gray-700">Height (cm) *</Label>
+                                    <Input
+                                        id="height"
+                                        type="number"
+                                        placeholder="Enter height in cm"
+                                        value={formData.height || ''}
+                                        onChange={(e) => updateFormData('height', parseFloat(e.target.value) || undefined)}
+                                        min="50"
+                                        max="250"
+                                        className="h-12"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="weight" className="text-sm font-medium text-gray-700">Weight (kg) *</Label>
+                                    <Input
+                                        id="weight"
+                                        type="number"
+                                        placeholder="Enter weight in kg"
+                                        value={formData.weight || ''}
+                                        onChange={(e) => updateFormData('weight', parseFloat(e.target.value) || undefined)}
+                                        min="20"
+                                        max="300"
+                                        className="h-12"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="waist" className="text-sm font-medium text-gray-700">Waist Circumference (cm) *</Label>
+                                <Input
+                                    id="waist"
+                                    type="number"
+                                    placeholder="Enter waist circumference in cm"
+                                    value={formData.waist || ''}
+                                    onChange={(e) => updateFormData('waist', parseFloat(e.target.value) || undefined)}
+                                    min="60"
+                                    max="150"
+                                    className="h-12"
+                                />
                             </div>
                         </div>
                     </div>
@@ -274,10 +361,10 @@ const Onboarding: React.FC = () => {
                             <Label htmlFor="location" className="text-sm font-medium text-gray-700">Your Location *</Label>
                             <Input
                                 id="location"
-                                placeholder="e.g., Nairobi, Kenya"
+                                placeholder="e.g., Nairobi, Kenya or Nigeria"
                                 value={formData.location || ''}
                                 onChange={(e) => updateFormData('location', e.target.value)}
-                                className="text-center text-lg h-12"
+                                className="h-12"
                             />
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
                                 <p className="text-sm text-blue-800">
@@ -298,12 +385,12 @@ const Onboarding: React.FC = () => {
                                 <span>Step 3 of 3</span>
                             </div>
                             <h2 className="text-2xl font-bold text-gray-900">{currentStepData.title}</h2>
-                            <p className="text-gray-600">Tell us about your health condition</p>
+                            <p className="text-gray-600">{currentStepData.subtitle}</p>
                         </div>
 
                         <div className="space-y-4 pt-2">
                             <div className="space-y-2">
-                                <Label htmlFor="sickness" className="text-sm font-medium text-gray-700">What condition? *</Label>
+                                <Label htmlFor="sickness" className="text-sm font-medium text-gray-700">Health Condition *</Label>
                                 <Input
                                     id="sickness"
                                     placeholder="e.g., diabetes, hypertension"
@@ -313,11 +400,42 @@ const Onboarding: React.FC = () => {
                                 />
                             </div>
 
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                                <p className="text-sm text-blue-800">
-                                    <span className="font-medium">🎯 Complete Your Profile Later</span><br />
-                                    You can add detailed health information (height, weight, activity level, goals) in Settings after completing this setup.
-                                </p>
+                            <div className="space-y-2">
+                                <Label className="text-sm font-medium text-gray-700">Activity Level *</Label>
+                                <Select
+                                    value={formData.activityLevel || ''}
+                                    onValueChange={(value) => updateFormData('activityLevel', value)}
+                                >
+                                    <SelectTrigger className="h-12">
+                                        <SelectValue placeholder="Select activity level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="sedentary">Sedentary</SelectItem>
+                                        <SelectItem value="light">Light</SelectItem>
+                                        <SelectItem value="moderate">Moderate</SelectItem>
+                                        <SelectItem value="active">Active</SelectItem>
+                                        <SelectItem value="very_active">Very Active</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-sm font-medium text-gray-700">Health Goal *</Label>
+                                <Select
+                                    value={formData.goal || ''}
+                                    onValueChange={(value) => updateFormData('goal', value)}
+                                >
+                                    <SelectTrigger className="h-12">
+                                        <SelectValue placeholder="Select your goal" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Heal">Heal</SelectItem>
+                                        <SelectItem value="Improve">Improve</SelectItem>
+                                        <SelectItem value="Manage">Manage</SelectItem>
+                                        <SelectItem value="Restore">Restore</SelectItem>
+                                        <SelectItem value="Maintain">Maintain</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                     </div>
