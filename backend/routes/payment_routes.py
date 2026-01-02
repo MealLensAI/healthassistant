@@ -520,8 +520,12 @@ def handle_payment_success():
                 'error': 'Missing required fields: user_id, email, plan_name'
             }), 400
         
-        # Initialize subscription service
-        subscription_service = SubscriptionService()
+        # Initialize subscription service using centralized Supabase client
+        from flask import current_app
+        if hasattr(current_app, 'supabase_service') and current_app.supabase_service:
+            subscription_service = SubscriptionService(current_app.supabase_service.supabase)
+        else:
+            subscription_service = SubscriptionService()
         
         # Use the provided user_id directly (we're using Supabase auth)
         print(f"✅ Using provided user ID: {user_id}")

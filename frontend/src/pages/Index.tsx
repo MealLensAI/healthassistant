@@ -112,7 +112,7 @@ const Index = () => {
   const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(false);
 
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const {
     getSicknessInfo,
     getHealthProfilePayload,
@@ -131,15 +131,20 @@ const Index = () => {
     initialized: mealPlansInitialized,
     error: mealPlansError
   } = useMealPlans(sicknessSettings.hasSickness); // Filter based on current health settings
+  // Only show error if there's actually an error AND no cached data AND user is authenticated
   useEffect(() => {
-    if (mealPlansError) {
-      toast({
-        title: 'Meal plans unavailable',
-        description: mealPlansError,
-        variant: 'destructive'
-      });
+    if (mealPlansError && !mealPlansLoading && isAuthenticated) {
+      // Only show error if we don't have any cached plans to display
+      const hasCachedData = savedPlans.length > 0 || currentPlan !== null;
+      if (!hasCachedData) {
+        toast({
+          title: 'Meal plans unavailable',
+          description: mealPlansError,
+          variant: 'destructive'
+        });
+      }
     }
-  }, [mealPlansError, toast]);
+  }, [mealPlansError, mealPlansLoading, isAuthenticated, savedPlans.length, currentPlan, toast]);
 
 
   const prevShowPlanManager = useRef(showPlanManager);
@@ -722,14 +727,17 @@ const Index = () => {
       // Log the extracted error message for debugging
       console.log('Extracted error message:', errorMessage);
 
+      // Check for duplicate plan error (409 Conflict or DUPLICATE_PLAN code)
       if (
-        errorMessage.includes('duplicate key value') &&
-        errorMessage.includes('unique_user_week')
+        error?.code === 'DUPLICATE_PLAN' ||
+        error?.status === 409 ||
+        (errorMessage.includes('duplicate key value') && errorMessage.includes('unique_user_week')) ||
+        errorMessage.includes('already exists for this week')
       ) {
         Swal.fire({
           icon: 'warning',
           title: 'Duplicate Plan',
-          text: 'A meal plan for this week already exists. Please choose a different week or edit the existing plan.',
+          text: errorMessage.includes('already exists') ? errorMessage : 'A meal plan for this week already exists. Please choose a different week or edit the existing plan.',
           confirmButtonColor: '#f97316'
         });
       } else {

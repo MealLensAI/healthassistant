@@ -1,12 +1,17 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 import json
 from datetime import datetime
 from services.subscription_service import SubscriptionService
 from services.auth_service import AuthService
 
 subscription_bp = Blueprint('subscription', __name__)
-subscription_service = SubscriptionService()
-# auth_service will be initialized when needed
+
+def get_subscription_service():
+    """Get subscription service instance using centralized Supabase client"""
+    if hasattr(current_app, 'supabase_service') and current_app.supabase_service:
+        return SubscriptionService(current_app.supabase_service.supabase)
+    # Fallback for backward compatibility
+    return SubscriptionService()
 
 @subscription_bp.route('/status', methods=['GET'])
 def get_subscription_status():
@@ -24,6 +29,7 @@ def get_subscription_status():
             }), 400
         
         # Get subscription status
+        subscription_service = get_subscription_service()
         result = subscription_service.get_user_subscription_status(user_id)
         
         if result['success']:
@@ -60,6 +66,7 @@ def check_feature_access():
             }), 400
         
         # Check feature access
+        subscription_service = get_subscription_service()
         result = subscription_service.can_user_use_feature(user_id, feature_name)
         
         if result['success']:
@@ -97,6 +104,7 @@ def record_feature_usage():
             }), 400
         
         # Record feature usage
+        subscription_service = get_subscription_service()
         result = subscription_service.record_feature_usage(user_id, feature_name, count)
         
         if result['success']:
@@ -127,6 +135,7 @@ def create_user_trial():
             }), 400
         
         # Create trial
+        subscription_service = get_subscription_service()
         result = subscription_service.create_user_trial(user_id, duration_days)
         
         if result['success']:
@@ -164,6 +173,7 @@ def activate_subscription():
             }), 400
         
         # Activate subscription
+        subscription_service = get_subscription_service()
         result = subscription_service.activate_subscription(user_id, plan_name, paystack_data)
         
         if result['success']:
@@ -201,6 +211,7 @@ def activate_subscription_for_days():
             }), 400
         
         # Activate subscription for days
+        subscription_service = get_subscription_service()
         result = subscription_service.activate_subscription_for_days(user_id, duration_days, paystack_data)
         
         if result['success']:
@@ -220,6 +231,7 @@ def get_subscription_plans():
     Get all available subscription plans
     """
     try:
+        subscription_service = get_subscription_service()
         result = subscription_service.get_subscription_plans()
         
         if result['success']:
@@ -249,6 +261,7 @@ def verify_payment():
             }), 400
         
         # Verify payment
+        subscription_service = get_subscription_service()
         result = subscription_service.verify_paystack_payment(reference)
         
         if result['success']:
@@ -278,6 +291,7 @@ def process_webhook():
             }), 400
         
         # Process webhook
+        subscription_service = get_subscription_service()
         result = subscription_service.process_paystack_webhook(webhook_data)
         
         if result['success']:
@@ -307,6 +321,7 @@ def get_usage_stats():
             }), 400
         
         # Get usage stats
+        subscription_service = get_subscription_service()
         result = subscription_service.get_user_usage_stats(user_id)
         
         if result['success']:
@@ -327,6 +342,7 @@ def health_check():
     """
     try:
         # Test database connection
+        subscription_service = get_subscription_service()
         plans_result = subscription_service.get_subscription_plans()
         
         return jsonify({

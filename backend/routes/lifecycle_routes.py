@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from services.lifecycle_subscription_service import LifecycleSubscriptionService
 from utils.auth_utils import get_user_id_from_token
 import uuid
@@ -7,8 +7,11 @@ import uuid
 lifecycle_bp = Blueprint('lifecycle', __name__)
 
 def get_lifecycle_service():
-    """Get lifecycle subscription service instance"""
+    """Get lifecycle subscription service instance using centralized Supabase client"""
     try:
+        if hasattr(current_app, 'supabase_service') and current_app.supabase_service:
+            return LifecycleSubscriptionService(current_app.supabase_service.supabase)
+        # Fallback for backward compatibility
         return LifecycleSubscriptionService()
     except Exception as e:
         print(f"Error initializing lifecycle service: {str(e)}")

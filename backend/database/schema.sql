@@ -1,6 +1,6 @@
--- MySQL Schema for MealLens AI
--- Converted from Supabase/PostgreSQL to MySQL
--- Uses CHAR(36) for UUIDs, JSON for JSONB, and standard MySQL types
+-- Supabase/PostgreSQL Schema for MealLens AI
+-- This is the actual database schema used by the application
+-- Supabase uses PostgreSQL, so this schema uses PostgreSQL types (UUID, JSONB, etc.)
 
 -- Enable UUID generation function (MySQL 8.0+)
 -- For older versions, we'll use application-generated UUIDs

@@ -31,7 +31,17 @@ def save_meal_plan():
             }), 201
         else:
             # Error case
-            error_str = str(result[1]) if result and len(result) > 1 else 'Unknown error'
+            error_data = result[1] if result and len(result) > 1 else 'Unknown error'
+            
+            # Check if it's a duplicate plan error (constraint violation)
+            if isinstance(error_data, dict) and error_data.get('code') == 'DUPLICATE_PLAN':
+                return jsonify({
+                    'status': 'error', 
+                    'message': error_data.get('message', 'A meal plan already exists for this week.'),
+                    'code': 'DUPLICATE_PLAN'
+                }), 409  # 409 Conflict is more appropriate than 500
+            
+            error_str = str(error_data)
             log_error(f"Failed to save meal plan for user {user_id}", Exception(error_str))
             return jsonify({'status': 'error', 'message': f'Failed to save meal plan: {error_str}'}), 500
     except Exception as e:

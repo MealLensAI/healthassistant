@@ -39,18 +39,24 @@ def get_frontend_url():
 enterprise_bp = Blueprint('enterprise', __name__)
 
 def get_supabase_client(use_admin: bool = False) -> Client:
-    """Helper function to get the Supabase client from the app context."""
+    """
+    Helper function to get the Supabase client from the app context.
+    Always uses the centralized Supabase service to ensure single database connection.
+    """
+    # Always use the centralized service - it already uses service role key
+    if hasattr(current_app, 'supabase_service') and current_app.supabase_service:
+        return current_app.supabase_service.supabase
+    
+    # Fallback: create client only if app service not available (shouldn't happen in production)
     if use_admin:
-        # Use admin client that bypasses RLS
         from supabase import create_client
         import os
-        return create_client(
-            os.getenv('SUPABASE_URL'),
-            os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        )
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+        if not supabase_url or not supabase_key:
+            raise Exception("Supabase credentials not available")
+        return create_client(supabase_url, supabase_key)
     
-    if hasattr(current_app, 'supabase_service'):
-        return current_app.supabase_service.supabase
     raise Exception("Supabase service not available")
 
 def require_auth(f):
@@ -484,6 +490,13 @@ def get_my_enterprises():
 def get_enterprise(enterprise_id):
     """Get enterprise details"""
     try:
+        # Validate UUID format
+        import uuid
+        try:
+            uuid.UUID(enterprise_id)
+        except ValueError:
+            return jsonify({'error': 'Invalid enterprise ID format'}), 400
+        
         supabase = get_supabase_client()
         
         # Get enterprise
@@ -494,9 +507,14 @@ def get_enterprise(enterprise_id):
         
         enterprise = result.data[0]
         
-        # Get statistics
-        stats = supabase.rpc('get_enterprise_stats', {'enterprise_uuid': enterprise_id}).execute()
-        enterprise['stats'] = stats.data if stats.data else {}
+        # Get statistics (optional - don't fail if RPC doesn't exist)
+        try:
+            stats = supabase.rpc('get_enterprise_stats', {'enterprise_uuid': enterprise_id}).execute()
+            enterprise['stats'] = stats.data if stats.data else {}
+        except Exception as stats_error:
+            # RPC might not exist or fail - that's okay, just skip stats
+            current_app.logger.warning(f"Could not fetch enterprise stats: {stats_error}")
+            enterprise['stats'] = {}
         
         return jsonify({
             'success': True,
@@ -504,7 +522,15 @@ def get_enterprise(enterprise_id):
         }), 200
         
     except Exception as e:
-        return jsonify({'error': f'Failed to fetch enterprise: {str(e)}'}), 500
+        error_str = str(e)
+        current_app.logger.error(f"Error fetching enterprise: {error_str}", exc_info=True)
+        # Check for UUID format errors
+        if 'invalid input syntax for type uuid' in error_str or '22P02' in error_str:
+            return jsonify({'error': 'Invalid enterprise ID format'}), 400
+        # Check if it's a not found scenario
+        if 'not found' in error_str.lower() or 'does not exist' in error_str.lower():
+            return jsonify({'error': 'Enterprise not found'}), 404
+        return jsonify({'error': f'Failed to fetch enterprise: {error_str}'}), 500
 
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>', methods=['PUT'])
@@ -512,11 +538,26 @@ def get_enterprise(enterprise_id):
 def update_enterprise(enterprise_id):
     """Update enterprise details"""
     try:
+        # Validate UUID format
+        import uuid
+        try:
+            uuid.UUID(enterprise_id)
+        except ValueError:
+            return jsonify({'error': 'Invalid enterprise ID format'}), 400
+        
         data = request.get_json()
         supabase = get_supabase_client()
         
         # Verify ownership
-        enterprise = supabase.table('enterprises').select('id').eq('id', enterprise_id).eq('created_by', request.user_id).execute()
+        try:
+            enterprise = supabase.table('enterprises').select('id').eq('id', enterprise_id).eq('created_by', request.user_id).execute()
+        except Exception as query_error:
+            error_str = str(query_error)
+            if 'invalid input syntax for type uuid' in error_str or '22P02' in error_str:
+                return jsonify({'error': 'Invalid enterprise ID format'}), 400
+            current_app.logger.error(f"Error querying enterprises: {error_str}")
+            return jsonify({'error': 'Enterprise not found or access denied'}), 404
+        
         if not enterprise.data:
             return jsonify({'error': 'Enterprise not found or access denied'}), 404
         
@@ -536,7 +577,11 @@ def update_enterprise(enterprise_id):
         }), 200
         
     except Exception as e:
-        return jsonify({'error': f'Failed to update enterprise: {str(e)}'}), 500
+        error_str = str(e)
+        current_app.logger.error(f"Error updating enterprise: {error_str}", exc_info=True)
+        if 'invalid input syntax for type uuid' in error_str or '22P02' in error_str:
+            return jsonify({'error': 'Invalid enterprise ID format'}), 400
+        return jsonify({'error': f'Failed to update enterprise: {error_str}'}), 500
 
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/users', methods=['GET'])
@@ -932,19 +977,43 @@ def get_invitations(enterprise_id):
 def cancel_invitation(invitation_id):
     """Cancel a pending invitation"""
     try:
+        # Validate UUID format
+        import uuid
+        try:
+            uuid.UUID(invitation_id)
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid invitation ID format'
+            }), 400
+        
         supabase = get_supabase_client(use_admin=True)
         
         # Get invitation and related enterprise info using admin client (bypasses RLS)
-        invitation_result = supabase.table('invitations').select('''
-            id,
-            enterprise_id,
-            status,
-            enterprises!inner (
+        try:
+            invitation_result = supabase.table('invitations').select('''
                 id,
-                name,
-                created_by
-            )
-        ''').eq('id', invitation_id).execute()
+                enterprise_id,
+                status,
+                enterprises!inner (
+                    id,
+                    name,
+                    created_by
+                )
+            ''').eq('id', invitation_id).execute()
+        except Exception as query_error:
+            error_str = str(query_error)
+            # Check for UUID format errors
+            if 'invalid input syntax for type uuid' in error_str or '22P02' in error_str:
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid invitation ID format'
+                }), 400
+            current_app.logger.error(f"Error querying invitations: {error_str}")
+            return jsonify({
+                'success': False,
+                'error': 'Invitation not found'
+            }), 404
         
         if not invitation_result.data:
             return jsonify({
@@ -1695,16 +1764,31 @@ def create_user():
 def delete_organization_user(user_relation_id):
     """Delete a user from the organization"""
     try:
+        # Validate UUID format
+        import uuid
+        try:
+            uuid.UUID(user_relation_id)
+        except ValueError:
+            return jsonify({'error': 'Invalid user relation ID format'}), 400
+        
         supabase = get_supabase_client()
         
         # First, get the organization user record to verify ownership
-        org_user_result = supabase.table('organization_users').select('''
-            *,
-            enterprise:enterprise_id (
-                id,
-                created_by
-            )
-        ''').eq('id', user_relation_id).execute()
+        try:
+            org_user_result = supabase.table('organization_users').select('''
+                *,
+                enterprise:enterprise_id (
+                    id,
+                    created_by
+                )
+            ''').eq('id', user_relation_id).execute()
+        except Exception as query_error:
+            error_str = str(query_error)
+            # Check for UUID format errors
+            if 'invalid input syntax for type uuid' in error_str or '22P02' in error_str:
+                return jsonify({'error': 'Invalid user relation ID format'}), 400
+            current_app.logger.error(f"Error querying organization_users: {error_str}")
+            return jsonify({'error': 'User not found in organization'}), 404
         
         if not org_user_result.data:
             return jsonify({'error': 'User not found in organization'}), 404

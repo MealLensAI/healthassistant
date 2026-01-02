@@ -95,18 +95,10 @@ const MealCard: React.FC<{ meal: HealthMeal; onViewDetails: () => void }> = ({ m
     const fetchFoodImage = async () => {
       const foodName = meal.food_suggestions?.[0] || "healthy meal"
       try {
-        const response = await fetch('https://get-images-qa23.onrender.com/image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ q: foodName }),
-        })
-        if (!response.ok) throw new Error('HTTP error')
-        const data = await response.json()
-        if (data.image_url && !data.error) {
-          setFoodImage(data.image_url)
-        } else {
-          setFoodImage('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop')
-        }
+        const { imageCache } = await import('@/lib/imageCache');
+        const fallback = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop';
+        const cachedImage = await imageCache.getImage(foodName, fallback);
+        setFoodImage(cachedImage);
       } catch (error) {
         setFoodImage('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop')
       } finally {

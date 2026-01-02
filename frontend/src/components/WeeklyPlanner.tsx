@@ -55,25 +55,27 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
     return mealDescription.replace(/\s*\(buy:[^)]*\)/, '').trim();
   };
 
-  // Fetch food image for a meal
-  const fetchFoodImage = async (foodName: string) => {
-    if (foodImages[foodName]) return; // Already fetched
+  // Fetch food image for a meal - use DB image if available, otherwise fetch
+  const fetchFoodImage = async (foodName: string, storedImageUrl?: string) => {
+    if (foodImages[foodName]) return; // Already in component state
 
+    // If image is stored in DB, use it directly
+    if (storedImageUrl) {
+      setFoodImages(prev => ({ ...prev, [foodName]: storedImageUrl }));
+      return;
+    }
+
+    // Otherwise fetch from cache/API
     try {
-      const response = await fetch('https://get-images-qa23.onrender.com/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q: foodName }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.image_url) {
-          setFoodImages(prev => ({ ...prev, [foodName]: data.image_url }));
-        }
-      }
+      const { imageCache } = await import('@/lib/imageCache');
+      const fallback = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop';
+      const cachedImage = await imageCache.getImage(foodName, fallback);
+      setFoodImages(prev => ({ ...prev, [foodName]: cachedImage }));
     } catch (error) {
       console.error('Error fetching food image:', error);
+      // Set fallback image on error
+      const fallback = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop';
+      setFoodImages(prev => ({ ...prev, [foodName]: fallback }));
     }
   };
 
@@ -88,7 +90,8 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
         protein: dayPlan.breakfast_protein,
         carbs: dayPlan.breakfast_carbs,
         fat: dayPlan.breakfast_fat,
-        benefit: dayPlan.breakfast_benefit
+        benefit: dayPlan.breakfast_benefit,
+        image: dayPlan.breakfast_image // Use stored image from DB
       },
       lunch: {
         name: dayPlan.lunch_name || extractFoodName(dayPlan.lunch),
@@ -96,7 +99,8 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
         protein: dayPlan.lunch_protein,
         carbs: dayPlan.lunch_carbs,
         fat: dayPlan.lunch_fat,
-        benefit: dayPlan.lunch_benefit
+        benefit: dayPlan.lunch_benefit,
+        image: dayPlan.lunch_image // Use stored image from DB
       },
       dinner: {
         name: dayPlan.dinner_name || extractFoodName(dayPlan.dinner),
@@ -104,7 +108,8 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
         protein: dayPlan.dinner_protein,
         carbs: dayPlan.dinner_carbs,
         fat: dayPlan.dinner_fat,
-        benefit: dayPlan.dinner_benefit
+        benefit: dayPlan.dinner_benefit,
+        image: dayPlan.dinner_image // Use stored image from DB
       },
       snack: dayPlan.snack ? {
         name: dayPlan.snack_name || extractFoodName(dayPlan.snack),
@@ -112,7 +117,8 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
         protein: dayPlan.snack_protein,
         carbs: dayPlan.snack_carbs,
         fat: dayPlan.snack_fat,
-        benefit: dayPlan.snack_benefit
+        benefit: dayPlan.snack_benefit,
+        image: dayPlan.snack_image // Use stored image from DB
       } : null
     };
   };
@@ -190,12 +196,12 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                   <div className="bg-yellow-50 p-1.5 sm:p-2 border border-yellow-200 rounded">
                     <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
                       <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full overflow-hidden flex-shrink-0">
-                        {foodImages[mealPreview.breakfast.name] ? (
+                        {foodImages[mealPreview.breakfast.name] || mealPreview.breakfast.image ? (
                           <img
-                            src={foodImages[mealPreview.breakfast.name]}
+                            src={foodImages[mealPreview.breakfast.name] || mealPreview.breakfast.image}
                             alt={mealPreview.breakfast.name}
                             className="w-full h-full object-cover"
-                            onLoad={() => fetchFoodImage(mealPreview.breakfast.name)}
+                            onLoad={() => fetchFoodImage(mealPreview.breakfast.name, mealPreview.breakfast.image)}
                           />
                         ) : (
                           <div className="w-full h-full bg-yellow-200 flex items-center justify-center text-[10px] sm:text-xs">

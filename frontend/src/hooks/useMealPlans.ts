@@ -19,24 +19,28 @@ export interface MealPlan {
   breakfast_carbs?: number;
   breakfast_fat?: number;
   breakfast_benefit?: string;
+  breakfast_image?: string; // Image URL stored in DB
   lunch_name?: string;
   lunch_calories?: number;
   lunch_protein?: number;
   lunch_carbs?: number;
   lunch_fat?: number;
   lunch_benefit?: string;
+  lunch_image?: string; // Image URL stored in DB
   dinner_name?: string;
   dinner_calories?: number;
   dinner_protein?: number;
   dinner_carbs?: number;
   dinner_fat?: number;
   dinner_benefit?: string;
+  dinner_image?: string; // Image URL stored in DB
   snack_name?: string;
   snack_calories?: number;
   snack_protein?: number;
   snack_carbs?: number;
   snack_fat?: number;
   snack_benefit?: string;
+  snack_image?: string; // Image URL stored in DB
 }
 
 export interface HealthAssessment {
@@ -70,7 +74,7 @@ const getCacheKeys = (userId?: string) => {
   };
 };
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes - extended for better persistence
 
 // Helper functions for caching
 const getCachedPlans = (userId?: string): SavedMealPlan[] | null => {
@@ -150,7 +154,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
   }, [userId]); // Run when userId changes
 
   // Fetch all meal plans from backend API on mount
-  // BUT ONLY when authentication is ready!
+  // BUT ONLY when authentication is ready AND cache is expired/missing!
   useEffect(() => {
     // Don't fetch if not authenticated or auth still loading
     if (!isAuthenticated || authLoading) {
@@ -167,12 +171,31 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       return;
     }
 
+    // Check cache first - only fetch if cache is expired or missing
+    const cachedPlans = getCachedPlans(userId);
+    if (cachedPlans && cachedPlans.length > 0) {
+      console.log('✅ useMealPlans: Using cached data, skipping fetch');
+      // Filter cached plans if needed
+      let filteredCached = cachedPlans;
+      if (filterBySickness !== undefined) {
+        filteredCached = cachedPlans.filter((plan: SavedMealPlan) => plan.hasSickness === filterBySickness);
+      }
+      setSavedPlans(filteredCached);
+      if (filteredCached.length > 0) {
+        setCurrentPlan(filteredCached[0]);
+      }
+      setInitialized(true);
+      setLoading(false);
+      setError(null);
+      return; // Don't fetch if we have valid cache
+    }
+
     const fetchPlans = async () => {
       setLoading(true);
       setError(null);
       // Don't set initialized to false here - keep showing cached data
       try {
-        console.log('🔍 useMealPlans: Fetching meal plans');
+        console.log('🔍 useMealPlans: Cache expired/missing, fetching from backend');
         const token = safeGetItem('access_token');
         const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
           method: 'GET',
@@ -282,11 +305,40 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       const now = new Date();
       const weekDates = startDate ? generateWeekDates(startDate) : generateWeekDates(now);
 
+      // Fetch and attach images to meal plan before saving
+      const mealPlanWithImages = await Promise.all(mealPlan.map(async (dayPlan) => {
+        const { imageCache } = await import('@/lib/imageCache');
+        const fallbackImages = {
+          breakfast: 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
+          lunch: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
+          dinner: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=300&fit=crop',
+          snack: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop'
+        };
+
+        const updatedPlan = { ...dayPlan };
+
+        // Fetch images for each meal if not already present
+        if (dayPlan.breakfast_name && !dayPlan.breakfast_image) {
+          updatedPlan.breakfast_image = await imageCache.getImage(dayPlan.breakfast_name, fallbackImages.breakfast);
+        }
+        if (dayPlan.lunch_name && !dayPlan.lunch_image) {
+          updatedPlan.lunch_image = await imageCache.getImage(dayPlan.lunch_name, fallbackImages.lunch);
+        }
+        if (dayPlan.dinner_name && !dayPlan.dinner_image) {
+          updatedPlan.dinner_image = await imageCache.getImage(dayPlan.dinner_name, fallbackImages.dinner);
+        }
+        if (dayPlan.snack_name && !dayPlan.snack_image) {
+          updatedPlan.snack_image = await imageCache.getImage(dayPlan.snack_name, fallbackImages.snack);
+        }
+
+        return updatedPlan;
+      }));
+
       const planData = {
         name: weekDates.name,
         start_date: weekDates.startDate,
         end_date: weekDates.endDate,
-        meal_plan: mealPlan,
+        meal_plan: mealPlanWithImages, // Save meal plan with images
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
         health_assessment: healthAssessment,
@@ -313,14 +365,27 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       if (!response.ok) {
         // Try to parse the error message from the response
         let errorMessage = `HTTP error! status: ${response.status}`;
+        let errorCode = null;
         try {
           const errorData = await response.json();
           if (errorData && errorData.message) {
             errorMessage = errorData.message;
           }
+          if (errorData && errorData.code) {
+            errorCode = errorData.code;
+          }
         } catch (e) {
           // If we can't parse the response as JSON, use the generic error
         }
+        
+        // Handle duplicate plan error (409 Conflict)
+        if (response.status === 409 || errorCode === 'DUPLICATE_PLAN') {
+          const duplicateError: any = new Error(errorMessage);
+          duplicateError.code = 'DUPLICATE_PLAN';
+          duplicateError.status = 409;
+          throw duplicateError;
+        }
+        
         throw new Error(errorMessage);
       }
 
@@ -347,6 +412,8 @@ export const useMealPlans = (filterBySickness?: boolean) => {
             return updated;
           });
         setCurrentPlan(newPlan);
+        // Force refresh to get latest from backend after save
+        await refreshMealPlans(true);
         return newPlan;
       } else {
         throw new Error(result.message || 'Failed to save meal plan');
@@ -403,6 +470,8 @@ export const useMealPlans = (filterBySickness?: boolean) => {
           mealPlan: mealPlan,
           updatedAt: now.toISOString(),
         } : prev);
+        // Force refresh to get latest from backend after update
+        await refreshMealPlans(true);
       } else {
         throw new Error(result.message || 'Failed to update meal plan');
       }
@@ -444,6 +513,8 @@ export const useMealPlans = (filterBySickness?: boolean) => {
           setCachedPlans(remainingPlans, userId);
           return remainingPlans;
         });
+        // Force refresh to get latest from backend after delete
+        await refreshMealPlans(true);
       } else {
         throw new Error(result.message || 'Failed to delete meal plan');
       }
@@ -569,10 +640,31 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     }
   };
 
-  const refreshMealPlans = async () => {
+  const refreshMealPlans = async (forceRefresh: boolean = false) => {
+    if (!isAuthenticated) {
+      console.log('⏸️ useMealPlans: Cannot refresh (not authenticated)');
+      return;
+    }
+
+    // If not forcing refresh, check cache first
+    if (!forceRefresh) {
+      const cachedPlans = getCachedPlans(userId);
+      if (cachedPlans && cachedPlans.length > 0) {
+        console.log('✅ useMealPlans: Using cached data for refresh');
+        let filteredCached = cachedPlans;
+        if (filterBySickness !== undefined) {
+          filteredCached = cachedPlans.filter((plan: SavedMealPlan) => plan.hasSickness === filterBySickness);
+        }
+        setSavedPlans(filteredCached);
+        if (filteredCached.length > 0) setCurrentPlan(filteredCached[0]);
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
     try {
+      console.log('🔄 useMealPlans: Refreshing meal plans from backend', forceRefresh ? '(forced)' : '');
       const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
         method: 'GET',

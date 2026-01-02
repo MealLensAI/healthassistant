@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Flame } from 'lucide-react';
+import { imageCache } from '@/lib/imageCache';
 
 interface EnhancedRecipeCardProps {
     mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -30,18 +31,9 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
 
     const fetchFoodImage = async (foodName: string) => {
         try {
-            const response = await fetch('https://get-images-qa23.onrender.com/image', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ q: foodName }),
-            });
-            if (!response.ok) throw new Error('HTTP error');
-            const data = await response.json();
-            if (data.image_url && !data.error) {
-                setFoodImage(data.image_url);
-            } else {
-                setFoodImage(getFallbackImage());
-            }
+            const fallback = getFallbackImage();
+            const cachedImage = await imageCache.getImage(foodName, fallback);
+            setFoodImage(cachedImage);
         } catch (error) {
             setFoodImage(getFallbackImage());
         } finally {

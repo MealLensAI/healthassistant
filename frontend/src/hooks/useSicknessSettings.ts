@@ -110,7 +110,7 @@ export const useSicknessSettings = () => {
     dropCachedSettings();
   }, []);
 
-  const loadSettingsFromBackend = useCallback(async () => {
+  const loadSettingsFromBackend = useCallback(async (forceRefresh: boolean = false) => {
     if (authLoading || !isAuthenticated) {
       if (isMountedRef.current) {
         setLoading(false);
@@ -118,12 +118,25 @@ export const useSicknessSettings = () => {
       return;
     }
 
-    if (isMountedRef.current) {
-      setLoading(true);
-      setError(null);
+    // If not forcing refresh and cache exists, use cache but still fetch in background
+    if (!forceRefresh && cacheRef.current) {
+      console.log('✅ Health settings: Using cached data, fetching from backend in background');
+      // Use cached data immediately
+      setSettings(cacheRef.current);
+      lastSavedRef.current = cacheRef.current;
+      setHasExistingData(true);
+      setLoading(false);
+      // Continue to fetch in background to update cache
+    } else {
+      if (isMountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
     }
 
     try {
+      // Always fetch from backend to ensure we have the latest data
+      // This ensures health info persists even after cache clear
       const result = await api.getUserSettings('health_profile');
       if (!isMountedRef.current) return;
 
@@ -142,21 +155,35 @@ export const useSicknessSettings = () => {
         setError(null);
         console.log('✅ Health settings loaded from backend:', normalized);
       } else {
-        console.log('No health settings found in backend, preserving cached/default values');
-        if (!cacheRef.current) {
+        // If no backend data, check cache first, then use defaults
+        if (cacheRef.current) {
+          console.log('No health settings found in backend, using cached settings');
+          setSettings(cacheRef.current);
+          lastSavedRef.current = cacheRef.current;
+          setHasExistingData(true);
+        } else {
+          console.log('No health settings found in backend or cache, using defaults');
           const emptySettings = createEmptySettings();
           setSettings(emptySettings);
           lastSavedRef.current = emptySettings;
           setHasExistingData(false);
-        }
-        if (!cacheRef.current) {
+          // Clear any stale cache
           clearCache();
         }
       }
     } catch (err) {
       if (isMountedRef.current) {
         console.error('Error loading sickness settings from API:', err);
-        setError('Unable to load your health settings. Please try again.');
+        // On error, try to use cached data if available
+        if (cacheRef.current) {
+          console.log('API error, using cached settings as fallback');
+          setSettings(cacheRef.current);
+          lastSavedRef.current = cacheRef.current;
+          setHasExistingData(true);
+          setError(null); // Don't show error if we have cached data
+        } else {
+          setError('Unable to load your health settings. Please try again.');
+        }
       }
     } finally {
       if (isMountedRef.current) {
@@ -167,10 +194,19 @@ export const useSicknessSettings = () => {
 
   useEffect(() => {
     // Only load settings when authenticated and not loading
+    // Always fetch from backend when authenticated (even if cache exists) to ensure data is fresh
     if (!authLoading && isAuthenticated) {
-      loadSettingsFromBackend();
+      // Check if cache exists - if not, force refresh to get from Supabase
+      const hasCache = cacheRef.current !== null;
+      loadSettingsFromBackend(!hasCache); // Force refresh if no cache
+    } else if (!isAuthenticated && !authLoading) {
+      // Clear settings and cache when user logs out
+      setSettings(createEmptySettings());
+      lastSavedRef.current = createEmptySettings();
+      setHasExistingData(false);
+      clearCache();
     }
-  }, [authLoading, isAuthenticated, loadSettingsFromBackend]);
+  }, [authLoading, isAuthenticated, loadSettingsFromBackend, clearCache]);
 
   // Safety mechanism: Force reset loading state after 10 seconds
   useEffect(() => {

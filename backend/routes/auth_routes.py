@@ -29,18 +29,10 @@ def get_supabase_client(use_admin: bool = False) -> Optional[Client]:
         return None
     
     try:
-        if use_admin:
-            return current_app.supabase_service.supabase
-        else:
-            from supabase import create_client
-            anon_key = os.environ.get('SUPABASE_ANON_KEY')
-            if not anon_key:
-                current_app.logger.warning("SUPABASE_ANON_KEY not found, falling back to service role key")
-                return current_app.supabase_service.supabase
-            return create_client(
-                current_app.supabase_service.supabase_url,
-                anon_key
-            )
+        # Always use the centralized Supabase service
+        # The service role key can perform all operations (including auth operations)
+        # This ensures we use a single database connection
+        return current_app.supabase_service.supabase
     except Exception as e:
         current_app.logger.error(f"Error getting Supabase client: {str(e)}")
         return None
@@ -731,7 +723,11 @@ def register_user():
         
         def create_trial_async():
             try:
-                subscription_service = SubscriptionService()
+                # Use centralized Supabase client
+                if hasattr(current_app, 'supabase_service') and current_app.supabase_service:
+                    subscription_service = SubscriptionService(current_app.supabase_service.supabase)
+                else:
+                    subscription_service = SubscriptionService()
                 trial_result = subscription_service.create_user_trial(user_id=user_id, duration_days=30)
                 if not trial_result.get('success'):
                     current_app.logger.warning(f"Failed to create trial for user {user_id}: {trial_result.get('error')}")

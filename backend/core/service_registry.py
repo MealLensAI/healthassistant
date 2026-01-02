@@ -59,7 +59,8 @@ def init_services(config: Config) -> bool:
         try:
             from services.subscription_service import SubscriptionService
             logger.info("Initializing Subscription service...")
-            subscription_service = SubscriptionService()
+            # Use centralized Supabase client
+            subscription_service = SubscriptionService(supabase_service.supabase)
             container.register_singleton('subscription_service', subscription_service)
             logger.info("Subscription service initialized successfully")
         except ImportError as e:
@@ -71,7 +72,8 @@ def init_services(config: Config) -> bool:
         try:
             from services.lifecycle_subscription_service import LifecycleSubscriptionService
             logger.info("Initializing Lifecycle Subscription service...")
-            lifecycle_service = LifecycleSubscriptionService()
+            # Use centralized Supabase client
+            lifecycle_service = LifecycleSubscriptionService(supabase_service.supabase)
             container.register_singleton('lifecycle_service', lifecycle_service)
             logger.info("Lifecycle Subscription service initialized successfully")
         except ImportError as e:

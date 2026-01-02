@@ -506,8 +506,12 @@ class SupabaseService:
                 return None, 'Failed to save meal plan'
 
         except Exception as e:
-            print(f"[ERROR] Exception in save_meal_plan: {e}")
-            return None, str(e)
+            error_str = str(e)
+            print(f"[ERROR] Exception in save_meal_plan: {error_str}")
+            # Check if it's a unique constraint violation (duplicate meal plan)
+            if 'unique constraint' in error_str.lower() or 'duplicate key' in error_str.lower() or '23505' in error_str:
+                return None, {'code': 'DUPLICATE_PLAN', 'message': 'A meal plan already exists for this week and health profile. Please update the existing plan or choose a different week.', 'original_error': error_str}
+            return None, error_str
     # def save_meal_plan(self, user_id: str, plan_data: dict) -> tuple[bool, str | None]:
     #     """
     #     Saves a user's meal plan using RPC.
@@ -993,13 +997,9 @@ class SupabaseService:
             print(f"[DEBUG] ✅ Settings saved, now creating history entry...")
             
             try:
-                # Use admin client to bypass RLS for history insert
-                from supabase import create_client
-                import os
-                admin_client = create_client(
-                    os.getenv('SUPABASE_URL'),
-                    os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-                )
+                # Use the same Supabase client (already has service role key for admin operations)
+                # This ensures we use the same database connection
+                admin_client = self.supabase
                 
                 # Get settings_data from persisted record
                 settings_data_for_history = persisted_record.get('settings_data', normalized_settings)

@@ -11,14 +11,21 @@ class LifecycleSubscriptionService:
     Handles user states: new -> trial_used -> paid -> expired -> paid (renewal)
     """
     
-    def __init__(self):
-        # Initialize Supabase client
-        supabase_url = os.getenv('SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        if not supabase_url or not supabase_key:
-            raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
-        
-        self.supabase: Client = create_client(supabase_url, supabase_key)
+    def __init__(self, supabase_client: Client = None):
+        """
+        Initialize LifecycleSubscriptionService with a Supabase client.
+        If no client is provided, creates one from environment variables (for backward compatibility).
+        """
+        if supabase_client:
+            # Use provided client (from app.supabase_service)
+            self.supabase: Client = supabase_client
+        else:
+            # Fallback: create client from env vars (for backward compatibility)
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+            if not supabase_url or not supabase_key:
+                raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
+            self.supabase: Client = create_client(supabase_url, supabase_key)
         self.paystack_secret_key = os.getenv('PAYSTACK_SECRET_KEY')
         self.paystack_public_key = os.getenv('PAYSTACK_PUBLIC_KEY')
         
