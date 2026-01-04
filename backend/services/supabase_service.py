@@ -1,12 +1,77 @@
 import os
 import json
+import time
 from supabase import create_client, Client
 from werkzeug.datastructures import FileStorage
 from datetime import datetime
+from typing import Callable, Any, Tuple
+
 class SupabaseService:
+    """
+    Service for interacting with Supabase database.
+    Includes retry logic for handling transient connection errors.
+    """
+    
+    @staticmethod
+    def _is_connection_error(error: Exception) -> bool:
+        """Check if an error is a transient connection error that should be retried."""
+        error_str = str(error).lower()
+        error_type = type(error).__name__.lower()
+        
+        return (
+            'connectionterminated' in error_str or
+            'remoteprotocolerror' in error_type or
+            'connection' in error_str and ('terminated' in error_str or 'reset' in error_str or 'closed' in error_str) or
+            'resource temporarily unavailable' in error_str or
+            '[errno 35]' in error_str or
+            'readerror' in error_type or
+            'timeout' in error_str
+        )
+    
+    @staticmethod
+    def _retry_operation(
+        operation: Callable,
+        max_retries: int = 3,
+        initial_delay: float = 0.5,
+        operation_name: str = "operation"
+    ) -> Tuple[Any, Exception | None]:
+        """
+        Retry a database operation with exponential backoff on connection errors.
+        
+        Args:
+            operation: A callable that performs the database operation
+            max_retries: Maximum number of retry attempts
+            initial_delay: Initial delay in seconds (doubles each retry)
+            operation_name: Name of the operation for logging
+            
+        Returns:
+            Tuple of (result, error). If successful, result is the return value and error is None.
+            If all retries fail, result is None and error is the last exception.
+        """
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                result = operation()
+                return result, None
+            except Exception as e:
+                last_error = e
+                
+                if SupabaseService._is_connection_error(e) and attempt < max_retries - 1:
+                    delay = initial_delay * (2 ** attempt)
+                    print(f"[WARNING] Connection error in {operation_name} (attempt {attempt + 1}/{max_retries}): {str(e)}. Retrying in {delay}s...")
+                    time.sleep(delay)
+                    continue
+                else:
+                    # Not a retryable error or last attempt
+                    if attempt == max_retries - 1:
+                        print(f"[ERROR] {operation_name} failed after {max_retries} attempts: {str(e)}")
+                    break
+        
+        return None, last_error
     def __init__(self, supabase_url: str, supabase_key: str = None):
         """
-        Initializes Supabase client.
+        Initializes Supabase client with optimized connection settings.
 
         Args:
             supabase_url (str): The URL of your Supabase project.
@@ -42,14 +107,13 @@ class SupabaseService:
         try:
             print("[DEBUG] Creating Supabase client...")
             
-            # Create the client (service role key provides full access)
+            # Create the client with default options (service role key provides full access)
+            # Using default options to avoid compatibility issues
             self.supabase: Client = create_client(supabase_url, supabase_key)
             
             # Store the key for verification
             self._service_role_key = supabase_key
             print("[INFO] Supabase client initialized successfully.")
-                
-            print("Supabase client initialized with service role key.")
             
         except Exception as e:
             error_msg = f"Failed to initialize Supabase client: {str(e)}"
@@ -547,9 +611,50 @@ class SupabaseService:
     #         print(f"[ERROR] Exception in save_meal_plan: {e}")
     #         return False, str(e)t
 
+    def _retry_supabase_call(self, func, max_retries=3, initial_delay=0.5):
+        """
+        Retry a Supabase call with exponential backoff for transient connection errors.
+        
+        Args:
+            func: Function to call (should be a lambda or callable)
+            max_retries: Maximum number of retry attempts
+            initial_delay: Initial delay in seconds before first retry
+            
+        Returns:
+            Result of the function call
+        """
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                return func()
+            except Exception as e:
+                error_str = str(e).lower()
+                error_code = getattr(e, 'errno', None)
+                
+                # Check if it's a transient connection error
+                is_transient = (
+                    'resource temporarily unavailable' in error_str or
+                    error_code == 35 or  # EAGAIN/EWOULDBLOCK
+                    'connection' in error_str or
+                    'timeout' in error_str or
+                    'temporarily unavailable' in error_str
+                )
+                
+                if not is_transient or attempt == max_retries - 1:
+                    # Not a transient error or last attempt, raise it
+                    raise
+                
+                last_error = e
+                delay = initial_delay * (2 ** attempt)  # Exponential backoff
+                print(f"[RETRY] Attempt {attempt + 1}/{max_retries} failed: {str(e)}. Retrying in {delay}s...")
+                time.sleep(delay)
+        
+        # Should never reach here, but just in case
+        raise last_error if last_error else Exception("Retry failed")
+
     def get_meal_plans(self, user_id: str) -> tuple[list | None, str | None]:
         """
-        Retrieves a user's meal plans using direct table query.
+        Retrieves a user's meal plans using direct table query with retry logic.
 
         Args:
             user_id (str): The Supabase user ID.
@@ -561,10 +666,17 @@ class SupabaseService:
         try:
             print(f"[DEBUG] Fetching meal plans for user: {user_id}")
             
-            # Query the meal_plan_management table
+            # Query the meal_plan_management table with retry logic
             # Only return APPROVED plans (is_approved = TRUE)
             # Plans created by admin that are not approved yet won't show to user
-            result = self.supabase.table('meal_plan_management').select('*').eq('user_id', user_id).eq('is_approved', True).order('updated_at', desc=True).execute()
+            result = self._retry_supabase_call(
+                lambda: self.supabase.table('meal_plan_management')
+                    .select('*')
+                    .eq('user_id', user_id)
+                    .eq('is_approved', True)
+                    .order('updated_at', desc=True)
+                    .execute()
+            )
             
             print(f"[DEBUG] Query result: {result.data}")
             
@@ -574,8 +686,9 @@ class SupabaseService:
             else:
                 return [], None
         except Exception as e:
-            print(f"[ERROR] Exception in get_meal_plans: {e}")
-            return None, str(e)
+            error_msg = str(e)
+            print(f"[ERROR] Exception in get_meal_plans after retries: {error_msg}")
+            return None, error_msg
 
     def save_session(self, user_id: str, session_id: str, session_data: dict, created_at: str) -> tuple[bool, str | None]:
         """
@@ -842,13 +955,47 @@ class SupabaseService:
             print(f"[DEBUG] settings_data: {settings_data}")
             
             # Get existing settings BEFORE saving (for history comparison)
+            # Add retry logic for connection errors
             print(f"[DEBUG] Getting existing settings for comparison...")
-            existing = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
-            record_exists = bool(existing.data and len(existing.data) > 0)
-            
-            # Parse existing settings
+            existing = None
+            record_exists = False
             existing_settings = {}
-            if record_exists:
+            max_retries = 3
+            initial_delay = 0.5
+            
+            for attempt in range(max_retries):
+                try:
+                    existing = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
+                    record_exists = bool(existing.data and len(existing.data) > 0)
+                    break  # Success, exit retry loop
+                except Exception as query_error:
+                    error_str = str(query_error).lower()
+                    error_type = type(query_error).__name__
+                    
+                    # Check if it's a connection error that should be retried
+                    is_connection_error = (
+                        'connectionterminated' in error_str or
+                        'remoteprotocolerror' in error_type.lower() or
+                        'connection' in error_str and ('terminated' in error_str or 'reset' in error_str or 'closed' in error_str) or
+                        'resource temporarily unavailable' in error_str or
+                        '[errno 35]' in error_str
+                    )
+                    
+                    if is_connection_error and attempt < max_retries - 1:
+                        delay = initial_delay * (2 ** attempt)
+                        print(f"[WARNING] Connection error getting existing settings (attempt {attempt + 1}/{max_retries}): {str(query_error)}. Retrying in {delay}s...")
+                        import time
+                        time.sleep(delay)
+                        continue
+                    
+                    # Not a retryable error or last attempt - log and continue with empty existing_settings
+                    print(f"[WARNING] Could not fetch existing settings: {str(query_error)}. Continuing without existing settings comparison.")
+                    existing = None
+                    record_exists = False
+                    break
+            
+            # Parse existing settings if we got them
+            if existing and record_exists:
                 existing_settings_raw = existing.data[0].get('settings_data', {})
                 if isinstance(existing_settings_raw, str):
                     try:
@@ -918,11 +1065,17 @@ class SupabaseService:
             
             try:
                 print(f"[DEBUG] Attempting RPC upsert_user_settings...")
-                result = self.supabase.rpc('upsert_user_settings', {
+                result, rpc_error = self._retry_operation(
+                    lambda: self.supabase.rpc('upsert_user_settings', {
                     'p_user_id': user_id,
                     'p_settings_type': settings_type,
                     'p_settings_data': json.dumps(normalized_settings) if isinstance(normalized_settings, dict) else normalized_settings
-                }).execute()
+                    }).execute(),
+                    operation_name="upsert_user_settings RPC"
+                )
+                
+                if rpc_error:
+                    raise rpc_error
                 
                 print(f"[DEBUG] RPC result: {result.data}")
                 
@@ -931,7 +1084,51 @@ class SupabaseService:
                     if data.get('status') == 'success':
                         print(f"[SUCCESS] Settings saved via RPC")
                         rpc_success = True
-                        # Get the saved record for history
+                        
+                        # RPC function should have created history automatically
+                        # Verify history was created by RPC (with small delay to ensure commit)
+                        import time
+                        time.sleep(0.2)  # Small delay to ensure RPC transaction is committed
+                        
+                        try:
+                            # Try checking history multiple times (in case of replication delay)
+                            history_found = False
+                            for check_attempt in range(3):
+                                history_check = self.supabase.table('user_settings_history')\
+                                    .select('id, created_at, changed_fields')\
+                                    .eq('user_id', user_id)\
+                                    .eq('settings_type', settings_type)\
+                                    .order('created_at', desc=True)\
+                                    .limit(1)\
+                                    .execute()
+                                
+                                if history_check.data and len(history_check.data) > 0:
+                                    history_record = history_check.data[0]
+                                    print(f"[DEBUG] ✅ RPC created history record: id={history_record.get('id')}, created_at={history_record.get('created_at')}")
+                                    print(f"[DEBUG] History changed_fields: {history_record.get('changed_fields')}")
+                                    history_found = True
+                                    break
+                                
+                                if check_attempt < 2:
+                                    time.sleep(0.1)  # Wait a bit before retry
+                            
+                            if history_found:
+                                # History already created by RPC, verify it has data
+                                history_record = history_check.data[0]
+                                has_data = history_record.get('settings_data') is not None
+                                if has_data:
+                                    print(f"[SUCCESS] Settings and history saved successfully via RPC")
+                                    # Still create history manually as backup to ensure it exists
+                                    # (RPC might have created it but we want to be sure)
+                                    print(f"[DEBUG] RPC created history, but creating backup history entry anyway...")
+                                else:
+                                    print(f"[WARNING] RPC created history but it has no data - will create manually")
+                            else:
+                                print(f"[WARNING] RPC succeeded but no history found after 3 checks - will create manually")
+                        except Exception as check_error:
+                            print(f"[WARNING] Could not verify RPC history creation: {check_error}, will create manually")
+                        
+                        # Get the saved record for history (always needed for manual history creation)
                         saved_record, fetch_error = self.get_user_settings(user_id, settings_type)
                         print(f"[DEBUG] Saved record from get_user_settings: {saved_record}")
                         if saved_record:
@@ -970,16 +1167,21 @@ class SupabaseService:
                 if not record_exists:
                     upsert_payload['created_at'] = timestamp
                 
-                result = (
-                    self.supabase
+                # Use retry logic for direct upsert
+                result, upsert_error = self._retry_operation(
+                    lambda: self.supabase
                         .table('user_settings')
                         .upsert(
                             upsert_payload,
                             on_conflict='user_id,settings_type',
                             returning='representation'
                         )
-                        .execute()
+                        .execute(),
+                    operation_name="direct settings upsert"
                 )
+                
+                if upsert_error:
+                    raise upsert_error
                 print(f"[DEBUG] Upsert result: {result.data}")
                 
                 if not result.data:
@@ -995,12 +1197,16 @@ class SupabaseService:
             
             # ALWAYS create history entry after settings are saved (both RPC and direct paths)
             print(f"[DEBUG] ✅ Settings saved, now creating history entry...")
+            print(f"[DEBUG] User ID: {user_id}, Settings Type: {settings_type}")
             
             try:
                 # Use the same Supabase client (already has service role key for admin operations)
                 # This ensures we use the same database connection
                 admin_client = self.supabase
                 
+                # Always create history manually to ensure it exists
+                # (RPC might fail silently or have RLS issues)
+                # Note: This might create duplicates if RPC also created history, but that's better than missing history
                 # Get settings_data from persisted record
                 settings_data_for_history = persisted_record.get('settings_data', normalized_settings)
                 if isinstance(settings_data_for_history, str):
@@ -1019,19 +1225,57 @@ class SupabaseService:
                     'created_by': user_id
                 }
                 
+                print(f"[DEBUG] History data to insert: user_id={user_id}, settings_type={settings_type}")
                 print(f"[DEBUG] Inserting history with {len(changed_fields)} changed fields: {changed_fields}")
-                history_result = admin_client.table('user_settings_history').insert(history_data).execute()
+                print(f"[DEBUG] History data keys: {list(history_data.keys())}")
                 
-                if history_result.data and len(history_result.data) > 0:
+                # Use retry logic for history insert
+                history_result, history_error = self._retry_operation(
+                    lambda: admin_client.table('user_settings_history').insert(history_data).execute(),
+                    operation_name="history insert"
+                )
+                
+                if history_error:
+                    raise history_error
+                
+                print(f"[DEBUG] History insert result type: {type(history_result)}")
+                print(f"[DEBUG] History insert result.data: {history_result.data}")
+                print(f"[DEBUG] History insert result.data type: {type(history_result.data) if history_result.data else 'None'}")
+                
+                if history_result and history_result.data and len(history_result.data) > 0:
                     print(f"[DEBUG] ✅ Saved settings history successfully")
                     print(f"[DEBUG] History record ID: {history_result.data[0].get('id', 'unknown')}")
+                    print(f"[DEBUG] History record created_at: {history_result.data[0].get('created_at', 'unknown')}")
                 else:
-                    print(f"[ERROR] History insert returned no data!")
+                    print(f"[ERROR] ❌ History insert returned no data!")
+                    print(f"[ERROR] This means the insert didn't create a record - check RLS policies and table permissions")
+                    # Try to verify if record was actually created despite no data returned
+                    verify_history, verify_error = self._retry_operation(
+                        lambda: admin_client.table('user_settings_history')
+                            .select('id')
+                            .eq('user_id', user_id)
+                            .eq('settings_type', settings_type)
+                            .order('created_at', desc=True)
+                            .limit(1)
+                            .execute(),
+                        operation_name="history verification"
+                    )
+                    if verify_history and verify_history.data:
+                        print(f"[DEBUG] ✅ History record verified: {verify_history.data[0].get('id')}")
+                    else:
+                        print(f"[ERROR] ❌ History record not found after insert - this is a problem!")
             except Exception as history_error:
-                print(f"[ERROR] ❌ Failed to save settings history: {history_error}")
+                error_str = str(history_error)
+                print(f"[ERROR] ❌ Failed to save settings history: {error_str}")
+                print(f"[ERROR] Exception type: {type(history_error).__name__}")
                 import traceback
                 traceback.print_exc()
-                print(f"[WARNING] Settings saved but history was not recorded")
+                
+                # Check if it's an RLS/permission error
+                if 'permission' in error_str.lower() or 'policy' in error_str.lower() or 'row-level security' in error_str.lower():
+                    print(f"[ERROR] This appears to be an RLS/permissions issue. Service role should bypass RLS.")
+                
+                print(f"[WARNING] Settings saved but history was not recorded - this needs to be fixed!")
             
             print(f"[SUCCESS] Settings saved successfully")
             return True, None
@@ -1046,6 +1290,7 @@ class SupabaseService:
     def get_user_settings(self, user_id: str, settings_type: str = 'health_profile') -> tuple[dict | None, str | None]:
         """
         Retrieves user settings using direct table query (fallback if RPC doesn't work).
+        Includes retry logic for transient connection errors.
 
         Args:
             user_id (str): The Supabase user ID.
@@ -1058,13 +1303,15 @@ class SupabaseService:
         try:
             print(f"[DEBUG] get_user_settings called: user_id={user_id}, type={settings_type}")
             
-            # First try RPC function
+            # First try RPC function with retry
             try:
                 print(f"[DEBUG] Attempting RPC get_user_settings...")
-                result = self.supabase.rpc('get_user_settings', {
-                    'p_user_id': user_id,
-                    'p_settings_type': settings_type
-                }).execute()
+                result = self._retry_supabase_call(
+                    lambda: self.supabase.rpc('get_user_settings', {
+                        'p_user_id': user_id,
+                        'p_settings_type': settings_type
+                    }).execute()
+                )
                 
                 print(f"[DEBUG] RPC result: {result.data}")
                 
@@ -1074,12 +1321,24 @@ class SupabaseService:
                         print(f"[SUCCESS] Settings retrieved via RPC")
                         return data.get('data'), None
             except Exception as rpc_error:
-                print(f"[WARNING] RPC failed: {rpc_error}, falling back to direct query")
+                error_str = str(rpc_error).lower()
+                # Only fall back if it's not a transient connection error (those are retried)
+                if 'resource temporarily unavailable' not in error_str and '35' not in str(getattr(rpc_error, 'errno', '')):
+                    print(f"[WARNING] RPC failed: {rpc_error}, falling back to direct query")
+                else:
+                    # Transient error that failed after retries, try direct query
+                    print(f"[WARNING] RPC failed after retries: {rpc_error}, falling back to direct query")
                 # Fall through to direct query
             
-            # Fallback: Direct table query
+            # Fallback: Direct table query with retry
             print(f"[DEBUG] Using direct table query...")
-            result = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
+            result = self._retry_supabase_call(
+                lambda: self.supabase.table('user_settings')
+                    .select('*')
+                    .eq('user_id', user_id)
+                    .eq('settings_type', settings_type)
+                    .execute()
+            )
             print(f"[DEBUG] Query result: {result.data}")
             
             if result.data and len(result.data) > 0:
@@ -1091,7 +1350,7 @@ class SupabaseService:
                 
         except Exception as e:
             error_msg = str(e)
-            print(f"[ERROR] Exception in get_user_settings: {error_msg}")
+            print(f"[ERROR] Exception in get_user_settings after retries: {error_msg}")
             import traceback
             traceback.print_exc()
             return None, error_msg

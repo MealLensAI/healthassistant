@@ -19,7 +19,7 @@ const defaultEnterpriseInfo: EnterpriseInfo = {
 };
 
 export const useEnterpriseRole = () => {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const [enterpriseInfo, setEnterpriseInfo] = useState<EnterpriseInfo>(defaultEnterpriseInfo);
   const [role, setRole] = useState<'organization' | 'individual' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,6 +42,7 @@ export const useEnterpriseRole = () => {
 
       let enterprises: any[] = [];
       let ownsOrganizations = false;
+      let apiCallsFailed = false;
 
       try {
         console.log('[useEnterpriseRole] Calling api.getMyEnterprises()...');
@@ -58,7 +59,7 @@ export const useEnterpriseRole = () => {
           
           if (success && Array.isArray(enterprisesData)) {
             enterprises = enterprisesData;
-        ownsOrganizations = enterprises.length > 0;
+            ownsOrganizations = enterprises.length > 0;
             console.log('[useEnterpriseRole] ✅ User owns', enterprises.length, 'enterprises');
           } else {
             console.warn('[useEnterpriseRole] ⚠️ Unexpected response format or no success flag');
@@ -80,6 +81,7 @@ export const useEnterpriseRole = () => {
         });
         enterprises = [];
         ownsOrganizations = false;
+        apiCallsFailed = true;
       }
 
       let canCreate = false;
@@ -100,6 +102,50 @@ export const useEnterpriseRole = () => {
           message: err?.message,
           stack: err?.stack
         });
+        canCreate = false;
+        apiCallsFailed = true;
+      }
+
+      // Priority 1: Check signup_type from user metadata (most reliable)
+      // This should be checked FIRST, before API calls, to ensure consistent behavior
+      let signupType: string | null = null;
+      try {
+        const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('user_data') : null;
+        if (userDataStr) {
+          const userData = JSON.parse(userDataStr);
+          const userMetadata = userData?.metadata || userData?.user_metadata || {};
+          signupType = userMetadata.signup_type || userMetadata.signupType || null;
+          
+          console.log('[useEnterpriseRole] Checking signup_type:', {
+            signupType,
+            userMetadata
+          });
+          
+          // If signup_type is explicitly set, use it as the primary indicator
+          if (signupType === 'organization') {
+            console.log('[useEnterpriseRole] ✅ User has signup_type=organization, setting as organization user');
+            ownsOrganizations = true; // Treat as organization owner
+            canCreate = true; // Allow access
+          } else if (signupType === 'individual') {
+            console.log('[useEnterpriseRole] ✅ User has signup_type=individual, setting as individual user');
+            // Don't override API results if user actually owns organizations
+            // But if API failed and signup_type is individual, trust it
+            if (apiCallsFailed) {
+              ownsOrganizations = false;
+              canCreate = false;
+            }
+          }
+        } else {
+          console.log('[useEnterpriseRole] No user_data found in localStorage');
+        }
+      } catch (metadataErr) {
+        console.warn('[useEnterpriseRole] Could not check user metadata:', metadataErr);
+      }
+      
+      // Fallback: If signup_type is not set and API calls failed, default to individual
+      if (!signupType && apiCallsFailed && !ownsOrganizations && !canCreate) {
+        console.log('[useEnterpriseRole] ⚠️ No signup_type and API failed, defaulting to individual');
+        ownsOrganizations = false;
         canCreate = false;
       }
 
@@ -126,7 +172,7 @@ export const useEnterpriseRole = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (authLoading) {

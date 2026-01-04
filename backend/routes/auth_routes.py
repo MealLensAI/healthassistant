@@ -721,20 +721,30 @@ def register_user():
         # Use a background thread to avoid blocking the response
         import threading
         
+        # Capture app object before threading (current_app proxy doesn't work in threads)
+        app = current_app._get_current_object()
+        supabase_service_ref = current_app.supabase_service if hasattr(current_app, 'supabase_service') else None
+        
         def create_trial_async():
-            try:
-                # Use centralized Supabase client
-                if hasattr(current_app, 'supabase_service') and current_app.supabase_service:
-                    subscription_service = SubscriptionService(current_app.supabase_service.supabase)
-                else:
-                    subscription_service = SubscriptionService()
-                trial_result = subscription_service.create_user_trial(user_id=user_id, duration_days=30)
-                if not trial_result.get('success'):
-                    current_app.logger.warning(f"Failed to create trial for user {user_id}: {trial_result.get('error')}")
-                else:
-                    current_app.logger.info(f"Trial created for user {user_id}: {trial_result}")
-            except Exception as trial_err:
-                current_app.logger.warning(f"Error creating trial for user {user_id}: {str(trial_err)}")
+            # Use application context in thread
+            with app.app_context():
+                try:
+                    # Use centralized Supabase client
+                    if supabase_service_ref and supabase_service_ref.supabase:
+                        subscription_service = SubscriptionService(supabase_service_ref.supabase)
+                    else:
+                        subscription_service = SubscriptionService()
+                    trial_result = subscription_service.create_user_trial(user_id=user_id, duration_days=30)
+                    if not trial_result.get('success'):
+                        app.logger.warning(f"Failed to create trial for user {user_id}: {trial_result.get('error')}")
+                    else:
+                        app.logger.info(f"Trial created for user {user_id}: {trial_result}")
+                except Exception as trial_err:
+                    # Use print as fallback if logger fails
+                    try:
+                        app.logger.warning(f"Error creating trial for user {user_id}: {str(trial_err)}")
+                    except:
+                        print(f"Error creating trial for user {user_id}: {str(trial_err)}")
         
         # Start trial creation in background thread
         trial_thread = threading.Thread(target=create_trial_async)

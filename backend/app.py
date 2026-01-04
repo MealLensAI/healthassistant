@@ -240,13 +240,22 @@ def create_app():
 
   # Register enterprise routes
   if ENTERPRISE_ROUTES_ENABLED:
-      app.register_blueprint(enterprise_bp)
-      print("Enterprise routes registered.")
-      # Debug: Print registered routes
-      enterprise_routes = [str(rule) for rule in app.url_map.iter_rules() if 'enterprise' in str(rule)]
-      print(f"Registered enterprise routes: {enterprise_routes[:10]}")  # Print first 10
+      try:
+          app.register_blueprint(enterprise_bp)
+          print("✅ Enterprise routes registered successfully.")
+          # Debug: Print registered routes
+          enterprise_routes = [str(rule) for rule in app.url_map.iter_rules() if 'enterprise' in str(rule)]
+          print(f"📋 Registered {len(enterprise_routes)} enterprise routes:")
+          for route in enterprise_routes[:10]:  # Print first 10
+              print(f"   - {route}")
+          if len(enterprise_routes) > 10:
+              print(f"   ... and {len(enterprise_routes) - 10} more")
+      except Exception as reg_error:
+          print(f"❌ ERROR registering enterprise blueprint: {reg_error}")
+          import traceback
+          traceback.print_exc()
   else:
-      print("Enterprise routes disabled.")
+      print("⚠️ Enterprise routes disabled (ENTERPRISE_ROUTES_ENABLED=False)")
 
   # Register mock AI routes (for local development)
   if MOCK_AI_ROUTES_ENABLED:

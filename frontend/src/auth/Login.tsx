@@ -73,18 +73,27 @@ const Login = () => {
         safeSetItem('supabase_session_id', result.session_id || '')
         safeSetItem('supabase_user_id', result.user_id || '')
 
-        // Store user data
+        // Store user data with metadata (including signup_type)
         const displayName = (result.user_data?.email || email).split('@')[0]
+        const userMetadata = (result as any).user_data?.metadata || {}
         const userData = {
           uid: result.user_id || result.user_data?.id || '',
           email: result.user_data?.email || email,
           displayName,
-          photoURL: null
+          photoURL: null,
+          metadata: userMetadata, // Include metadata so signup_type is available
+          user_metadata: userMetadata // Also store as user_metadata for compatibility
         }
         safeSetItem('user_data', JSON.stringify(userData))
 
         // Update auth context - skip verification since we just logged in
         await refreshAuth(true)
+
+        // Fetch all user data after authentication
+        await hydratePostLogin().catch(err => {
+          console.error('[Login] Error hydrating user data:', err);
+          // Don't block login if hydration fails
+        });
 
         // Preload history data in background (don't wait for it)
         preloadHistory().catch(err => {
@@ -109,57 +118,56 @@ const Login = () => {
 
         // Check if user is an organization user and redirect accordingly
         // Priority 1: Check signup_type from user metadata (most reliable)
-        const userMetadata = (result as any).user_data?.metadata || {}
+        const userMetadata = (result as any).user_data?.metadata || (result as any).user_data?.user_metadata || {}
         const signupType = userMetadata.signup_type || userMetadata.signupType
         
         console.log('[Login] ========== ENTERPRISE DETECTION START ==========')
-        console.log('[Login] Full result:', JSON.stringify(result, null, 2))
         console.log('[Login] User metadata:', userMetadata)
         console.log('[Login] Signup type from metadata:', signupType)
         
-        let isOrganizationUser = signupType === 'organization'
-        console.log('[Login] Is organization user (from metadata):', isOrganizationUser)
+        let isOrganizationUser = false
 
-        // Priority 2: Check if user owns organizations (ALWAYS check, even if signup_type is set)
-        try {
-          console.log('[Login] Checking for organization ownership...')
-          console.log('[Login] User ID:', result.user_id || result.user_data?.id)
-          console.log('[Login] Access token available:', !!safeGetItem('access_token'))
-          
+        // Priority 1: Check signup_type first (most reliable indicator)
+        if (signupType === 'organization') {
+          console.log('[Login] ✅ User has signup_type=organization')
+          isOrganizationUser = true
+        } else if (signupType === 'individual') {
+          console.log('[Login] ✅ User has signup_type=individual')
+          isOrganizationUser = false
+        } else {
+          // Priority 2: If signup_type is not set, check if user owns organizations
+          console.log('[Login] ⚠️ signup_type not set, checking organization ownership...')
+          try {
           const enterprisesResponse = await api.getMyEnterprises()
           console.log('[Login] Enterprises response:', JSON.stringify(enterprisesResponse, null, 2))
           
-          // Check if user owns organizations (enterprises array with items)
           if (enterprisesResponse && typeof enterprisesResponse === 'object') {
             const success = (enterprisesResponse as any).success
             const enterprises = (enterprisesResponse as any).enterprises
             
-            console.log('[Login] Response success:', success)
-            console.log('[Login] Enterprises array:', enterprises)
-            console.log('[Login] Enterprises length:', enterprises?.length)
-            
             if (success && enterprises && Array.isArray(enterprises) && enterprises.length > 0) {
-              // User owns at least one organization - redirect to enterprise dashboard
+                // User owns at least one organization - they are an organization user
               console.log('✅ User owns organizations, setting isOrganizationUser = true')
               isOrganizationUser = true
             } else {
               console.log('[Login] User does not own any organizations')
+                isOrganizationUser = false
             }
           } else {
-            console.warn('[Login] Unexpected response format:', enterprisesResponse)
+              console.warn('[Login] Unexpected response format, defaulting to individual')
+              isOrganizationUser = false
           }
         } catch (error: any) {
           console.error('[Login] ❌ Failed to check enterprise ownership:', error)
-          console.error('[Login] Error details:', error?.message, error?.stack)
-          // If there's an error but signup_type says organization, trust the signup_type
-          if (signupType === 'organization') {
-            console.log('[Login] Using signup_type as fallback since API call failed')
-            isOrganizationUser = true
+            // On error, default to individual (safer default)
+            console.log('[Login] Defaulting to individual user due to error')
+            isOrganizationUser = false
           }
         }
         
         console.log('[Login] ========== FINAL DECISION ==========')
         console.log('[Login] isOrganizationUser:', isOrganizationUser)
+        console.log('[Login] signup_type:', signupType)
         console.log('[Login] Will redirect to:', isOrganizationUser ? '/enterprise' : '/')
 
         // Warm up essential user data (profile, meal plans, settings) before navigation
@@ -171,14 +179,10 @@ const Login = () => {
           return
         }
 
-        const from = location.state?.from?.pathname
-        if (from && from !== '/') {
-          console.log('🔄 Redirecting after login to previous route:', from)
-          navigate(from, { replace: true })
-        } else {
-          console.log('🔄 Redirecting after login to root route')
+        // Individual users: redirect to root, which will use RoleAwareRedirect
+        // This ensures consistent routing logic
+        console.log('🔄 Redirecting individual user to root route')
           navigate('/', { replace: true })
-        }
       } else {
         toast({
           title: "Login Failed",

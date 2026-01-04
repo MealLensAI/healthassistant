@@ -38,6 +38,12 @@ def get_frontend_url():
 
 enterprise_bp = Blueprint('enterprise', __name__)
 
+# Test endpoint to verify blueprint registration
+@enterprise_bp.route('/api/enterprise/test', methods=['GET'])
+def test_enterprise():
+    """Test endpoint to verify enterprise blueprint is registered"""
+    return jsonify({'success': True, 'message': 'Enterprise blueprint is working!'}), 200
+
 def get_supabase_client(use_admin: bool = False) -> Client:
     """
     Helper function to get the Supabase client from the app context.
@@ -91,55 +97,83 @@ def check_user_is_org_admin(user_id: str, enterprise_id: str, supabase: Client) 
     Returns:
         tuple: (is_admin, reason)
     """
-    try:
-        current_app.logger.info(f"[PERMISSION] Checking permissions for user {user_id} on enterprise {enterprise_id}")
-        current_app.logger.info(f"[PERMISSION] Using admin client: {supabase is not None}")
-        
-        # FIRST: Check if enterprise exists
-        enterprise_result = supabase.table('enterprises').select('id, created_by').eq('id', enterprise_id).execute()
-        
-        current_app.logger.info(f"[PERMISSION] Enterprise query result: {enterprise_result.data}")
-        
-        if not enterprise_result.data:
-            current_app.logger.error(f"[PERMISSION] Enterprise {enterprise_id} not found in database")
-            # Try to list all enterprises to debug
-            try:
-                all_enterprises = supabase.table('enterprises').select('id, name, created_by').limit(5).execute()
-                current_app.logger.info(f"[PERMISSION] Sample enterprises in DB: {all_enterprises.data}")
-            except Exception as debug_error:
-                current_app.logger.error(f"[PERMISSION] Could not list enterprises: {debug_error}")
-            return False, "Organization not found"
-        
-        enterprise = enterprise_result.data[0]
-        
-        # SECOND: Check if user is the owner (created_by)
-        # Owner has FULL access and is NOT in organization_users table
-        if enterprise['created_by'] == user_id:
-            current_app.logger.info(f"[PERMISSION] ✅ User {user_id} is the owner of enterprise {enterprise_id}")
-            return True, "owner"
-        
-        # THIRD: Fallback - Check if user is an admin member in organization_users table
-        current_app.logger.info(f"[PERMISSION] User is not owner, checking organization_users table")
-        membership_result = supabase.table('organization_users').select('role').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
-        
-        if not membership_result.data:
-            current_app.logger.warning(f"[PERMISSION] ❌ User {user_id} is not a member of enterprise {enterprise_id}")
-            return False, "User is not a member of this organization"
-        
-        role = membership_result.data[0]['role']
-        current_app.logger.info(f"[PERMISSION] User has role: {role}")
-        
-        # Only allow admin role from organization_users (not regular members)
-        if role == 'admin':
-            current_app.logger.info(f"[PERMISSION] ✅ User has admin role")
-            return True, f"admin"
-        
-        current_app.logger.warning(f"[PERMISSION] ❌ User role '{role}' does not have permission")
-        return False, f"User role '{role}' does not have permission to manage users"
-        
-    except Exception as e:
-        current_app.logger.error(f"[PERMISSION] ❌ Exception: {str(e)}", exc_info=True)
-        return False, f"Error checking user permissions: {str(e)}"
+    import time
+    max_retries = 3
+    initial_delay = 0.5
+    
+    for attempt in range(max_retries):
+        try:
+            current_app.logger.info(f"[PERMISSION] Checking permissions for user {user_id} on enterprise {enterprise_id} (attempt {attempt + 1}/{max_retries})")
+            current_app.logger.info(f"[PERMISSION] Using admin client: {supabase is not None}")
+            
+            # FIRST: Check if enterprise exists
+            enterprise_result = supabase.table('enterprises').select('id, created_by').eq('id', enterprise_id).execute()
+            
+            current_app.logger.info(f"[PERMISSION] Enterprise query result: {enterprise_result.data}")
+            
+            if not enterprise_result.data:
+                current_app.logger.error(f"[PERMISSION] Enterprise {enterprise_id} not found in database")
+                # Try to list all enterprises to debug
+                try:
+                    all_enterprises = supabase.table('enterprises').select('id, name, created_by').limit(5).execute()
+                    current_app.logger.info(f"[PERMISSION] Sample enterprises in DB: {all_enterprises.data}")
+                except Exception as debug_error:
+                    current_app.logger.error(f"[PERMISSION] Could not list enterprises: {debug_error}")
+                return False, "Organization not found"
+            
+            enterprise = enterprise_result.data[0]
+            
+            # SECOND: Check if user is the owner (created_by)
+            # Owner has FULL access and is NOT in organization_users table
+            if enterprise['created_by'] == user_id:
+                current_app.logger.info(f"[PERMISSION] ✅ User {user_id} is the owner of enterprise {enterprise_id}")
+                return True, "owner"
+            
+            # THIRD: Fallback - Check if user is an admin member in organization_users table
+            current_app.logger.info(f"[PERMISSION] User is not owner, checking organization_users table")
+            membership_result = supabase.table('organization_users').select('role').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+            
+            if not membership_result.data:
+                current_app.logger.warning(f"[PERMISSION] ❌ User {user_id} is not a member of enterprise {enterprise_id}")
+                return False, "User is not a member of this organization"
+            
+            role = membership_result.data[0]['role']
+            current_app.logger.info(f"[PERMISSION] User has role: {role}")
+            
+            # Only allow admin role from organization_users (not regular members)
+            if role == 'admin':
+                current_app.logger.info(f"[PERMISSION] ✅ User has admin role")
+                return True, f"admin"
+            
+            current_app.logger.warning(f"[PERMISSION] ❌ User role '{role}' does not have permission")
+            return False, f"User role '{role}' does not have permission to manage users"
+            
+        except Exception as e:
+            error_str = str(e).lower()
+            error_type = type(e).__name__
+            
+            # Check if it's a connection error that should be retried
+            is_connection_error = (
+                'connectionterminated' in error_str or
+                'remoteprotocolerror' in error_type.lower() or
+                'connection' in error_str and ('terminated' in error_str or 'reset' in error_str or 'closed' in error_str) or
+                'resource temporarily unavailable' in error_str
+            )
+            
+            if is_connection_error and attempt < max_retries - 1:
+                delay = initial_delay * (2 ** attempt)  # Exponential backoff
+                current_app.logger.warning(f"[PERMISSION] Connection error (attempt {attempt + 1}/{max_retries}): {str(e)}. Retrying in {delay}s...")
+                time.sleep(delay)
+                # Get a fresh client for retry (recreate connection)
+                supabase = get_supabase_client(use_admin=True)
+                continue
+            
+            # Not a retryable error or last attempt
+            current_app.logger.error(f"[PERMISSION] ❌ Exception: {str(e)}", exc_info=True)
+            return False, f"Error checking user permissions: {str(e)}"
+    
+    # Should never reach here, but just in case
+    return False, "Error checking user permissions: Max retries exceeded"
 
 
 def check_user_exists_by_email(supabase: Client, email: str) -> tuple[bool, Optional[str]]:
@@ -672,7 +706,25 @@ def get_enterprise_users(enterprise_id):
         }), 200
         
     except Exception as e:
-        current_app.logger.error(f'Failed to fetch enterprise users: {str(e)}')
+        current_app.logger.error(f'Failed to fetch enterprise users: {str(e)}', exc_info=True)
+        error_str = str(e).lower()
+        error_type = type(e).__name__
+        
+        # Check if it's a connection error
+        is_connection_error = (
+            'connectionterminated' in error_str or
+            'remoteprotocolerror' in error_type.lower() or
+            'connection' in error_str and ('terminated' in error_str or 'reset' in error_str or 'closed' in error_str) or
+            'resource temporarily unavailable' in error_str
+        )
+        
+        if is_connection_error:
+            return jsonify({
+                'success': False,
+                'error': 'Database connection error. Please try again in a moment.',
+                'error_code': 'CONNECTION_ERROR'
+            }), 503
+        
         return jsonify({
             'success': False,
             'error': f'Failed to fetch users: {str(e)}'
@@ -743,6 +795,21 @@ def invite_user(enterprise_id):
         # This is necessary because the owner is NOT in organization_users table
         supabase = get_supabase_client(use_admin=True)
         
+        if not supabase:
+            current_app.logger.error(f"[INVITE] ❌ Failed to get Supabase client")
+            return jsonify({'success': False, 'error': 'Database connection error'}), 500
+        
+        # Verify we're using service role key (for debugging)
+        current_app.logger.info(f"[INVITE] Using Supabase client (should be service role)")
+        
+        # Test if client can bypass RLS by attempting a simple query
+        try:
+            test_query = supabase.table('invitations').select('id').limit(1).execute()
+            current_app.logger.info(f"[INVITE] ✅ Service role client verified - can query invitations table")
+        except Exception as test_error:
+            current_app.logger.warning(f"[INVITE] ⚠️ Warning: Service role client test query failed: {str(test_error)}")
+            # Continue anyway - might be empty table
+        
         # FIRST: Verify enterprise exists
         current_app.logger.info(f"[INVITE] Checking if enterprise {enterprise_id} exists")
         enterprise_check = supabase.table('enterprises').select('*').eq('id', enterprise_id).execute()
@@ -764,19 +831,8 @@ def invite_user(enterprise_id):
         
         # Get enterprise details (already fetched above, use that data)
         enterprise_data = enterprise_check.data[0]
-        current_app.logger.info(f"[INVITE] Enterprise max_users: {enterprise_data.get('max_users', 100)}")
-        
-        # Check user limit
-        current_app.logger.info(f"[INVITE] Checking user limit")
-        current_users = supabase.table('organization_users').select('id', count='exact').eq('enterprise_id', enterprise_id).execute()
-        current_count = current_users.count if current_users.count is not None else 0
-        max_users = enterprise_data.get('max_users', 100)
-        
-        current_app.logger.info(f"[INVITE] Current users: {current_count}, Max users: {max_users}")
-        
-        if current_count >= max_users:
-            current_app.logger.error(f"[INVITE] User limit reached")
-            return jsonify({'success': False, 'error': f"Maximum user limit ({max_users}) reached"}), 400
+        # User limit check removed - no limit on number of users
+        current_app.logger.info(f"[INVITE] User limit check disabled - unlimited users allowed")
         
         # Check if user already has an account with meallensai
         # This prevents inviting users who already have accounts
@@ -834,6 +890,11 @@ def invite_user(enterprise_id):
         
         # Wrap in try/except for unique constraint violations
         try:
+            # Verify the client is using service role by checking if we can query
+            # This helps debug RLS issues
+            current_app.logger.info(f"[INVITE] Attempting to insert invitation with service role client")
+            current_app.logger.info(f"[INVITE] Invitation data: {invitation_data}")
+            
             result = supabase.table('invitations').insert(invitation_data).execute()
             current_app.logger.info(f"[INVITE] Invitation insert result: {result}")
             
@@ -847,8 +908,18 @@ def invite_user(enterprise_id):
         except Exception as insert_error:
             current_app.logger.error(f"[INVITE] ❌ Invitation insert failed: {str(insert_error)}", exc_info=True)
             
-            # Check for unique constraint violation
+            # Check for RLS policy violation
             error_msg = str(insert_error).lower()
+            if 'row-level security' in error_msg or 'rls' in error_msg or '42501' in str(insert_error):
+                current_app.logger.error(f"[INVITE] RLS policy violation detected. Client should be using service role key.")
+                current_app.logger.error(f"[INVITE] Verify that SUPABASE_SERVICE_ROLE_KEY is set and RLS policies are correct.")
+                return jsonify({
+                    'success': False, 
+                    'error': 'Database permission error. Please contact support.',
+                    'error_code': 'RLS_POLICY_VIOLATION'
+                }), 500
+            
+            # Check for unique constraint violation
             if 'unique' in error_msg or 'duplicate' in error_msg:
                 return jsonify({'success': False, 'error': 'An invitation for this email already exists'}), 400
             
@@ -992,15 +1063,15 @@ def cancel_invitation(invitation_id):
         # Get invitation and related enterprise info using admin client (bypasses RLS)
         try:
             invitation_result = supabase.table('invitations').select('''
+            id,
+            enterprise_id,
+            status,
+            enterprises!inner (
                 id,
-                enterprise_id,
-                status,
-                enterprises!inner (
-                    id,
-                    name,
-                    created_by
-                )
-            ''').eq('id', invitation_id).execute()
+                name,
+                created_by
+            )
+        ''').eq('id', invitation_id).execute()
         except Exception as query_error:
             error_str = str(query_error)
             # Check for UUID format errors
@@ -1763,78 +1834,187 @@ def create_user():
 @require_auth
 def delete_organization_user(user_relation_id):
     """Delete a user from the organization"""
+    current_app.logger.info(f"[DELETE USER] Starting deletion for user_relation_id: {user_relation_id}")
+    current_app.logger.info(f"[DELETE USER] Request user_id: {request.user_id}")
+    
     try:
         # Validate UUID format
         import uuid
         try:
             uuid.UUID(user_relation_id)
         except ValueError:
+            current_app.logger.error(f"[DELETE USER] Invalid UUID format: {user_relation_id}")
             return jsonify({'error': 'Invalid user relation ID format'}), 400
         
-        supabase = get_supabase_client()
+        # Use admin client to bypass RLS for organization_users operations
+        supabase = get_supabase_client(use_admin=True)
+        current_app.logger.info(f"[DELETE USER] Got Supabase client: {supabase is not None}")
         
-        # First, get the organization user record to verify ownership
-        try:
-            org_user_result = supabase.table('organization_users').select('''
-                *,
-                enterprise:enterprise_id (
-                    id,
-                    created_by
+        # First, get the organization user record to verify ownership (with retry logic)
+        import time
+        max_retries = 3
+        initial_delay = 0.5
+        org_user_result = None
+        
+        for attempt in range(max_retries):
+            try:
+                current_app.logger.info(f"[DELETE USER] Querying organization_users for id: {user_relation_id} (attempt {attempt + 1}/{max_retries})")
+                org_user_result = supabase.table('organization_users').select('''
+                    *,
+                    enterprise:enterprise_id (
+                        id,
+                        created_by
+                    )
+                ''').eq('id', user_relation_id).execute()
+                current_app.logger.info(f"[DELETE USER] Query result: {org_user_result.data}")
+                break  # Success, exit retry loop
+            except Exception as query_error:
+                error_str = str(query_error).lower()
+                error_type = type(query_error).__name__
+                
+                # Check if it's a connection error that should be retried
+                is_connection_error = (
+                    'connectionterminated' in error_str or
+                    'remoteprotocolerror' in error_type.lower() or
+                    'connection' in error_str and ('terminated' in error_str or 'reset' in error_str or 'closed' in error_str) or
+                    'resource temporarily unavailable' in error_str
                 )
-            ''').eq('id', user_relation_id).execute()
-        except Exception as query_error:
-            error_str = str(query_error)
-            # Check for UUID format errors
-            if 'invalid input syntax for type uuid' in error_str or '22P02' in error_str:
-                return jsonify({'error': 'Invalid user relation ID format'}), 400
-            current_app.logger.error(f"Error querying organization_users: {error_str}")
-            return jsonify({'error': 'User not found in organization'}), 404
+                
+                if is_connection_error and attempt < max_retries - 1:
+                    delay = initial_delay * (2 ** attempt)
+                    current_app.logger.warning(f"[DELETE USER] Connection error (attempt {attempt + 1}/{max_retries}): {str(query_error)}. Retrying in {delay}s...")
+                    time.sleep(delay)
+                    # Get a fresh client for retry
+                    supabase = get_supabase_client(use_admin=True)
+                    continue
+                
+                # Not a retryable error or last attempt
+                current_app.logger.error(f"[DELETE USER] Error querying organization_users: {error_str}", exc_info=True)
+                # Check for UUID format errors
+                if 'invalid input syntax for type uuid' in error_str or '22P02' in error_str:
+                    return jsonify({'error': 'Invalid user relation ID format'}), 400
+                return jsonify({'error': f'User not found in organization: {error_str}'}), 404
         
         if not org_user_result.data:
+            current_app.logger.warning(f"[DELETE USER] No data returned for user_relation_id: {user_relation_id}")
             return jsonify({'error': 'User not found in organization'}), 404
         
         org_user = org_user_result.data[0]
+        current_app.logger.info(f"[DELETE USER] Found org_user: {org_user}")
+        
+        # Check if enterprise data exists
+        if not org_user.get('enterprise'):
+            current_app.logger.error(f"[DELETE USER] No enterprise data in org_user result")
+            return jsonify({'error': 'Enterprise data not found'}), 404
+        
         enterprise = org_user['enterprise']
+        current_app.logger.info(f"[DELETE USER] Enterprise created_by: {enterprise.get('created_by')}, Request user_id: {request.user_id}")
         
         # Verify the current user owns this enterprise
-        if enterprise['created_by'] != request.user_id:
+        if enterprise.get('created_by') != request.user_id:
+            current_app.logger.warning(f"[DELETE USER] Access denied. Enterprise owner: {enterprise.get('created_by')}, Request user: {request.user_id}")
             return jsonify({'error': 'Access denied. You can only delete users from your own organization.'}), 403
         
         # Get user details before deletion for response
-        user_id = org_user['user_id']
+        user_id = org_user.get('user_id')
+        current_app.logger.info(f"[DELETE USER] User ID to delete: {user_id}")
+        
+        user_email = 'Unknown'
+        user_name = 'Unknown'
         try:
             user_details = supabase.auth.admin.get_user_by_id(user_id)
             if user_details and user_details.user:
                 user_email = user_details.user.email
                 user_metadata = user_details.user.user_metadata or {}
-                user_name = f"{user_metadata.get('first_name', '')} {user_metadata.get('last_name', '')}".strip()
-            else:
-                user_email = 'Unknown'
-                user_name = 'Unknown'
-        except:
-            user_email = 'Unknown'
-            user_name = 'Unknown'
+                user_name = f"{user_metadata.get('first_name', '')} {user_metadata.get('last_name', '')}".strip() or user_email
+                current_app.logger.info(f"[DELETE USER] User details: {user_name} ({user_email})")
+        except Exception as user_details_error:
+            current_app.logger.warning(f"[DELETE USER] Could not fetch user details: {str(user_details_error)}")
         
-        # Delete the user from the organization (this removes them from organization_users table)
-        delete_result = supabase.table('organization_users').delete().eq('id', user_relation_id).execute()
+        # Delete the user from the organization (this removes them from organization_users table) - with retry
+        current_app.logger.info(f"[DELETE USER] Attempting to delete from organization_users table with id: {user_relation_id}")
+        delete_result = None
+        delete_succeeded = False
         
-        if not delete_result.data:
+        for attempt in range(max_retries):
+            try:
+                # Use select('*') to get deleted rows back, which helps verify deletion
+                delete_result = supabase.table('organization_users').delete().eq('id', user_relation_id).select('*').execute()
+                current_app.logger.info(f"[DELETE USER] Delete result data: {delete_result.data}")
+                current_app.logger.info(f"[DELETE USER] Delete result type: {type(delete_result)}")
+                
+                # Check if delete actually removed the record
+                if delete_result.data and len(delete_result.data) > 0:
+                    current_app.logger.info(f"[DELETE USER] Delete returned {len(delete_result.data)} deleted row(s)")
+                    delete_succeeded = True
+                    break
+                else:
+                    # Delete returned no data - verify if record still exists
+                    current_app.logger.warning(f"[DELETE USER] Delete returned no data, verifying if record still exists...")
+                    verify_result = supabase.table('organization_users').select('id').eq('id', user_relation_id).execute()
+                    if verify_result.data and len(verify_result.data) > 0:
+                        current_app.logger.error(f"[DELETE USER] Record still exists after delete attempt {attempt + 1}")
+                        if attempt < max_retries - 1:
+                            # Try again
+                            delay = initial_delay * (2 ** attempt)
+                            current_app.logger.info(f"[DELETE USER] Retrying delete in {delay}s...")
+                            time.sleep(delay)
+                            supabase = get_supabase_client(use_admin=True)
+                            continue
+                        else:
+                            # Last attempt failed
+                            current_app.logger.error(f"[DELETE USER] Delete failed after {max_retries} attempts - record still exists")
+                            return jsonify({'error': 'Failed to remove user from organization. The user may be in use by other records.'}), 500
+                    else:
+                        # Record was deleted (even though delete didn't return data)
+                        current_app.logger.info(f"[DELETE USER] Record successfully deleted (verified)")
+                        delete_succeeded = True
+                        break
+                    
+            except Exception as delete_error:
+                error_str = str(delete_error).lower()
+                error_type = type(delete_error).__name__
+                
+                # Check if it's a connection error that should be retried
+                is_connection_error = (
+                    'connectionterminated' in error_str or
+                    'remoteprotocolerror' in error_type.lower() or
+                    'connection' in error_str and ('terminated' in error_str or 'reset' in error_str or 'closed' in error_str) or
+                    'resource temporarily unavailable' in error_str
+                )
+                
+                if is_connection_error and attempt < max_retries - 1:
+                    delay = initial_delay * (2 ** attempt)
+                    current_app.logger.warning(f"[DELETE USER] Connection error during delete (attempt {attempt + 1}/{max_retries}): {str(delete_error)}. Retrying in {delay}s...")
+                    time.sleep(delay)
+                    # Get a fresh client for retry
+                    supabase = get_supabase_client(use_admin=True)
+                    continue
+                
+                # Not a retryable error or last attempt
+                current_app.logger.error(f"[DELETE USER] Error deleting from organization_users: {str(delete_error)}", exc_info=True)
+                raise
+        
+        if not delete_succeeded:
+            current_app.logger.error(f"[DELETE USER] Delete operation failed after all retries")
             return jsonify({'error': 'Failed to remove user from organization'}), 500
 
         # Also delete the user's Supabase authentication account
         try:
+            current_app.logger.info(f"[DELETE USER] Attempting to delete auth account for user_id: {user_id}")
             # Use admin client to delete the user from Supabase Auth
             admin_supabase = get_supabase_client(use_admin=True)
             delete_auth_result = admin_supabase.auth.admin.delete_user(user_id)
             
             if delete_auth_result:
-                print(f"✅ Deleted Supabase auth account for user {user_id}")
+                current_app.logger.info(f"✅ Deleted Supabase auth account for user {user_id}")
             else:
-                print(f"⚠️ Failed to delete Supabase auth account for user {user_id}")
+                current_app.logger.warning(f"⚠️ Failed to delete Supabase auth account for user {user_id}")
         except Exception as auth_delete_error:
-            print(f"⚠️ Error deleting Supabase auth account for user {user_id}: {auth_delete_error}")
+            current_app.logger.warning(f"⚠️ Error deleting Supabase auth account for user {user_id}: {auth_delete_error}")
             # Don't fail the entire operation if auth deletion fails
         
+        current_app.logger.info(f"[DELETE USER] ✅ Successfully deleted user {user_relation_id}")
         return jsonify({
             'success': True,
             'message': f'User {user_name} ({user_email}) has been completely deleted. They can now be re-invited or register again.',
@@ -1847,7 +2027,26 @@ def delete_organization_user(user_relation_id):
         }), 200
         
     except Exception as e:
-        return jsonify({'error': f'Failed to delete user: {str(e)}'}), 500
+        current_app.logger.error(f'[DELETE USER] Failed to delete user: {str(e)}', exc_info=True)
+        error_str = str(e).lower()
+        
+        # Handle specific error types
+        if 'resource temporarily unavailable' in error_str or 'errno 35' in error_str:
+            return jsonify({
+                'error': 'Database connection temporarily unavailable. Please try again in a moment.',
+                'error_code': 'CONNECTION_ERROR'
+            }), 503
+        
+        if 'row-level security' in error_str or 'rls' in error_str or '42501' in str(e):
+            return jsonify({
+                'error': 'Database permission error. Please contact support.',
+                'error_code': 'RLS_POLICY_VIOLATION'
+            }), 500
+        
+        return jsonify({
+            'error': f'Failed to delete user: {str(e)}',
+            'error_code': 'UNKNOWN_ERROR'
+        }), 500
 
 
 @enterprise_bp.route('/api/enterprise/logout-and-login', methods=['GET'])
@@ -2303,7 +2502,25 @@ def get_enterprise_statistics(enterprise_id):
         }), 200
         
     except Exception as e:
-        current_app.logger.error(f'Failed to fetch enterprise statistics: {str(e)}')
+        current_app.logger.error(f'Failed to fetch enterprise statistics: {str(e)}', exc_info=True)
+        error_str = str(e).lower()
+        error_type = type(e).__name__
+        
+        # Check if it's a connection error
+        is_connection_error = (
+            'connectionterminated' in error_str or
+            'remoteprotocolerror' in error_type.lower() or
+            'connection' in error_str and ('terminated' in error_str or 'reset' in error_str or 'closed' in error_str) or
+            'resource temporarily unavailable' in error_str
+        )
+        
+        if is_connection_error:
+            return jsonify({
+                'success': False,
+                'error': 'Database connection error. Please try again in a moment.',
+                'error_code': 'CONNECTION_ERROR'
+            }), 503
+        
         return jsonify({
             'success': False,
             'error': f'Failed to fetch statistics: {str(e)}'

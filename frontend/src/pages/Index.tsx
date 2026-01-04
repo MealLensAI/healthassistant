@@ -131,20 +131,27 @@ const Index = () => {
     initialized: mealPlansInitialized,
     error: mealPlansError
   } = useMealPlans(sicknessSettings.hasSickness); // Filter based on current health settings
-  // Only show error if there's actually an error AND no cached data AND user is authenticated
+  // Only show error if there's actually an error AND no data AND user is authenticated AND loading is complete
   useEffect(() => {
-    if (mealPlansError && !mealPlansLoading && isAuthenticated) {
-      // Only show error if we don't have any cached plans to display
-      const hasCachedData = savedPlans.length > 0 || currentPlan !== null;
-      if (!hasCachedData) {
-        toast({
-          title: 'Meal plans unavailable',
-          description: mealPlansError,
-          variant: 'destructive'
-        });
-      }
+    // Only show error if:
+    // 1. There's an error
+    // 2. Not currently loading
+    // 3. User is authenticated
+    // 4. Meal plans have been initialized (loading completed at least once)
+    // 5. No plans available (neither saved plans nor current plan)
+    if (mealPlansError && 
+        !mealPlansLoading && 
+        isAuthenticated && 
+        mealPlansInitialized &&
+        savedPlans.length === 0 && 
+        currentPlan === null) {
+      toast({
+        title: 'Meal plans unavailable',
+        description: mealPlansError,
+        variant: 'destructive'
+      });
     }
-  }, [mealPlansError, mealPlansLoading, isAuthenticated, savedPlans.length, currentPlan, toast]);
+  }, [mealPlansError, mealPlansLoading, mealPlansInitialized, isAuthenticated, savedPlans.length, currentPlan, toast]);
 
 
   const prevShowPlanManager = useRef(showPlanManager);

@@ -10,8 +10,8 @@ interface OrganizationAccessGuardProps {
 }
 
 export default function OrganizationAccessGuard({ children }: OrganizationAccessGuardProps) {
-  const { isAuthenticated, loading: authLoading } = useAuth()
-  const { role, isLoading: roleLoading, hasEnterprises, canCreateOrganizations } = useEnterpriseRole()
+  const { isAuthenticated, loading: authLoading, user } = useAuth()
+  const { role, isLoading: roleLoading, hasEnterprises, canCreateOrganizations, error } = useEnterpriseRole()
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -22,6 +22,27 @@ export default function OrganizationAccessGuard({ children }: OrganizationAccess
   }, [authLoading, isAuthenticated, navigate])
 
   useEffect(() => {
+    // Check signup_type from localStorage as primary fallback
+    let hasOrganizationSignupType = false
+    try {
+      const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('user_data') : null
+      if (userDataStr) {
+        const userData = JSON.parse(userDataStr)
+        const userMetadata = userData?.metadata || userData?.user_metadata || {}
+        const signupType = userMetadata.signup_type || userMetadata.signupType
+        hasOrganizationSignupType = signupType === 'organization'
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
+
+    // If signup_type is organization, allow access immediately - don't wait for API
+    if (hasOrganizationSignupType) {
+      return // Allow access, don't redirect
+    }
+
+    // Only redirect if user doesn't have organization access AND doesn't have signup_type=organization
+    // Wait for roleLoading to complete before making decision
     if (!roleLoading && role !== 'organization' && !hasEnterprises && !canCreateOrganizations) {
       toast({
         title: 'Enterprise access required',
@@ -30,9 +51,24 @@ export default function OrganizationAccessGuard({ children }: OrganizationAccess
       })
       navigate('/ai-kitchen', { replace: true })
     }
-  }, [roleLoading, role, hasEnterprises, canCreateOrganizations, toast, navigate])
+  }, [roleLoading, role, hasEnterprises, canCreateOrganizations, error, user, toast, navigate])
 
-  if (authLoading || roleLoading || !isAuthenticated || role === null) {
+  // Check signup_type early - if organization, skip loading and allow access
+  let hasOrganizationSignupType = false
+  try {
+    const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('user_data') : null
+    if (userDataStr) {
+      const userData = JSON.parse(userDataStr)
+      const userMetadata = userData?.metadata || userData?.user_metadata || {}
+      const signupType = userMetadata.signup_type || userMetadata.signupType
+      hasOrganizationSignupType = signupType === 'organization'
+    }
+  } catch (e) {
+    // Ignore parsing errors
+  }
+
+  // Show loading only if we're still loading AND user doesn't have signup_type=organization
+  if ((authLoading || roleLoading || !isAuthenticated || role === null) && !hasOrganizationSignupType) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center space-y-6">
@@ -45,7 +81,8 @@ export default function OrganizationAccessGuard({ children }: OrganizationAccess
     )
   }
 
-  if (role !== 'organization' && !hasEnterprises && !canCreateOrganizations) {
+  // Final check: Allow if user has organization access OR signup_type=organization
+  if (role !== 'organization' && !hasEnterprises && !canCreateOrganizations && !hasOrganizationSignupType) {
     return null
   }
 

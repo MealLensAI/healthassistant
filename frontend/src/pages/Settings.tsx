@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTrial } from '@/hooks/useTrial';
-import { Clock, ChevronDown, ChevronUp, History, ChevronDown as ChevronDownIcon } from 'lucide-react';
+import { Clock, History, ChevronDown as ChevronDownIcon, Edit } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,29 +23,56 @@ const Settings = () => {
     updateSettings,
     saveSettings,
     error,
-    reloadSettings
+    reloadSettings,
+    isHealthProfileComplete,
+    hasExistingData
   } = useSicknessSettings();
 
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   const [localLoading, setLocalLoading] = useState(false);
-  const [isFormExpanded, setIsFormExpanded] = useState(true);
-  const [showSavedData, setShowSavedData] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [lastSavedSettings, setLastSavedSettings] = useState<any>(null);
+  const hasInitializedRef = useRef(false);
 
-  // Check if user has saved data on initial load only - if yes, collapse form and show table
+  // Track last saved settings when they're loaded from backend
   useEffect(() => {
-    // Only run this check once when settings are first loaded
-    if (!hasInitialized && !loading) {
-      setHasInitialized(true);
-      if (settings.hasSickness && settings.age && settings.gender && settings.sicknessType) {
-        // User has complete health information, show table view
-        setIsFormExpanded(false);
-        setShowSavedData(true);
+    if (!loading && settings && hasExistingData) {
+      // When settings are loaded from backend (after save or initial load), 
+      // update lastSavedSettings to match current settings
+      // This ensures we only show save button when user actually makes changes
+      const settingsCopy = JSON.parse(JSON.stringify(settings));
+      setLastSavedSettings(settingsCopy);
+      hasInitializedRef.current = true;
+    } else if (!loading && !hasExistingData) {
+      // No existing data - reset lastSavedSettings so save button shows
+      setLastSavedSettings(null);
+      hasInitializedRef.current = true;
+    }
+  }, [loading, settings, hasExistingData]);
+
+  // Check if current settings differ from last saved settings
+  const hasUnsavedChanges = () => {
+    if (!lastSavedSettings) {
+      // No saved data exists - show save button
+      return !hasExistingData;
+    }
+    
+    // Compare current settings with last saved
+    const fieldsToCompare = [
+      'age', 'gender', 'height', 'weight', 'waist', 
+      'activityLevel', 'goal', 'sicknessType', 'location', 'hasSickness'
+    ];
+    
+    for (const field of fieldsToCompare) {
+      if (settings[field as keyof typeof settings] !== lastSavedSettings[field as keyof typeof lastSavedSettings]) {
+        return true;
       }
     }
-  }, [loading, hasInitialized, settings.hasSickness, settings.age, settings.gender, settings.sicknessType]);
+    
+    return false;
+  };
 
   useEffect(() => {
     if (error) {
@@ -156,20 +183,21 @@ const Settings = () => {
           const timestampKey = userId ? `meallensai_settings_history_cache_timestamp_${userId}` : 'meallensai_settings_history_cache_timestamp';
           localStorage.removeItem(cacheKey);
           localStorage.removeItem(timestampKey);
-          console.log('✅ Cleared settings history cache after save');
         } catch (cacheError) {
-          console.warn('Failed to clear history cache:', cacheError);
+          // Ignore cache errors
         }
+        
+        // Update last saved settings to current settings (after save)
+        setLastSavedSettings(JSON.parse(JSON.stringify(settings)));
         
         // Reload settings to get the latest from backend (ensures hasSickness is preserved)
         await reloadSettings();
         
+        // Exit edit mode after successful save
+        setIsEditMode(false);
+        
         // Dispatch event to notify History page to refresh
         window.dispatchEvent(new CustomEvent('settingsSaved'));
-        
-        // Collapse form and show saved data
-        setIsFormExpanded(false);
-        setShowSavedData(true);
         
         Swal.fire({
           icon: 'success',
@@ -268,7 +296,7 @@ const Settings = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={reloadSettings}
+                onClick={() => reloadSettings(true)}
                 disabled={loading}
                 className="w-full sm:w-auto text-xs sm:text-sm"
               >
@@ -291,49 +319,49 @@ const Settings = () => {
             </div>
           )}
 
-          {/* Info Text - Hidden on mobile when card is shown, or shown only once */}
-          {(!settings.hasSickness || isFormExpanded || !showSavedData) && (
+          {/* History Button at Top - Show when data exists */}
+          {settings.hasSickness && hasExistingData && !isEditMode && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/history')}
+                className="flex items-center gap-2 w-full sm:w-auto justify-center"
+              >
+                <History className="h-4 w-4" />
+                <span>Health History</span>
+              </Button>
+            </div>
+          )}
+
+          {/* Info Text */}
             <p className="text-gray-500 text-xs sm:text-[14px]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
               This information helps us provide personalized medical meal recommendations
             </p>
-          )}
 
           <Card className="bg-white border border-[#E7E7E7] rounded-[12px] sm:rounded-[15px] shadow-sm">
             <CardHeader className="pb-3 sm:pb-4">
-              {(!settings.hasSickness || isFormExpanded || !showSavedData) && (
                 <CardDescription className="text-gray-600 text-xs sm:text-sm" style={{ fontFamily: "'Work Sans', sans-serif" }}>
                   This information helps us provide personalized medical meal recommendations
                 </CardDescription>
-              )}
             </CardHeader>
 
             <CardContent className="space-y-6">
 
-              {/* SAVED DATA TABLE - Show when form is collapsed */}
-              {settings.hasSickness && !isFormExpanded && showSavedData && (
-                <div className="space-y-4 border-t pt-4 sm:pt-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
+              {/* SAVED DATA TABLE - Show when data exists and NOT in edit mode */}
+              {settings.hasSickness && hasExistingData && !isEditMode && (
+                <div className="space-y-4">
+                  <div className="mb-4 flex items-center justify-between">
                     <h3 className="text-base sm:text-lg font-semibold">Your Saved Health Information</h3>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate('/history')}
-                        className="flex items-center justify-center gap-2 w-full sm:w-auto"
-                      >
-                        <History className="h-4 w-4" />
-                        <span className="text-xs sm:text-sm">View History</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsFormExpanded(true)}
-                        className="flex items-center justify-center gap-2 w-full sm:w-auto"
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                        <span className="text-xs sm:text-sm">Edit Information</span>
-                      </Button>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditMode(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span>Edit</span>
+                    </Button>
                   </div>
                   
                   <div className="rounded-lg border overflow-hidden">
@@ -430,164 +458,195 @@ const Settings = () => {
                 </div>
               )}
 
-              {/* CONDITIONAL FORM - Show when expanded */}
-              {settings.hasSickness && isFormExpanded && (
-                <div className="space-y-4 sm:space-y-6 border-t pt-4 sm:pt-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-2">
-                    <h3 className="text-base sm:text-lg font-semibold">Health Information Details</h3>
-                    {showSavedData && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsFormExpanded(false)}
-                        className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start"
-                      >
-                        <ChevronUp className="h-4 w-4" />
-                        <span className="text-xs sm:text-sm">Collapse</span>
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                    {/* Age */}
-                    <div className="space-y-2">
-                      <Label htmlFor="age">Age *</Label>
-                      <Input
-                        id="age"
-                        type="number"
-                        value={settings.age || ''}
-                        onChange={(e) =>
-                          updateSettings({ age: parseInt(e.target.value) || undefined })
+              {/* FORM - Show when no data exists OR when in edit mode */}
+              {(!hasExistingData || isEditMode) && (
+              <div className="space-y-4 sm:space-y-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-base sm:text-lg font-semibold">
+                    {hasExistingData ? 'Edit Health Information' : 'Health Information Details'}
+                  </h3>
+                  {hasExistingData && isEditMode && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditMode(false);
+                        // Reset to last saved settings
+                        if (lastSavedSettings) {
+                          Object.keys(lastSavedSettings).forEach(key => {
+                            updateSettings({ [key]: lastSavedSettings[key as keyof typeof lastSavedSettings] });
+                          });
                         }
-                      />
-                    </div>
-
-                    {/* Gender */}
-                    <div className="space-y-2">
-                      <Label>Gender *</Label>
-                      <Select
-                        value={settings.gender || ''}
-                        onValueChange={(value) => updateSettings({ gender: value as 'male' | 'female' | 'other' })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Height */}
-                    <div className="space-y-2">
-                      <Label>Height (cm) *</Label>
-                      <Input
-                        type="number"
-                        value={settings.height || ''}
-                        onChange={(e) =>
-                          updateSettings({ height: parseFloat(e.target.value) || undefined })
-                        }
-                      />
-                    </div>
-
-                    {/* Weight */}
-                    <div className="space-y-2">
-                      <Label>Weight (kg) *</Label>
-                      <Input
-                        type="number"
-                        value={settings.weight || ''}
-                        onChange={(e) =>
-                          updateSettings({ weight: parseFloat(e.target.value) || undefined })
-                        }
-                      />
-                    </div>
-
-                    {/* Waist */}
-                    <div className="space-y-2">
-                      <Label>Waist Circumference (cm) *</Label>
-                      <Input
-                        type="number"
-                        value={settings.waist || ''}
-                        onChange={(e) =>
-                          updateSettings({ waist: parseFloat(e.target.value) || undefined })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Activity Level */}
-                  <div className="space-y-2">
-                    <Label>Activity Level *</Label>
-                    <Select
-                      value={settings.activityLevel || ''}
-                      onValueChange={(value) => updateSettings({ activityLevel: value as 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' })}
+                      }}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select activity level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sedentary">Sedentary</SelectItem>
-                        <SelectItem value="light">Light</SelectItem>
-                        <SelectItem value="moderate">Moderate</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="very_active">Very Active</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Sickness Type */}
-                  <div className="space-y-2">
-                    <Label>Health Condition *</Label>
-                    <Input
-                      value={settings.sicknessType}
-                      onChange={(e) => handleSicknessTypeChange(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Goal */}
-                  <div className="space-y-2">
-                    <Label>Health Goal *</Label>
-                    <Select
-                      value={settings.goal || ''}
-                      onValueChange={(value) => updateSettings({ goal: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select your goal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Heal">Heal</SelectItem>
-                        <SelectItem value="Improve">Improve</SelectItem>
-                        <SelectItem value="Manage">Manage</SelectItem>
-                        <SelectItem value="Restore">Restore</SelectItem>
-                        <SelectItem value="Maintain">Maintain</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Location */}
-                  <div className="space-y-2">
-                    <Label>Location *</Label>
-                    <Input
-                      value={settings.location || ''}
-                      onChange={(e) => updateSettings({ location: e.target.value })}
-                    />
-                  </div>
+                      Cancel
+                    </Button>
+                  )}
                 </div>
-              )}
 
-              <div className="flex flex-col gap-3 pt-4">
+                {/* Form fields - always visible */}
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Age */}
+                      <div className="space-y-2">
+                        <Label htmlFor="age">Age *</Label>
+                        <Input
+                          id="age"
+                          type="number"
+                          value={settings.age || ''}
+                          onChange={(e) =>
+                            updateSettings({ age: parseInt(e.target.value) || undefined })
+                          }
+                        />
+                      </div>
+
+                      {/* Gender */}
+                      <div className="space-y-2">
+                        <Label>Gender *</Label>
+                        <Select
+                          value={settings.gender || ''}
+                          onValueChange={(value) => updateSettings({ gender: value as 'male' | 'female' | 'other' })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Height */}
+                      <div className="space-y-2">
+                        <Label>Height (cm) *</Label>
+                        <Input
+                          type="number"
+                          value={settings.height || ''}
+                          onChange={(e) =>
+                            updateSettings({ height: parseFloat(e.target.value) || undefined })
+                          }
+                        />
+                      </div>
+
+                      {/* Weight */}
+                      <div className="space-y-2">
+                        <Label>Weight (kg) *</Label>
+                        <Input
+                          type="number"
+                          value={settings.weight || ''}
+                          onChange={(e) =>
+                            updateSettings({ weight: parseFloat(e.target.value) || undefined })
+                          }
+                        />
+                      </div>
+
+                      {/* Waist */}
+                      <div className="space-y-2">
+                        <Label>Waist Circumference (cm) *</Label>
+                        <Input
+                          type="number"
+                          value={settings.waist || ''}
+                          onChange={(e) =>
+                            updateSettings({ waist: parseFloat(e.target.value) || undefined })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Activity Level */}
+                      <div className="space-y-2">
+                        <Label>Activity Level *</Label>
+                        <Select
+                          value={settings.activityLevel || ''}
+                          onValueChange={(value) => updateSettings({ activityLevel: value as 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select activity level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sedentary">Sedentary</SelectItem>
+                            <SelectItem value="light">Light</SelectItem>
+                            <SelectItem value="moderate">Moderate</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="very_active">Very Active</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Sickness Type */}
+                      <div className="space-y-2">
+                        <Label>Health Condition *</Label>
+                        <Input
+                          value={settings.sicknessType}
+                          onChange={(e) => handleSicknessTypeChange(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Goal */}
+                      <div className="space-y-2">
+                        <Label>Health Goal *</Label>
+                        <Select
+                          value={settings.goal || ''}
+                          onValueChange={(value) => updateSettings({ goal: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select your goal" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Heal">Heal</SelectItem>
+                            <SelectItem value="Improve">Improve</SelectItem>
+                            <SelectItem value="Manage">Manage</SelectItem>
+                            <SelectItem value="Restore">Restore</SelectItem>
+                            <SelectItem value="Maintain">Maintain</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Location */}
+                      <div className="space-y-2">
+                        <Label>Location *</Label>
+                        <Input
+                          value={settings.location || ''}
+                          onChange={(e) => updateSettings({ location: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </>
+              
+              {/* Save/Cancel buttons - Show when in edit mode or when no data exists */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <Button
                   type="button"
                   onClick={handleSave}
                   disabled={isActuallyLoading}
-                  className="w-full text-sm sm:text-base"
+                  className="w-full sm:w-auto text-sm sm:text-base"
                 >
                   {isActuallyLoading ? 'Saving...' : 'Save Health Information'}
                 </Button>
+                {isEditMode && hasExistingData && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditMode(false);
+                      // Reset to last saved settings
+                      if (lastSavedSettings) {
+                        Object.keys(lastSavedSettings).forEach(key => {
+                          updateSettings({ [key]: lastSavedSettings[key] });
+                        });
+                      }
+                    }}
+                    className="w-full sm:w-auto text-sm sm:text-base"
+                  >
+                    Cancel
+                  </Button>
+                )}
               </div>
+              </div>
+              )}
             </CardContent>
           </Card>
         </div>

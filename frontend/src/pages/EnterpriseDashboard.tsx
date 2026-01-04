@@ -654,17 +654,54 @@ export default function EnterpriseDashboard() {
           await loadEnterpriseDetails(selectedEnterprise.id);
         }
       } else {
+        // Handle error response from API
+        const errorMsg = result.error || result.message || "Failed to delete user";
         toast({
           title: "Error",
-          description: result.error || "Failed to delete user",
+          description: errorMsg,
           variant: "destructive"
         });
       }
     } catch (err: any) {
       console.error("Error deleting user:", err);
+      
+      // Extract error message from different error formats
+      let errorMessage = "Failed to delete user. Please try again.";
+      
+      // APIError structure: { message, status, data }
+      if (err?.data) {
+        // APIError.data contains the backend response
+        errorMessage = err.data?.error || err.data?.message || err.message || errorMessage;
+      } else if (err?.response) {
+        // Some error formats have response property
+        errorMessage = err.response?.error || err.response?.message || err.message || errorMessage;
+      } else if (err?.message) {
+        // Direct error message
+        errorMessage = err.message;
+      }
+      
+      // Check for specific error codes and messages
+      const status = err?.status || err?.data?.status;
+      const errorLower = errorMessage.toLowerCase();
+      
+      if (status === 503 || errorLower.includes('connection') || errorLower.includes('temporarily unavailable')) {
+        errorMessage = "Database connection error. Please try again in a moment.";
+      } else if (status === 403 || errorLower.includes('access denied')) {
+        errorMessage = "Access denied. You can only delete users from your own organization.";
+      } else if (status === 404 || errorLower.includes('not found')) {
+        errorMessage = "User not found in organization. They may have already been deleted.";
+      } else if (status === 500) {
+        // For 500 errors, show the backend error message if available
+        if (!errorMessage.includes("Failed to delete user")) {
+          // Keep the specific error message from backend
+        } else {
+          errorMessage = "Server error occurred. Please check backend logs or try again.";
+        }
+      }
+      
       toast({
         title: "Error",
-        description: err?.message || "Failed to delete user. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

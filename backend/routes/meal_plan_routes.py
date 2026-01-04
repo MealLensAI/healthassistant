@@ -65,6 +65,17 @@ def get_meal_plan():
         meal_plans, error = supabase_service.get_meal_plans(user_id)
         print(f"[DEBUG] Data fetched from meal_plan_management for user {user_id}: {meal_plans}")  # Debug print
 
+        # Handle errors (including transient connection errors)
+        if error:
+            error_lower = error.lower()
+            if 'resource temporarily unavailable' in error_lower or '35' in error:
+                current_app.logger.warning(f"Transient connection error fetching meal plans for user {user_id}: {error}")
+                # Return empty list instead of error for transient issues - user can retry
+                return jsonify({'status': 'success', 'meal_plans': []}), 200
+            else:
+                log_error(f"Failed to retrieve meal plans for user {user_id}", Exception(error))
+                return jsonify({'status': 'error', 'message': f'Failed to retrieve meal plans: {error}'}), 500
+
         # Parse meal_plan and extract fields if missing
         if meal_plans is not None:
             if isinstance(meal_plans, dict):

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Login Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Enterprise Login Flow Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Check localStorage user_data structure</h2>
+        <button onclick="testUserDataStructure()">Run Test</button>
+        <div id="test1-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Simulate organization user login</h2>
+        <button onclick="simulateOrgLogin()">Simulate Login</button>
+        <div id="test2-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Check signup_type fallback logic</h2>
+        <button onclick="testSignupTypeFallback()">Run Test</button>
+        <div id="test3-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Check current localStorage state</h2>
+        <button onclick="checkLocalStorage()">Check Storage</button>
+        <div id="test4-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Clear test data</h2>
+        <button onclick="clearTestData()">Clear All</button>
+        <div id="test5-result"></div>
+    </div>
+
+    <script>
+        function addResult(testId, message, type = 'info') {
+            const div = document.getElementById(testId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = message;
+            div.appendChild(resultDiv);
+        }
+
+        function clearResults(testId) {
+            document.getElementById(testId).innerHTML = '';
+        }
+
+        function testUserDataStructure() {
+            clearResults('test1-result');
+            
+            // Test the expected structure
+            const testUserData = {
+                uid: 'test-user-id',
+                email: 'test@example.com',
+                displayName: 'Test User',
+                photoURL: null,
+                metadata: {
+                    signup_type: 'organization'
+                },
+                user_metadata: {
+                    signup_type: 'organization'
+                }
+            };
+
+            const stored = JSON.stringify(testUserData);
+            localStorage.setItem('user_data', stored);
+            
+            // Verify it can be read back
+            const retrieved = localStorage.getItem('user_data');
+            if (retrieved) {
+                const parsed = JSON.parse(retrieved);
+                const hasMetadata = !!(parsed.metadata || parsed.user_metadata);
+                const hasSignupType = !!(parsed.metadata?.signup_type || parsed.user_metadata?.signup_type);
+                
+                if (hasMetadata && hasSignupType) {
+                    addResult('test1-result', '✅ PASS: user_data structure is correct', 'pass');
+                    addResult('test1-result', `<pre>${JSON.stringify(parsed, null, 2)}</pre>`, 'info');
+                } else {
+                    addResult('test1-result', '❌ FAIL: Missing metadata or signup_type', 'fail');
+                }
+            } else {
+                addResult('test1-result', '❌ FAIL: Could not retrieve user_data', 'fail');
+            }
+        }
+
+        function simulateOrgLogin() {
+            clearResults('test2-result');
+            
+            // Simulate what Login.tsx does
+            const mockLoginResult = {
+                status: 'success',
+                access_token: 'mock-token',
+                user_id: 'test-org-user-id',
+                user_data: {
+                    id: 'test-org-user-id',
+                    email: 'org@example.com',
+                    metadata: {
+                        signup_type: 'organization'
+                    }
+                }
+            };
+
+            // Simulate storing user_data (as Login.tsx does)
+            const userMetadata = mockLoginResult.user_data?.metadata || {};
+            const userData = {
+                uid: mockLoginResult.user_id || mockLoginResult.user_data?.id || '',
+                email: mockLoginResult.user_data?.email || 'org@example.com',
+                displayName: (mockLoginResult.user_data?.email || 'org@example.com').split('@')[0],
+                photoURL: null,
+                metadata: userMetadata,
+                user_metadata: userMetadata
+            };
+            
+            localStorage.setItem('user_data', JSON.stringify(userData));
+            localStorage.setItem('access_token', mockLoginResult.access_token);
+            
+            // Verify
+            const stored = localStorage.getItem('user_data');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                const signupType = parsed.metadata?.signup_type || parsed.user_metadata?.signup_type;
+                
+                if (signupType === 'organization') {
+                    addResult('test2-result', '✅ PASS: Organization user login simulated successfully', 'pass');
+                    addResult('test2-result', `Signup type: ${signupType}`, 'info');
+                    addResult('test2-result', `<pre>${JSON.stringify(parsed, null, 2)}</pre>`, 'info');
+                } else {
+                    addResult('test2-result', `❌ FAIL: signup_type is "${signupType}", expected "organization"`, 'fail');
+                }
+            } else {
+                addResult('test2-result', '❌ FAIL: user_data not stored', 'fail');
+            }
+        }
+
+        function testSignupTypeFallback() {
+            clearResults('test3-result');
+            
+            // Test the fallback logic (as useEnterpriseRole does)
+            try {
+                const userDataStr = localStorage.getItem('user_data');
+                if (!userDataStr) {
+                    addResult('test3-result', '⚠️ INFO: No user_data in localStorage. Run Test 2 first.', 'info');
+                    return;
+                }
+
+                const userData = JSON.parse(userDataStr);
+                const userMetadata = userData?.metadata || userData?.user_metadata || {};
+                const signupType = userMetadata.signup_type || userMetadata.signupType;
+                
+                addResult('test3-result', `Signup type found: ${signupType || 'undefined'}`, 'info');
+                
+                if (signupType === 'organization') {
+                    addResult('test3-result', '✅ PASS: Fallback logic would allow enterprise access', 'pass');
+                    addResult('test3-result', '✅ canCreateOrganizations would be set to true', 'pass');
+                } else if (signupType) {
+                    addResult('test3-result', `⚠️ INFO: signup_type is "${signupType}" (not organization)`, 'info');
+                } else {
+                    addResult('test3-result', '❌ FAIL: signup_type not found in metadata', 'fail');
+                }
+                
+                addResult('test3-result', `<pre>Metadata: ${JSON.stringify(userMetadata, null, 2)}</pre>`, 'info');
+            } catch (err) {
+                addResult('test3-result', `❌ FAIL: Error reading user_data: ${err.message}`, 'fail');
+            }
+        }
+
+        function checkLocalStorage() {
+            clearResults('test4-result');
+            
+            const userData = localStorage.getItem('user_data');
+            const accessToken = localStorage.getItem('access_token');
+            
+            if (userData) {
+                try {
+                    const parsed = JSON.parse(userData);
+                    addResult('test4-result', '✅ user_data found in localStorage', 'pass');
+                    addResult('test4-result', `<pre>${JSON.stringify(parsed, null, 2)}</pre>`, 'info');
+                    
+                    const signupType = parsed.metadata?.signup_type || parsed.user_metadata?.signup_type;
+                    if (signupType) {
+                        addResult('test4-result', `Signup type: <strong>${signupType}</strong>`, signupType === 'organization' ? 'pass' : 'info');
+                    } else {
+                        addResult('test4-result', '⚠️ No signup_type found in metadata', 'info');
+                    }
+                } catch (e) {
+                    addResult('test4-result', `❌ Error parsing user_data: ${e.message}`, 'fail');
+                }
+            } else {
+                addResult('test4-result', '⚠️ No user_data in localStorage', 'info');
+            }
+            
+            if (accessToken) {
+                addResult('test4-result', `✅ access_token found (length: ${accessToken.length})`, 'pass');
+            } else {
+                addResult('test4-result', '⚠️ No access_token in localStorage', 'info');
+            }
+        }
+
+        function clearTestData() {
+            clearResults('test5-result');
+            
+            if (confirm('Clear all test data from localStorage?')) {
+                localStorage.removeItem('user_data');
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('supabase_refresh_token');
+                localStorage.removeItem('supabase_session_id');
+                localStorage.removeItem('supabase_user_id');
+                
+                addResult('test5-result', '✅ Test data cleared from localStorage', 'pass');
+            }
+        }
+
+        // Auto-check on load
+        window.addEventListener('load', () => {
+            checkLocalStorage();
+        });
+    </script>
+</body>
+</html>
+

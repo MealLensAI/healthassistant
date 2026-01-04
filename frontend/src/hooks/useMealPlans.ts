@@ -171,10 +171,10 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       return;
     }
 
-    // Check cache first - only fetch if cache is expired or missing
+    // Show cached data immediately if available (for better UX), but always fetch from backend
     const cachedPlans = getCachedPlans(userId);
     if (cachedPlans && cachedPlans.length > 0) {
-      console.log('✅ useMealPlans: Using cached data, skipping fetch');
+      console.log('✅ useMealPlans: Showing cached data, fetching fresh data from backend...');
       // Filter cached plans if needed
       let filteredCached = cachedPlans;
       if (filterBySickness !== undefined) {
@@ -184,18 +184,14 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       if (filteredCached.length > 0) {
         setCurrentPlan(filteredCached[0]);
       }
-      setInitialized(true);
-      setLoading(false);
-      setError(null);
-      return; // Don't fetch if we have valid cache
+      // Continue to fetch from backend - don't return early
     }
 
     const fetchPlans = async () => {
       setLoading(true);
       setError(null);
-      // Don't set initialized to false here - keep showing cached data
       try {
-        console.log('🔍 useMealPlans: Cache expired/missing, fetching from backend');
+        console.log('🔄 useMealPlans: Fetching meal plans from backend...');
         const token = safeGetItem('access_token');
         const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
           method: 'GET',
@@ -269,11 +265,14 @@ export const useMealPlans = (filterBySickness?: boolean) => {
           
           setSavedPlans(filteredPlans);
           if (filteredPlans.length > 0) setCurrentPlan(filteredPlans[0]);
+          // Clear any previous errors when data loads successfully
+          setError(null);
         } else {
           console.error('Error fetching meal plans:', result.message);
           setSavedPlans([]);
           setCurrentPlan(null);
           clearCachedPlans(userId);
+          setError(result.message || 'Failed to load meal plans');
         }
       } catch (error) {
         console.error('Error fetching meal plans:', error);
@@ -646,19 +645,17 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       return;
     }
 
-    // If not forcing refresh, check cache first
-    if (!forceRefresh) {
-      const cachedPlans = getCachedPlans(userId);
-      if (cachedPlans && cachedPlans.length > 0) {
-        console.log('✅ useMealPlans: Using cached data for refresh');
-        let filteredCached = cachedPlans;
-        if (filterBySickness !== undefined) {
-          filteredCached = cachedPlans.filter((plan: SavedMealPlan) => plan.hasSickness === filterBySickness);
-        }
-        setSavedPlans(filteredCached);
-        if (filteredCached.length > 0) setCurrentPlan(filteredCached[0]);
-        return;
+    // Show cached data immediately if available (for better UX), but always fetch from backend
+    const cachedPlans = getCachedPlans(userId);
+    if (cachedPlans && cachedPlans.length > 0 && !forceRefresh) {
+      console.log('✅ useMealPlans: Showing cached data, fetching fresh data from backend...');
+      let filteredCached = cachedPlans;
+      if (filterBySickness !== undefined) {
+        filteredCached = cachedPlans.filter((plan: SavedMealPlan) => plan.hasSickness === filterBySickness);
       }
+      setSavedPlans(filteredCached);
+      if (filteredCached.length > 0) setCurrentPlan(filteredCached[0]);
+      // Continue to fetch from backend - don't return early
     }
 
     setLoading(true);
@@ -710,9 +707,12 @@ export const useMealPlans = (filterBySickness?: boolean) => {
         
         setSavedPlans(filteredPlans);
         setCurrentPlan(filteredPlans.length > 0 ? filteredPlans[0] : null);
+        // Clear any previous errors when data loads successfully
+        setError(null);
       } else {
         setSavedPlans([]);
         setCurrentPlan(null);
+        setError(result.message || 'Failed to refresh meal plans');
       }
     } catch (error) {
       console.error('Error refreshing meal plans:', error);

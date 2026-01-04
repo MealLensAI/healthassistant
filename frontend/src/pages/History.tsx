@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { ChevronDown, ArrowRight, Trash2 } from "lucide-react"
 import { useAuth, safeGetItem } from "@/lib/utils"
@@ -95,6 +95,8 @@ export function HistoryPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const { user, isAuthenticated, loading: authLoading } = useAuth()
   const { api } = useAPI()
+  const isFetchingHistoryRef = useRef(false)
+  const lastFetchTimeRef = useRef<number>(0)
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -102,14 +104,19 @@ export function HistoryPage() {
         return
       }
 
-      // If we have cached data, show it immediately and fetch fresh data in background
-      // Only show loading if we have no cached data
-      if (!cachedHistory || cachedHistory.length === 0) {
-        setIsLoading(true)
+      // Show cached data immediately if available (for better UX), but always fetch from backend
+      if (cachedHistory && cachedHistory.length > 0) {
+        setHistory(cachedHistory)
       }
 
+      // Always fetch from backend when authenticated to ensure we have the latest data
+      setIsLoading(true)
+      setError(null)
+
       try {
+        console.log('🔄 Fetching detection history from backend...')
         const result = await api.getDetectionHistory()
+        console.log('📦 Detection history API response:', result)
 
         if (result.status === 'success') {
           let historyData: any[] = []
@@ -125,6 +132,7 @@ export function HistoryPage() {
             historyData = []
           }
 
+          console.log('✅ Detection history loaded from backend:', historyData.length, 'records')
           setHistory(historyData)
           setCachedHistory(historyData, userId)
           setError(null)
@@ -135,7 +143,7 @@ export function HistoryPage() {
           }
         }
       } catch (err) {
-        console.error("Error fetching history:", err)
+        console.error("❌ Error fetching detection history:", err)
         // Only set error if we don't have cached data to show
         if (!cachedHistory || cachedHistory.length === 0) {
           if (err instanceof APIError) {
@@ -154,20 +162,48 @@ export function HistoryPage() {
 
   // Fetch settings history when health_history tab is active
   useEffect(() => {
-    const fetchSettingsHistory = async () => {
+    // Prevent multiple simultaneous fetches
+    let isMounted = true
+    let fetchTimeout: NodeJS.Timeout | null = null
+    
+    const fetchSettingsHistory = async (retryCount = 0) => {
       if (activeFilter !== "health_history" || !isAuthenticated || authLoading) {
         return
       }
+      
+      // Prevent concurrent fetches - if already fetching, skip
+      if (isFetchingHistoryRef.current) {
+        console.log('⏸️ History fetch already in progress, skipping...')
+        return
+      }
+      
+      // Rate limiting - don't fetch more than once per 2 seconds
+      const now = Date.now()
+      if (now - lastFetchTimeRef.current < 2000 && retryCount === 0) {
+        console.log('⏸️ Rate limiting: too soon since last fetch, skipping...')
+        return
+      }
+      
+      isFetchingHistoryRef.current = true
+      lastFetchTimeRef.current = now
 
-      // If we have cached data, show it immediately and fetch fresh data in background
-      if (!cachedSettingsHistory || cachedSettingsHistory.length === 0) {
+      // Show cached data immediately if available (for better UX)
+      const cached = getCachedSettingsHistory(userId)
+      if (cached && cached.length > 0 && isMounted) {
+        setSettingsHistory(cached)
+      }
+
+      // Always fetch from backend when authenticated to ensure we have the latest data
+      if (isMounted) {
         setIsLoadingSettings(true)
       }
 
       try {
-        console.log('🔄 Fetching settings history...')
+        console.log('🔄 Fetching health settings history from backend...')
         const result = await api.getUserSettingsHistory('health_profile', 50)
-        console.log('📦 Settings history API response:', result)
+        console.log('📦 Health settings history API response:', result)
+        
+        if (!isMounted) return
         
         if ((result as any).status === 'success') {
           // Try multiple possible response structures
@@ -175,29 +211,88 @@ export function HistoryPage() {
                               (result as any).data?.history || 
                               (result as any).data || 
                               []
-          console.log('✅ Settings history loaded:', historyData.length, 'records')
-          console.log('📋 Settings history data:', historyData)
+          console.log('✅ Health settings history loaded from backend:', historyData.length, 'records')
           setSettingsHistory(Array.isArray(historyData) ? historyData : [])
+          
+          // Cache the updated history
+          try {
+            const settingsCacheKey = userId 
+              ? `meallensai_settings_history_cache_${userId}` 
+              : 'meallensai_settings_history_cache';
+            const settingsTimestampKey = userId 
+              ? `meallensai_settings_history_cache_timestamp_${userId}` 
+              : 'meallensai_settings_history_cache_timestamp';
+            window.localStorage.setItem(settingsCacheKey, JSON.stringify(historyData));
+            window.localStorage.setItem(settingsTimestampKey, Date.now().toString());
+          } catch (cacheError) {
+            console.error('Error caching settings history:', cacheError);
+          }
         } else {
-          console.warn('⚠️ Settings history API returned non-success:', result)
+          console.warn('⚠️ Health settings history API returned non-success:', result)
           // Only clear if we don't have cached data
-          if (!cachedSettingsHistory || cachedSettingsHistory.length === 0) {
+          const cached = getCachedSettingsHistory(userId)
+          if (!cached || cached.length === 0) {
             setSettingsHistory([])
           }
         }
-      } catch (err) {
-        console.error("❌ Error fetching settings history:", err)
+      } catch (err: any) {
+        console.error("❌ Error fetching health settings history:", err)
+        
+        // Retry on connection errors (up to 2 retries with exponential backoff)
+        const isConnectionError = err?.message?.includes('Resource temporarily unavailable') || 
+                                  err?.message?.includes('ConnectionTerminated') ||
+                                  err?.message?.includes('ReadError')
+        
+        if (isConnectionError && retryCount < 2 && isMounted) {
+          const delay = Math.pow(2, retryCount) * 1000 // 1s, 2s
+          console.log(`⏳ Retrying history fetch in ${delay}ms (attempt ${retryCount + 1}/2)...`)
+          fetchTimeout = setTimeout(() => {
+            fetchSettingsHistory(retryCount + 1).catch(console.error)
+          }, delay)
+          return
+        }
+        
         // Only clear if we don't have cached data
-        if (!cachedSettingsHistory || cachedSettingsHistory.length === 0) {
+        const cached = getCachedSettingsHistory(userId)
+        if (!cached || cached.length === 0) {
           setSettingsHistory([])
         }
       } finally {
-        setIsLoadingSettings(false)
+        if (isMounted) {
+          setIsLoadingSettings(false)
+        }
+        isFetchingHistoryRef.current = false
       }
     }
 
-    fetchSettingsHistory().catch(console.error)
-  }, [activeFilter, isAuthenticated, authLoading, api])
+    // Debounce the fetch to prevent excessive calls
+    fetchTimeout = setTimeout(() => {
+      fetchSettingsHistory().catch(console.error)
+    }, 100)
+    
+    // Listen for settings saved event to refresh history
+    const handleSettingsSaved = () => {
+      if (activeFilter === "health_history" && isMounted) {
+        // Clear any pending timeout
+        if (fetchTimeout) {
+          clearTimeout(fetchTimeout)
+        }
+        // Fetch immediately when settings are saved
+        fetchSettingsHistory().catch(console.error)
+      }
+    }
+    
+    window.addEventListener('settingsSaved', handleSettingsSaved)
+    
+    return () => {
+      isMounted = false
+      isFetchingHistoryRef.current = false
+      if (fetchTimeout) {
+        clearTimeout(fetchTimeout)
+      }
+      window.removeEventListener('settingsSaved', handleSettingsSaved)
+    }
+  }, [activeFilter, isAuthenticated, authLoading, userId]) // Removed api and cachedSettingsHistory from deps
 
   const handleDeleteHistory = async (recordId: string) => {
     if (!window.confirm('Are you sure you want to delete this settings history entry? This action cannot be undone.')) {

@@ -71,9 +71,15 @@ def register_blueprints(app: Flask) -> None:
     
     try:
         from routes.enterprise_routes import enterprise_bp
+        # Enterprise routes already include /api/enterprise in their definitions
+        # So we register without url_prefix to avoid double /api
         app.register_blueprint(enterprise_bp)
-        logger.info("Enterprise routes registered")
+        logger.info("Enterprise routes registered successfully")
+        # Debug: log registered routes
+        enterprise_routes = [str(rule) for rule in app.url_map.iter_rules() if 'enterprise' in str(rule)]
+        logger.info(f"Registered {len(enterprise_routes)} enterprise routes")
     except ImportError as e:
-        logger.warning(f"Enterprise routes not available: {e}")
+        logger.error(f"Enterprise routes not available (ImportError): {e}", exc_info=True)
     except Exception as e:
-        logger.error(f"Failed to register enterprise routes: {e}")
+        logger.error(f"Failed to register enterprise routes: {e}", exc_info=True)
+        # Don't re-raise - let app continue without enterprise routes
