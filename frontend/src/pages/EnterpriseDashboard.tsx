@@ -798,34 +798,45 @@ export default function EnterpriseDashboard() {
     // If enterprises haven't loaded yet, try loading them first
     if (isLoading || (!enterprises || enterprises.length === 0)) {
       console.log('[INVITE] Enterprises not loaded yet, loading now...');
+      setIsLoading(true);
       await loadEnterprises();
+      setIsLoading(false);
+      
+      // After loading, check again - wait a moment for state to update
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
     // Get enterprise ID - prioritize selected, then first in list
+    // Re-read enterprises from state after loading
     let enterpriseId = selectedEnterprise?.id;
+    const currentEnterprises = enterprises || [];
     
-    if (!enterpriseId && enterprises && enterprises.length > 0) {
-      enterpriseId = enterprises[0]?.id;
+    if (!enterpriseId && currentEnterprises.length > 0) {
+      enterpriseId = currentEnterprises[0]?.id;
       // Also update selectedEnterprise if it's null
       if (!selectedEnterprise) {
-        setSelectedEnterprise(enterprises[0]);
+        setSelectedEnterprise(currentEnterprises[0]);
       }
       console.log('[INVITE] Using first enterprise from list:', enterpriseId);
     }
     
     console.log('[INVITE] Final enterpriseId:', enterpriseId);
+    console.log('[INVITE] Current enterprises after load:', currentEnterprises);
     
     // Check if we have a valid enterprise ID
     if (!enterpriseId) {
       console.error('[INVITE] No enterprise ID available after loading!');
+      console.error('[INVITE] Enterprises array:', currentEnterprises);
+      console.error('[INVITE] Selected enterprise:', selectedEnterprise);
+      
+      // Only show registration form if user can create organizations
+      // Otherwise, this might be a permission/loading issue
       toast({
         title: "No Organization Found",
-        description: "You need to create an organization first before inviting users. Please use the 'Create Organization' button to set up your organization.",
+        description: "Unable to find an organization. Please refresh the page or contact support if you believe you should have access to an organization.",
         variant: "destructive",
         duration: 6000,
       });
-      // Optionally open the registration form
-      setShowRegistrationForm(true);
       return;
     }
     
@@ -2076,25 +2087,6 @@ export default function EnterpriseDashboard() {
           {/* Overview View - Users and Invitations */}
           {activeSidebarItem === "overview" && (
           <section className="mt-6 sm:mt-12 rounded-2xl sm:rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-            {/* Info Box */}
-            {selectedEnterprise && (
-              <div className="mb-4 sm:mb-6 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4">
-                <div className="flex items-start gap-3">
-                  <Users className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-blue-900">User Management</h3>
-                    <p className="mt-1 text-sm text-blue-700 break-words">
-                      <strong>Total Users:</strong> {totalUsers} invited user{totalUsers !== 1 ? 's' : ''} 
-                      {statistics?.max_users && ` (${statistics.max_users - totalUsers} slots remaining)`}
-                    </p>
-                    <p className="mt-1 text-xs text-blue-600">
-                      Note: The organization owner is not included in the user count. Only invited users are listed below.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Section</p>
@@ -2235,37 +2227,65 @@ export default function EnterpriseDashboard() {
               </>
             ) : (
               <>
-                <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-slate-600 break-words">
-                      {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} who accepted invitation{filteredUsers.length !== 1 ? 's' : ''}
-                      {filteredUsers.length > 0 && (
-                        <span className="ml-2 text-green-600 font-semibold">
-                          ({filteredUsers.length} {filteredUsers.length === 1 ? 'has' : 'have'} joined)
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Accepted users are now shown in the <strong>Members</strong> page. Click "Members" in the sidebar to view and manage them.
-                    </p>
+                {filteredUsers.length === 0 ? (
+                  <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-12 text-center text-sm text-slate-500">
+                    <Users className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+                    <p className="mb-2 font-medium">No users have accepted invitations yet</p>
+                    <p className="text-xs text-slate-400">Users who accept your invitations will appear in the Members page.</p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setActiveSidebarItem("members");
-                    }}
-                    className="flex items-center gap-2 w-full sm:w-auto"
-                  >
-                    <Users className="h-4 w-4" />
-                    Go to Members
-                  </Button>
-                </div>
-              <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-12 text-center text-sm text-slate-500">
-                  <Users className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-                  <p className="mb-2 font-medium">View members in the Members page</p>
-                  <p className="text-xs text-slate-400">Click "Members" in the sidebar to see all users who accepted your invitations.</p>
-              </div>
+                ) : (
+                  <>
+                    <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div>
+                        <p className="text-sm text-slate-600 break-words">
+                          {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} who accepted invitation{filteredUsers.length !== 1 ? 's' : ''}
+                          {filteredUsers.length > 0 && (
+                            <span className="ml-2 text-green-600 font-semibold">
+                              ({filteredUsers.length} {filteredUsers.length === 1 ? 'has' : 'have'} joined)
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          View and manage users in the <strong>Members</strong> page.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setActiveSidebarItem("members");
+                        }}
+                        className="flex items-center gap-2 w-full sm:w-auto"
+                      >
+                        <Users className="h-4 w-4" />
+                        Go to Members
+                      </Button>
+                    </div>
+                    <div className="mt-6 space-y-3">
+                      {filteredUsers.slice(0, 5).map((user) => {
+                        const userName = (user.first_name || user.last_name) 
+                          ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                          : (user.email || 'Unknown User');
+                        return (
+                          <div key={user.id} className="flex items-center justify-between p-4 rounded-lg border border-slate-200 bg-white">
+                            <div className="flex-1">
+                              <p className="font-medium text-slate-900">{userName}</p>
+                              <p className="text-sm text-slate-600">{user.email}</p>
+                            </div>
+                            <Badge variant="outline" className="capitalize bg-slate-100 text-slate-700 border-slate-300">
+                              {user.role || 'member'}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                      {filteredUsers.length > 5 && (
+                        <p className="text-center text-sm text-slate-500 mt-4">
+                          And {filteredUsers.length - 5} more user{filteredUsers.length - 5 !== 1 ? 's' : ''}. <button onClick={() => setActiveSidebarItem("members")} className="text-blue-600 hover:underline">View all in Members page</button>
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </section>

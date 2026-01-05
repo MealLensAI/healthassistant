@@ -406,12 +406,34 @@ def register_enterprise():
             current_app.logger.info(f"[ORG REGISTER] Creating enterprise with data: {enterprise_data}")
             result = supabase.table('enterprises').insert(enterprise_data).execute()
         except Exception as insert_error:
+            # Handle postgrest APIError which has a message dict
             error_msg = str(insert_error).lower()
-            current_app.logger.error(f"[ORG REGISTER] Error inserting enterprise: {str(insert_error)}", exc_info=True)
-            if 'unique' in error_msg or 'duplicate' in error_msg:
-                return jsonify({'error': 'An organization with this email already exists'}), 400
-            if 'disconnected' in error_msg or 'connection' in error_msg:
+            error_code = ''
+            error_message = str(insert_error)
+            
+            # Try to extract error details from APIError
+            if hasattr(insert_error, 'message'):
+                error_dict = insert_error.message
+                if isinstance(error_dict, dict):
+                    error_code = str(error_dict.get('code', ''))
+                    error_message = error_dict.get('message', str(insert_error))
+            elif hasattr(insert_error, 'args') and insert_error.args:
+                # APIError sometimes has dict in args
+                if isinstance(insert_error.args[0], dict):
+                    error_dict = insert_error.args[0]
+                    error_code = str(error_dict.get('code', ''))
+                    error_message = error_dict.get('message', str(insert_error))
+            
+            current_app.logger.error(f"[ORG REGISTER] Error inserting enterprise: {error_message} (code: {error_code})", exc_info=True)
+            
+            # Check for duplicate key/unique constraint violations (PostgreSQL error code 23505)
+            if '23505' in error_code or 'unique' in error_msg or 'duplicate' in error_msg or 'enterprises_email_key' in error_msg:
+                return jsonify({'error': 'An organization with this email already exists. Please use a different email address.'}), 400
+            
+            # Check for connection errors
+            if 'disconnected' in error_msg or 'connection' in error_msg or 'temporarily unavailable' in error_msg:
                 return jsonify({'error': 'Database connection lost. Please try again.'}), 503
+            
             return jsonify({'error': 'Failed to create organization. Please try again later.'}), 500
         
         if not result.data:
@@ -458,7 +480,7 @@ def can_create_organization():
 @enterprise_bp.route('/api/enterprise/my-enterprises', methods=['GET'])
 @require_auth
 def get_my_enterprises():
-    """Get all enterprises owned by the current user"""
+    """Get all enterprises the user has access to (owned OR member/admin)"""
     user_id = getattr(request, 'user_id', None)
     user_email = getattr(request, 'user_email', 'Unknown')
     
@@ -473,29 +495,47 @@ def get_my_enterprises():
         # Use admin client to bypass RLS
         supabase = get_supabase_client(use_admin=True)
         
-        # Get enterprises owned by user with retry logic for connection issues
+        # Get enterprises with retry logic for connection issues
         max_retries = 3
         retry_count = 0
         last_error = None
         
         while retry_count < max_retries:
             try:
+                # Get enterprises owned by user
                 current_app.logger.info(f"[MY_ENTERPRISES] Querying enterprises table for created_by={user_id}")
                 print(f"[MY_ENTERPRISES] Querying enterprises table for created_by={user_id}")
                 
-                result = supabase.table('enterprises').select('*').eq('created_by', user_id).execute()
+                owned_result = supabase.table('enterprises').select('*').eq('created_by', user_id).execute()
+                owned_enterprises = owned_result.data or []
+                owned_ids = {e['id'] for e in owned_enterprises}
                 
-                current_app.logger.info(f"[MY_ENTERPRISES] Query result: {len(result.data) if result.data else 0} enterprises found")
-                print(f"[MY_ENTERPRISES] Query result: {result.data}")
+                # Get enterprises where user is a member/admin
+                current_app.logger.info(f"[MY_ENTERPRISES] Querying organization_users table for user_id={user_id}")
+                print(f"[MY_ENTERPRISES] Querying organization_users table for user_id={user_id}")
                 
-                # Return enterprises without stats for now
-                enterprises = result.data or []
-                current_app.logger.info(f"[MY_ENTERPRISES] Returning {len(enterprises)} enterprises")
-                print(f"[MY_ENTERPRISES] Returning {len(enterprises)} enterprises")
+                membership_result = supabase.table('organization_users').select('enterprise_id').eq('user_id', user_id).execute()
+                membership_enterprise_ids = [m['enterprise_id'] for m in (membership_result.data or []) if m.get('enterprise_id') not in owned_ids]
+                
+                # Get enterprise details for memberships
+                member_enterprises = []
+                if membership_enterprise_ids:
+                    member_result = supabase.table('enterprises').select('*').in_('id', membership_enterprise_ids).execute()
+                    member_enterprises = member_result.data or []
+                
+                # Combine and deduplicate (though owned_ids check should prevent duplicates)
+                all_enterprises = owned_enterprises + member_enterprises
+                
+                current_app.logger.info(f"[MY_ENTERPRISES] Query result: {len(owned_enterprises)} owned, {len(member_enterprises)} as member, {len(all_enterprises)} total")
+                print(f"[MY_ENTERPRISES] Query result: {all_enterprises}")
+                
+                # Return all enterprises user has access to
+                current_app.logger.info(f"[MY_ENTERPRISES] Returning {len(all_enterprises)} enterprises")
+                print(f"[MY_ENTERPRISES] Returning {len(all_enterprises)} enterprises")
                 
                 return jsonify({
                     'success': True,
-                    'enterprises': enterprises
+                    'enterprises': all_enterprises
                 }), 200
             except Exception as e:
                 retry_count += 1
@@ -658,18 +698,57 @@ def get_enterprise_users(enterprise_id):
         # Format response with user details from auth
         users = []
         for org_user in result.data:
-            # Get user details from auth
+            # Get user details - try multiple sources
+            first_name = last_name = ''
+            email = 'Unknown'
+            
+            # First, try to get email from invitation (most reliable for invited users)
+            if org_user['user_id'] in accepted_invitations_by_user_id:
+                inv = accepted_invitations_by_user_id[org_user['user_id']]
+                email = inv.get('email', 'Unknown')
+                current_app.logger.info(f"[GET_USERS] Got email from invitation for {org_user['user_id']}: {email}")
+            elif email == 'Unknown':
+                # Try to find by email in invitations if user_id match didn't work
+                for inv in invitations_result.data:
+                    if inv.get('accepted_by') == org_user['user_id']:
+                        email = inv.get('email', 'Unknown')
+                        current_app.logger.info(f"[GET_USERS] Got email from invitation (by accepted_by) for {org_user['user_id']}: {email}")
+                        break
+            
+            # Try to get from auth.admin for name and email
             try:
                 user_details = supabase.auth.admin.get_user_by_id(org_user['user_id'])
                 if user_details and user_details.user:
                     user_metadata = user_details.user.user_metadata or {}
-                    first_name = user_metadata.get('first_name', '')
-                    last_name = user_metadata.get('last_name', '')
-                    email = user_details.user.email
-                else:
-                    first_name = last_name = email = 'Unknown'
-            except:
-                first_name = last_name = email = 'Unknown'
+                    first_name = user_metadata.get('first_name', '') or ''
+                    last_name = user_metadata.get('last_name', '') or ''
+                    # Only use email from auth if we don't have it from invitation
+                    if email == 'Unknown':
+                        email = user_details.user.email or 'Unknown'
+                    current_app.logger.info(f"[GET_USERS] Got user details from auth for {org_user['user_id']}: {email}, name: {first_name} {last_name}")
+            except Exception as auth_error:
+                current_app.logger.warning(f"[GET_USERS] Could not fetch from auth for {org_user['user_id']}: {str(auth_error)}")
+            
+            # If name is still missing, try profiles table
+            if not first_name and not last_name:
+                try:
+                    profile_result = supabase.table('profiles').select('first_name, last_name, email').eq('id', org_user['user_id']).execute()
+                    if profile_result.data and len(profile_result.data) > 0:
+                        profile = profile_result.data[0]
+                        first_name = profile.get('first_name', '') or ''
+                        last_name = profile.get('last_name', '') or ''
+                        # Only use email from profiles if we don't have it yet
+                        if email == 'Unknown':
+                            email = profile.get('email', 'Unknown') or 'Unknown'
+                        current_app.logger.info(f"[GET_USERS] Got user details from profiles for {org_user['user_id']}: {email}, name: {first_name} {last_name}")
+                    else:
+                        current_app.logger.warning(f"[GET_USERS] No profile found for {org_user['user_id']}")
+                except Exception as profile_error:
+                    current_app.logger.warning(f"[GET_USERS] Could not fetch from profiles for {org_user['user_id']}: {str(profile_error)}")
+            
+            # If email is still Unknown, log a warning
+            if email == 'Unknown':
+                current_app.logger.warning(f"[GET_USERS] ⚠️ Could not determine email for user {org_user['user_id']}")
             
             # Find the invitation this user accepted (check by user_id first, then email)
             accepted_invitation = None
@@ -1893,9 +1972,18 @@ def delete_organization_user(user_relation_id):
                 # Check for UUID format errors
                 if 'invalid input syntax for type uuid' in error_str or '22P02' in error_str:
                     return jsonify({'error': 'Invalid user relation ID format'}), 400
-                return jsonify({'error': f'User not found in organization: {error_str}'}), 404
+                # If this was the last attempt, return error
+                if attempt == max_retries - 1:
+                    return jsonify({'error': f'User not found in organization: {error_str}'}), 404
+                # Otherwise continue to next attempt
+                continue
         
-        if not org_user_result.data:
+        # Check if org_user_result was set and has data
+        if not org_user_result:
+            current_app.logger.error(f"[DELETE USER] org_user_result is None after all retries")
+            return jsonify({'error': 'Failed to query organization_users after retries'}), 500
+        
+        if not hasattr(org_user_result, 'data') or not org_user_result.data:
             current_app.logger.warning(f"[DELETE USER] No data returned for user_relation_id: {user_relation_id}")
             return jsonify({'error': 'User not found in organization'}), 404
         
@@ -2489,8 +2577,6 @@ def get_enterprise_statistics(enterprise_id):
             'pending_invitations': pending_invitations,
             'accepted_invitations': accepted_invitations,
             'total_invitations': total_invitations,
-            'max_users': enterprise.get('max_users', 100),
-            'capacity_percentage': round((total_users / enterprise.get('max_users', 100)) * 100, 1) if enterprise.get('max_users', 100) > 0 else 0,
             'owner_info': owner_info,
             'enterprise_name': enterprise.get('name', 'Unknown'),
             'organization_type': enterprise.get('organization_type', 'Unknown')
