@@ -1142,7 +1142,7 @@ def cancel_invitation(invitation_id):
         # Get invitation and related enterprise info using admin client (bypasses RLS)
         try:
             invitation_result = supabase.table('invitations').select('''
-            id,
+                id,
             enterprise_id,
             status,
             enterprises!inner (
@@ -1929,6 +1929,13 @@ def delete_organization_user(user_relation_id):
         supabase = get_supabase_client(use_admin=True)
         current_app.logger.info(f"[DELETE USER] Got Supabase client: {supabase is not None}")
         
+        # Verify we're using service_role by checking the client
+        # The centralized service should already use service_role key
+        if hasattr(current_app, 'supabase_service'):
+            current_app.logger.info(f"[DELETE USER] Using centralized SupabaseService (should be service_role)")
+        else:
+            current_app.logger.warning(f"[DELETE USER] ⚠️ Not using centralized service - may not have service_role permissions")
+        
         # First, get the organization user record to verify ownership (with retry logic)
         import time
         max_retries = 3
@@ -1969,9 +1976,9 @@ def delete_organization_user(user_relation_id):
                 
                 # Not a retryable error or last attempt
                 current_app.logger.error(f"[DELETE USER] Error querying organization_users: {error_str}", exc_info=True)
-                # Check for UUID format errors
-                if 'invalid input syntax for type uuid' in error_str or '22P02' in error_str:
-                    return jsonify({'error': 'Invalid user relation ID format'}), 400
+            # Check for UUID format errors
+            if 'invalid input syntax for type uuid' in error_str or '22P02' in error_str:
+                return jsonify({'error': 'Invalid user relation ID format'}), 400
                 # If this was the last attempt, return error
                 if attempt == max_retries - 1:
                     return jsonify({'error': f'User not found in organization: {error_str}'}), 404
@@ -1990,18 +1997,43 @@ def delete_organization_user(user_relation_id):
         org_user = org_user_result.data[0]
         current_app.logger.info(f"[DELETE USER] Found org_user: {org_user}")
         
-        # Check if enterprise data exists
-        if not org_user.get('enterprise'):
-            current_app.logger.error(f"[DELETE USER] No enterprise data in org_user result")
-            return jsonify({'error': 'Enterprise data not found'}), 404
+        # Extract enterprise_id - it might be in org_user directly or in nested enterprise object
+        enterprise_id = org_user.get('enterprise_id')
+        enterprise = org_user.get('enterprise')
         
-        enterprise = org_user['enterprise']
-        current_app.logger.info(f"[DELETE USER] Enterprise created_by: {enterprise.get('created_by')}, Request user_id: {request.user_id}")
+        # If enterprise is nested, get id from there
+        if enterprise and isinstance(enterprise, dict):
+            enterprise_id = enterprise.get('id') or enterprise_id
+            enterprise_created_by = enterprise.get('created_by')
+        else:
+            # If enterprise is not nested, we need to fetch it separately
+            if not enterprise_id:
+                current_app.logger.error(f"[DELETE USER] No enterprise_id found in org_user result")
+                return jsonify({'error': 'Enterprise ID not found'}), 404
+            
+            # Fetch enterprise details
+            try:
+                enterprise_result = supabase.table('enterprises').select('id, created_by').eq('id', enterprise_id).execute()
+                if not enterprise_result.data:
+                    current_app.logger.error(f"[DELETE USER] Enterprise {enterprise_id} not found")
+                    return jsonify({'error': 'Enterprise not found'}), 404
+                enterprise = enterprise_result.data[0]
+                enterprise_created_by = enterprise.get('created_by')
+            except Exception as enterprise_fetch_error:
+                current_app.logger.error(f"[DELETE USER] Error fetching enterprise: {str(enterprise_fetch_error)}", exc_info=True)
+                return jsonify({'error': 'Failed to verify enterprise'}), 500
         
-        # Verify the current user owns this enterprise
-        if enterprise.get('created_by') != request.user_id:
-            current_app.logger.warning(f"[DELETE USER] Access denied. Enterprise owner: {enterprise.get('created_by')}, Request user: {request.user_id}")
-            return jsonify({'error': 'Access denied. You can only delete users from your own organization.'}), 403
+        if not enterprise_id:
+            current_app.logger.error(f"[DELETE USER] Enterprise ID is None after extraction")
+            return jsonify({'error': 'Enterprise ID not found'}), 404
+        
+        current_app.logger.info(f"[DELETE USER] Enterprise ID: {enterprise_id}, created_by: {enterprise_created_by}, Request user_id: {request.user_id}")
+        
+        # Verify the current user is admin or owner of this enterprise
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            current_app.logger.warning(f"[DELETE USER] Access denied. Reason: {reason}")
+            return jsonify({'error': f'Access denied: {reason}'}), 403
         
         # Get user details before deletion for response
         user_id = org_user.get('user_id')
@@ -2026,38 +2058,131 @@ def delete_organization_user(user_relation_id):
         
         for attempt in range(max_retries):
             try:
-                # Use select('*') to get deleted rows back, which helps verify deletion
-                delete_result = supabase.table('organization_users').delete().eq('id', user_relation_id).select('*').execute()
-                current_app.logger.info(f"[DELETE USER] Delete result data: {delete_result.data}")
-                current_app.logger.info(f"[DELETE USER] Delete result type: {type(delete_result)}")
-                
-                # Check if delete actually removed the record
-                if delete_result.data and len(delete_result.data) > 0:
-                    current_app.logger.info(f"[DELETE USER] Delete returned {len(delete_result.data)} deleted row(s)")
+                # First, verify the record exists before attempting delete
+                pre_check = supabase.table('organization_users').select('id, user_id, enterprise_id').eq('id', user_relation_id).execute()
+                if not pre_check.data or len(pre_check.data) == 0:
+                    current_app.logger.warning(f"[DELETE USER] Record {user_relation_id} does not exist - may have already been deleted")
                     delete_succeeded = True
                     break
-                else:
-                    # Delete returned no data - verify if record still exists
-                    current_app.logger.warning(f"[DELETE USER] Delete returned no data, verifying if record still exists...")
-                    verify_result = supabase.table('organization_users').select('id').eq('id', user_relation_id).execute()
-                    if verify_result.data and len(verify_result.data) > 0:
-                        current_app.logger.error(f"[DELETE USER] Record still exists after delete attempt {attempt + 1}")
-                        if attempt < max_retries - 1:
-                            # Try again
-                            delay = initial_delay * (2 ** attempt)
-                            current_app.logger.info(f"[DELETE USER] Retrying delete in {delay}s...")
-                            time.sleep(delay)
-                            supabase = get_supabase_client(use_admin=True)
-                            continue
-                        else:
-                            # Last attempt failed
-                            current_app.logger.error(f"[DELETE USER] Delete failed after {max_retries} attempts - record still exists")
-                            return jsonify({'error': 'Failed to remove user from organization. The user may be in use by other records.'}), 500
+                
+                current_app.logger.info(f"[DELETE USER] Record found: {pre_check.data[0]}, attempting delete...")
+                
+                # Delete the record (Supabase delete doesn't support .select())
+                # Note: Supabase delete() returns empty data on success, so we can't verify from response
+                try:
+                    current_app.logger.info(f"[DELETE USER] Executing delete for id: {user_relation_id}")
+                    delete_response = supabase.table('organization_users').delete().eq('id', user_relation_id).execute()
+                    current_app.logger.info(f"[DELETE USER] Delete response type: {type(delete_response)}")
+                    current_app.logger.info(f"[DELETE USER] Delete response: {delete_response}")
+                    
+                    # Check response attributes
+                    if hasattr(delete_response, 'data'):
+                        current_app.logger.info(f"[DELETE USER] Delete response.data: {delete_response.data}")
+                    if hasattr(delete_response, 'count'):
+                        current_app.logger.info(f"[DELETE USER] Delete response.count: {delete_response.count}")
+                    if hasattr(delete_response, 'status_code'):
+                        current_app.logger.info(f"[DELETE USER] Delete response.status_code: {delete_response.status_code}")
+                    
+                    # Supabase delete() doesn't return deleted rows, so we can't verify from response
+                    # We'll verify by checking if record still exists after a short delay
+                    
+                except Exception as delete_exec_error:
+                    error_str = str(delete_exec_error)
+                    current_app.logger.error(f"[DELETE USER] Error executing delete: {error_str}", exc_info=True)
+                    
+                    # Check for specific error types
+                    if 'permission' in error_str.lower() or 'policy' in error_str.lower() or 'rls' in error_str.lower():
+                        current_app.logger.error(f"[DELETE USER] ❌ RLS/Permission error detected!")
+                        return jsonify({
+                            'error': 'Delete operation blocked by database permissions. Please check RLS policies.',
+                            'error_code': 'RLS_BLOCKED',
+                            'details': str(delete_exec_error)
+                        }), 403
+                    
+                    # Re-raise to be handled by outer exception handler
+                    raise
+                
+                current_app.logger.info(f"[DELETE USER] Delete command executed, verifying deletion...")
+                
+                # Small delay to allow database to process
+                time.sleep(0.2)
+                
+                # Verify deletion by checking if record still exists
+                # Use a fresh query to avoid caching issues
+                time.sleep(0.3)  # Slightly longer delay to ensure database has processed
+                verify_result = supabase.table('organization_users').select('id').eq('id', user_relation_id).execute()
+                
+                if verify_result.data and len(verify_result.data) > 0:
+                    # Record still exists - this is the problem
+                    current_app.logger.error(f"[DELETE USER] ❌ DELETE FAILED: Record still exists after delete attempt {attempt + 1}")
+                    current_app.logger.error(f"[DELETE USER] Record ID: {user_relation_id}")
+                    current_app.logger.error(f"[DELETE USER] Verify query returned: {verify_result.data}")
+                    
+                    # Try to get full record details for debugging
+                    try:
+                        debug_check = supabase.table('organization_users').select('*').eq('id', user_relation_id).execute()
+                        if debug_check.data:
+                            current_app.logger.error(f"[DELETE USER] Full record still exists: {debug_check.data[0]}")
+                    except Exception as debug_err:
+                        current_app.logger.error(f"[DELETE USER] Could not fetch full record: {debug_err}")
+                    
+                    # Check if we can delete using a different method (direct SQL via RPC if available)
+                    # For now, retry with fresh client
+                    if attempt < max_retries - 1:
+                        delay = initial_delay * (2 ** attempt)
+                        current_app.logger.warning(f"[DELETE USER] Retrying delete in {delay}s with fresh client...")
+                        time.sleep(delay)
+                        # Get a completely fresh client
+                        supabase = get_supabase_client(use_admin=True)
+                        continue
                     else:
-                        # Record was deleted (even though delete didn't return data)
-                        current_app.logger.info(f"[DELETE USER] Record successfully deleted (verified)")
-                        delete_succeeded = True
-                        break
+                        # Last attempt failed - try using RPC function as fallback
+                        current_app.logger.error(f"[DELETE USER] ⚠️ Last attempt failed, trying RPC function as fallback...")
+                        current_app.logger.error(f"[DELETE USER] Calling RPC: delete_organization_user with id: {user_relation_id}")
+                        try:
+                            rpc_result = supabase.rpc('delete_organization_user', {'p_user_relation_id': user_relation_id}).execute()
+                            current_app.logger.error(f"[DELETE USER] RPC call completed. Result type: {type(rpc_result)}")
+                            current_app.logger.error(f"[DELETE USER] RPC delete result: {rpc_result}")
+                            
+                            if hasattr(rpc_result, 'data') and rpc_result.data:
+                                rpc_success = rpc_result.data[0] if isinstance(rpc_result.data, list) and len(rpc_result.data) > 0 else rpc_result.data
+                                if rpc_success:
+                                    # RPC returned true - verify deletion
+                                    time.sleep(0.3)
+                                    verify_rpc = supabase.table('organization_users').select('id').eq('id', user_relation_id).execute()
+                                    if not verify_rpc.data or len(verify_rpc.data) == 0:
+                                        current_app.logger.info(f"[DELETE USER] ✅ RPC delete succeeded!")
+                                        delete_succeeded = True
+                                        break
+                                    else:
+                                        current_app.logger.error(f"[DELETE USER] ❌ RPC returned true but record still exists")
+                                else:
+                                    current_app.logger.error(f"[DELETE USER] ❌ RPC returned false - delete failed")
+                            else:
+                                current_app.logger.error(f"[DELETE USER] ❌ RPC returned no data")
+                        except Exception as rpc_error:
+                            current_app.logger.warning(f"[DELETE USER] RPC function not available or failed: {rpc_error}")
+                            # RPC function might not exist - that's okay, continue with error
+                        
+                        # If RPC also failed, return error
+                        current_app.logger.error(f"[DELETE USER] ❌ DELETE FAILED after {max_retries} attempts and RPC fallback")
+                        current_app.logger.error(f"[DELETE USER] Possible causes:")
+                        current_app.logger.error(f"  1. RLS policy not working correctly (even though it exists)")
+                        current_app.logger.error(f"  2. Supabase client not using service_role key correctly")
+                        current_app.logger.error(f"  3. Database trigger or constraint preventing deletion")
+                        current_app.logger.error(f"  4. Record is locked or in use by another transaction")
+                        
+                        return jsonify({
+                            'error': 'Failed to remove user from organization. The delete operation executed but the record still exists.',
+                            'error_code': 'DELETE_FAILED',
+                            'details': f'Record {user_relation_id} still exists after {max_retries} delete attempts. This may indicate an RLS policy issue or database constraint.',
+                            'suggestion': 'Please check Supabase logs and verify the service_role client is being used correctly. You may need to run migration 032_create_delete_org_user_rpc.sql to create an RPC function as a workaround.'
+                        }), 500
+                else:
+                    # Record was successfully deleted
+                    current_app.logger.info(f"[DELETE USER] ✅ Record successfully deleted (verified)")
+                    delete_succeeded = True
+                    break
                     
             except Exception as delete_error:
                 error_str = str(delete_error).lower()
@@ -2081,7 +2206,13 @@ def delete_organization_user(user_relation_id):
                 
                 # Not a retryable error or last attempt
                 current_app.logger.error(f"[DELETE USER] Error deleting from organization_users: {str(delete_error)}", exc_info=True)
-                raise
+                if attempt == max_retries - 1:
+                    # Last attempt failed, return error instead of raising
+                    return jsonify({
+                        'error': f'Failed to delete user: {str(delete_error)}',
+                        'error_code': 'DELETE_FAILED'
+                    }), 500
+                continue
         
         if not delete_succeeded:
             current_app.logger.error(f"[DELETE USER] Delete operation failed after all retries")
