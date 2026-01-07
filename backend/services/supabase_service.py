@@ -6,6 +6,9 @@ from werkzeug.datastructures import FileStorage
 from datetime import datetime
 from typing import Callable, Any, Tuple
 
+# Disable HTTP/2 to avoid connection termination errors
+os.environ['HTTPX_DISABLE_HTTP2'] = '1'
+
 class SupabaseService:
     """
     Service for interacting with Supabase database.
@@ -107,8 +110,7 @@ class SupabaseService:
         try:
             print("[DEBUG] Creating Supabase client...")
             
-            # Create the client with default options (service role key provides full access)
-            # Using default options to avoid compatibility issues
+            # Create the client (HTTP/2 is disabled via HTTPX_DISABLE_HTTP2 env var)
             self.supabase: Client = create_client(supabase_url, supabase_key)
             
             # Store the key for verification
@@ -487,9 +489,13 @@ class SupabaseService:
         """
         Saves a user's meal plan using direct table insertion to match React code structure.
         Returns the inserted meal plan data.
+        
+        Note: This method uses the service role key which should bypass RLS policies.
+        If RLS errors occur, it indicates the service role key is not being recognized properly.
         """
         try:
             print(f"[DEBUG] Saving meal plan for user: {user_id}, plan_data: {plan_data}")
+            print(f"[DEBUG] Using service role key: {bool(self._service_role_key)}")
 
             # Extract data from plan_data to match React structure
             name = plan_data.get('name')
@@ -513,10 +519,15 @@ class SupabaseService:
                 profile_result = self.supabase.table('profiles').select('email').eq('id', user_id).limit(1).execute()
                 if profile_result.data and len(profile_result.data) > 0:
                     creator_email = profile_result.data[0].get('email')
-            except:
-                pass
+            except Exception as profile_error:
+                print(f"[WARNING] Could not fetch creator email: {profile_error}")
+            
+            # Generate ID if not provided
+            import uuid
+            plan_id = plan_data.get('id') or str(uuid.uuid4())
             
             insert_data = {
+                'id': plan_id,
                 'user_id': user_id,
                 'name': name,
                 'start_date': start_date,
@@ -542,15 +553,81 @@ class SupabaseService:
                         'is_created_by_user': True
                     }
 
-            # Insert directly into table using Python client syntax
-            result = self.supabase.table('meal_plan_management').insert(insert_data).execute()
+            # Add health_assessment if provided
+            if 'health_assessment' in plan_data:
+                insert_data['health_assessment'] = plan_data['health_assessment']
 
+            print(f"[DEBUG] Insert data prepared: {list(insert_data.keys())}")
+            
+            # Try RPC function first (if it exists) - it explicitly bypasses RLS with SECURITY DEFINER
+            # This is more reliable than relying on service role key recognition
+            rpc_function_exists = True  # Assume it exists until we know otherwise
+            rpc_succeeded = False
+            try:
+                print(f"[DEBUG] Attempting RPC function insert_meal_plan_management (bypasses RLS)...")
+                rpc_result = self.supabase.rpc('insert_meal_plan_management', {
+                    'p_id': insert_data['id'],
+                    'p_user_id': insert_data['user_id'],
+                    'p_name': insert_data['name'],
+                    'p_start_date': insert_data['start_date'],
+                    'p_end_date': insert_data['end_date'],
+                    'p_meal_plan': insert_data['meal_plan'],
+                    'p_has_sickness': insert_data.get('has_sickness', False),
+                    'p_sickness_type': insert_data.get('sickness_type', ''),
+                    'p_is_approved': insert_data.get('is_approved', True),
+                    'p_health_assessment': insert_data.get('health_assessment'),
+                    'p_user_info': insert_data.get('user_info'),
+                    'p_created_at': insert_data.get('created_at'),
+                    'p_updated_at': insert_data.get('updated_at')
+                }).execute()
+                
+                if rpc_result.data and len(rpc_result.data) > 0:
+                    inserted_data = rpc_result.data[0]
+                    print(f"[SUCCESS] RPC function succeeded!")
+                    print(f"[DEBUG] inserted_data = {inserted_data}")
+                    rpc_succeeded = True
+                    
+                    # Return data in the format expected by frontend
+                    return {
+                        'id': inserted_data['id'],
+                        'name': inserted_data['name'],
+                        'startDate': inserted_data['start_date'],
+                        'endDate': inserted_data['end_date'],
+                        'mealPlan': inserted_data['meal_plan'],
+                        'createdAt': inserted_data['created_at'],
+                        'updatedAt': inserted_data['updated_at'],
+                        'hasSickness': inserted_data.get('has_sickness', False),
+                        'sicknessType': inserted_data.get('sickness_type', '')
+                    }
+                else:
+                    print(f"[WARNING] RPC function returned no data, falling back to direct insert")
+            except Exception as rpc_error:
+                error_str = str(rpc_error)
+                # Check if RPC function doesn't exist (function not found error)
+                if 'function' in error_str.lower() and ('does not exist' in error_str.lower() or 'not found' in error_str.lower() or '42883' in error_str):
+                    print(f"[INFO] RPC function does not exist (error: {error_str}), will try direct insert")
+                    rpc_function_exists = False
+                else:
+                    print(f"[WARNING] RPC function call failed: {rpc_error}, falling back to direct insert")
+                    # Function exists but call failed (might be parameter mismatch, etc.)
+                    rpc_function_exists = True
+            
+            # If RPC succeeded, we already returned, so skip direct insert
+            if rpc_succeeded:
+                return None, 'Unexpected: RPC succeeded but code continued'
+            
+            # Fallback: Try direct insert with service role key
+            # The service role key should bypass RLS, but sometimes it's not recognized properly
+            print(f"[DEBUG] Attempting direct insert with service role key (should bypass RLS)...")
+            try:
+                result = self.supabase.table('meal_plan_management').insert(insert_data).execute()
             print(f"[DEBUG] Supabase insert result: data={result.data}")
 
             if result.data and len(result.data) > 0:
                 # Get the inserted record (first item in the array)
                 inserted_data = result.data[0]
                 
+                    print(f"[SUCCESS] Direct insert succeeded!")
                 print(f"[DEBUG] inserted_data = {inserted_data}")
                 
                 # Return data in the format expected by frontend
@@ -567,14 +644,53 @@ class SupabaseService:
                 }
             else:
                 print(f"[ERROR] Supabase insert error: No data returned")
-                return None, 'Failed to save meal plan'
+                    return None, 'Failed to save meal plan: No data returned from insert'
+            except Exception as insert_error:
+                error_str = str(insert_error)
+                error_lower = error_str.lower()
+                
+                # Check for RLS policy violation
+                if 'row-level security' in error_lower or 'rls' in error_lower or '42501' in error_str:
+                    print(f"[ERROR] RLS policy violation detected on direct insert!")
+                    print(f"[ERROR] Service role key is not being recognized properly by Supabase.")
+                    print(f"[ERROR] Error details: {error_str}")
+                    
+                    # If RPC function doesn't exist, provide helpful error message
+                    if not rpc_function_exists:
+                        return None, {
+                            'code': 'RLS_POLICY_VIOLATION',
+                            'message': 'Row-level security policy violation. The service role key should bypass RLS, but it appears RLS is still being enforced. The RPC function fallback also failed.',
+                            'original_error': error_str,
+                            'hint': 'Verify that SUPABASE_SERVICE_ROLE_KEY is set correctly. Run the FIX_MEAL_PLAN_RLS.sql script in Supabase to create an RPC function that bypasses RLS.',
+                            'solution': 'Run the SQL script at backend/database/FIX_MEAL_PLAN_RLS.sql in your Supabase SQL Editor. This will create an RPC function with SECURITY DEFINER that explicitly bypasses RLS.'
+                        }
+                    else:
+                        # RPC function exists but failed, and direct insert also failed
+                        return None, {
+                            'code': 'RLS_POLICY_VIOLATION',
+                            'message': 'Both RPC function and direct insert failed. This indicates a deeper configuration issue.',
+                            'original_error': error_str,
+                            'hint': 'Check Supabase logs and verify that the RPC function was created correctly.',
+                            'solution': 'Verify the RPC function exists: SELECT * FROM pg_proc WHERE proname = \'insert_meal_plan_management\';'
+                        }
+                
+                # Re-raise to be caught by outer exception handler
+                raise insert_error
 
         except Exception as e:
             error_str = str(e)
             print(f"[ERROR] Exception in save_meal_plan: {error_str}")
+            import traceback
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            
             # Check if it's a unique constraint violation (duplicate meal plan)
             if 'unique constraint' in error_str.lower() or 'duplicate key' in error_str.lower() or '23505' in error_str:
                 return None, {'code': 'DUPLICATE_PLAN', 'message': 'A meal plan already exists for this week and health profile. Please update the existing plan or choose a different week.', 'original_error': error_str}
+            
+            # Check if it's already a dict (from inner exception handler)
+            if isinstance(e, dict):
+                return None, e
+            
             return None, error_str
     # def save_meal_plan(self, user_id: str, plan_data: dict) -> tuple[bool, str | None]:
     #     """

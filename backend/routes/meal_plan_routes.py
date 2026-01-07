@@ -30,8 +30,8 @@ def save_meal_plan():
                 'data': result
             }), 201
         else:
-            # Error case
-            error_data = result[1] if result and len(result) > 1 else 'Unknown error'
+            # Error case - result is a tuple (None, error_data)
+            error_data = result[1] if result and isinstance(result, tuple) and len(result) > 1 else 'Unknown error'
             
             # Check if it's a duplicate plan error (constraint violation)
             if isinstance(error_data, dict) and error_data.get('code') == 'DUPLICATE_PLAN':
@@ -40,6 +40,17 @@ def save_meal_plan():
                     'message': error_data.get('message', 'A meal plan already exists for this week.'),
                     'code': 'DUPLICATE_PLAN'
                 }), 409  # 409 Conflict is more appropriate than 500
+            
+            # Check if it's an RLS policy violation
+            if isinstance(error_data, dict) and error_data.get('code') == 'RLS_POLICY_VIOLATION':
+                log_error(f"RLS policy violation saving meal plan for user {user_id}", Exception(error_data.get('original_error', 'Unknown RLS error')))
+                return jsonify({
+                    'status': 'error',
+                    'message': error_data.get('message', 'Row-level security policy violation.'),
+                    'code': 'RLS_POLICY_VIOLATION',
+                    'hint': error_data.get('hint'),
+                    'solution': error_data.get('solution')
+                }), 500
             
             error_str = str(error_data)
             log_error(f"Failed to save meal plan for user {user_id}", Exception(error_str))
