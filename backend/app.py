@@ -143,6 +143,18 @@ def create_app():
       supports_credentials=True
   )
   
+  # Handle OPTIONS requests for CORS preflight
+  @app.before_request
+  def handle_preflight():
+      if request.method == 'OPTIONS':
+          response = jsonify({})
+          response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', 'https://healthassistant.meallensai.com'))
+          response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+          response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+          response.headers.add('Access-Control-Allow-Credentials', 'true')
+          response.headers.add('Access-Control-Max-Age', '600')
+          return response
+  
   # Log all incoming requests for debugging
   @app.before_request
   def log_request():

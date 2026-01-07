@@ -5,8 +5,12 @@ import { APP_CONFIG } from '@/lib/config'
 // In development: uses Vite proxy (empty string = relative URL = uses proxy)
 // In production: uses VITE_API_URL env variable
 // If VITE_API_URL is not set, defaults to empty string which uses Vite proxy to localhost:5001
-const API_BASE_URL = APP_CONFIG.api.base_url 
-  ? `${APP_CONFIG.api.base_url}/api` 
+// Fix: Remove any port numbers from the path (e.g., /5001) - ports should be in the hostname, not the path
+let baseUrl = APP_CONFIG.api.base_url || ''
+// Remove trailing slashes and any port numbers in the path
+baseUrl = baseUrl.replace(/\/\d+\/?$/, '').replace(/\/+$/, '')
+const API_BASE_URL = baseUrl 
+  ? `${baseUrl}/api` 
   : '/api'  // Use relative URL to leverage Vite proxy
 
 // Custom error class for API errors
