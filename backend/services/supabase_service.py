@@ -621,29 +621,29 @@ class SupabaseService:
             print(f"[DEBUG] Attempting direct insert with service role key (should bypass RLS)...")
             try:
                 result = self.supabase.table('meal_plan_management').insert(insert_data).execute()
-            print(f"[DEBUG] Supabase insert result: data={result.data}")
+                print(f"[DEBUG] Supabase insert result: data={result.data}")
 
-            if result.data and len(result.data) > 0:
-                # Get the inserted record (first item in the array)
-                inserted_data = result.data[0]
-                
+                if result.data and len(result.data) > 0:
+                    # Get the inserted record (first item in the array)
+                    inserted_data = result.data[0]
+                    
                     print(f"[SUCCESS] Direct insert succeeded!")
-                print(f"[DEBUG] inserted_data = {inserted_data}")
-                
-                # Return data in the format expected by frontend
-                return {
-                    'id': inserted_data['id'],
-                    'name': inserted_data['name'],
-                    'startDate': inserted_data['start_date'],
-                    'endDate': inserted_data['end_date'],
-                    'mealPlan': inserted_data['meal_plan'],
-                    'createdAt': inserted_data['created_at'],
-                    'updatedAt': inserted_data['updated_at'],
-                    'hasSickness': inserted_data.get('has_sickness', False),
-                    'sicknessType': inserted_data.get('sickness_type', '')
-                }
-            else:
-                print(f"[ERROR] Supabase insert error: No data returned")
+                    print(f"[DEBUG] inserted_data = {inserted_data}")
+                    
+                    # Return data in the format expected by frontend
+                    return {
+                        'id': inserted_data['id'],
+                        'name': inserted_data['name'],
+                        'startDate': inserted_data['start_date'],
+                        'endDate': inserted_data['end_date'],
+                        'mealPlan': inserted_data['meal_plan'],
+                        'createdAt': inserted_data['created_at'],
+                        'updatedAt': inserted_data['updated_at'],
+                        'hasSickness': inserted_data.get('has_sickness', False),
+                        'sicknessType': inserted_data.get('sickness_type', '')
+                    }
+                else:
+                    print(f"[ERROR] Supabase insert error: No data returned")
                     return None, 'Failed to save meal plan: No data returned from insert'
             except Exception as insert_error:
                 error_str = str(insert_error)
