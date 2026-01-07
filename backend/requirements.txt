@@ -5,6 +5,5 @@ dotenv
 requests
 gunicorn
 pytz
-httpx==0.24.1
 supabase==0.3.0
 
