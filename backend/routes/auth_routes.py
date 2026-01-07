@@ -41,7 +41,7 @@ def get_supabase_client(use_admin: bool = False) -> Optional[Client]:
 ## Supabase-only authentication
 
 
-def _handle_supabase_login(email: str, password: str, supabase, supabase_service) -> tuple[dict, int]:
+def _handle_supabase_login(email: str, password: str, supabase, supabase_service, using_anon_key: bool = False) -> tuple[dict, int]:
     """Handle Supabase email/password login."""
     from datetime import datetime
     import uuid
@@ -130,9 +130,10 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
         user_exists = _user_exists_by_email(normalized_email)
         
         # Attempt to authenticate with Supabase
-        # Try using service role client first (should work)
+        # Use the auth_client (anon key if available, otherwise service role)
         try:
-            current_app.logger.info(f"[LOGIN] Attempting login for {normalized_email}")
+            client_type = "anon key" if using_anon_key else "service role"
+            current_app.logger.info(f"[LOGIN] Attempting login for {normalized_email} using {client_type} client")
             response = supabase.auth.sign_in_with_password({
                 'email': normalized_email,
                 'password': password
@@ -141,7 +142,12 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
         except Exception as auth_error:
             error_str = str(auth_error)
             error_lower = error_str.lower()
-            current_app.logger.error(f"[LOGIN] Supabase sign_in_with_password failed for {normalized_email}: {error_str}")
+            client_type = "anon key" if using_anon_key else "service role"
+            current_app.logger.error(f"[LOGIN] Supabase sign_in_with_password failed for {normalized_email} using {client_type} client: {error_str}")
+            
+            # If using service role and getting auth errors, suggest using anon key
+            if not using_anon_key and ('invalid login credentials' in error_lower or 'invalid password' in error_lower):
+                current_app.logger.error(f"[LOGIN] ⚠️  Login failed with service role key. User authentication should use SUPABASE_ANON_KEY. Please set SUPABASE_ANON_KEY in your .env file.")
             
             # Check for specific error types
             if 'invalid login credentials' in error_lower or 'invalid password' in error_lower or 'wrong password' in error_lower:
@@ -287,6 +293,7 @@ def login_user():
     # Try to use anon key client for user authentication if available
     # Service role key should work, but anon key is more appropriate for user auth
     auth_client = supabase  # Default to service role client
+    using_anon_key = False
     try:
         from supabase import create_client
         import os
@@ -295,16 +302,21 @@ def login_user():
         
         # If anon key is available, use it for user authentication
         if supabase_url and supabase_anon_key:
-            current_app.logger.info("[LOGIN] Using anon key client for user authentication")
+            current_app.logger.info(f"[LOGIN] Using anon key client for user authentication (anon key length: {len(supabase_anon_key) if supabase_anon_key else 0})")
             auth_client = create_client(supabase_url, supabase_anon_key)
+            using_anon_key = True
         else:
-            current_app.logger.info("[LOGIN] Anon key not available, using service role client")
+            if not supabase_url:
+                current_app.logger.warning("[LOGIN] SUPABASE_URL not set, using service role client")
+            if not supabase_anon_key:
+                current_app.logger.warning("[LOGIN] SUPABASE_ANON_KEY not set in environment - user authentication may fail. Please set SUPABASE_ANON_KEY in your .env file.")
+            current_app.logger.info("[LOGIN] Using service role client (anon key not available)")
     except Exception as client_error:
         current_app.logger.warning(f"[LOGIN] Failed to create anon key client, using service role: {str(client_error)}")
         auth_client = supabase  # Fallback to service role client
     
     if email and password:
-        response, status = _handle_supabase_login(email, password, auth_client, supabase_service)
+        response, status = _handle_supabase_login(email, password, auth_client, supabase_service, using_anon_key)
         if isinstance(response, Response):
             return response, status
         return jsonify(response), status
