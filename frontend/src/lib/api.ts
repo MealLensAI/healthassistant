@@ -74,6 +74,8 @@ export interface RequestOptions {
 
 // Centralized API service
 class APIService {
+  private refreshTokenPromise: Promise<RefreshTokenResponse | null> | null = null
+
   private getAuthToken(): string | null {
     return safeGetItem('access_token')
   }
@@ -166,8 +168,21 @@ class APIService {
           const refreshToken = safeGetItem('supabase_refresh_token')
           if (refreshToken && refreshToken.length > 10) {
             try {
-              console.log('🔄 Attempting token refresh after 401...')
-              const refreshResult = await this.refreshToken() as RefreshTokenResponse
+              // Check if a refresh is already in progress
+              if (!this.refreshTokenPromise) {
+                // Start a new refresh
+                console.log('🔄 Token expired, refreshing...')
+                this.refreshTokenPromise = this.refreshToken().then((result) => {
+                  this.refreshTokenPromise = null // Clear the promise after completion
+                  return result
+                }).catch((error) => {
+                  this.refreshTokenPromise = null // Clear the promise on error
+                  throw error
+                })
+              }
+              // If refresh is in progress, wait for it (no need to log - reduces console noise)
+              
+              const refreshResult = await this.refreshTokenPromise as RefreshTokenResponse
               
               if (refreshResult.status === 'success' && refreshResult.access_token) {
                 console.log('✅ Token refreshed successfully')

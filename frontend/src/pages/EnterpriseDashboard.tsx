@@ -120,6 +120,8 @@ export default function EnterpriseDashboard() {
   const [savingUserSettings, setSavingUserSettings] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deletingUser, setDeletingUser] = useState(false);
+  const [cancelInvitationId, setCancelInvitationId] = useState<string | null>(null);
+  const [cancellingInvitation, setCancellingInvitation] = useState(false);
   const [isEditingHealthInfo, setIsEditingHealthInfo] = useState(false);
   const [userHealthHistory, setUserHealthHistory] = useState<any[]>([]);
 
@@ -299,11 +301,10 @@ export default function EnterpriseDashboard() {
   async function loadEnterpriseDetails(enterpriseId: string) {
     if (!enterpriseId) return;
     try {
-      const [uRes, iRes, sRes] = await Promise.allSettled([
-        api.getEnterpriseUsers(enterpriseId), 
-        api.getEnterpriseInvitations(enterpriseId),
-        api.getEnterpriseStatistics(enterpriseId)
-      ]);
+      // Make requests sequentially to avoid connection issues
+      const uRes = await api.getEnterpriseUsers(enterpriseId).then(v => ({ status: 'fulfilled' as const, value: v })).catch(r => ({ status: 'rejected' as const, reason: r }));
+      const iRes = await api.getEnterpriseInvitations(enterpriseId).then(v => ({ status: 'fulfilled' as const, value: v })).catch(r => ({ status: 'rejected' as const, reason: r }));
+      const sRes = await api.getEnterpriseStatistics(enterpriseId).then(v => ({ status: 'fulfilled' as const, value: v })).catch(r => ({ status: 'rejected' as const, reason: r }));
       
       // Handle users response
       if (uRes.status === "fulfilled") {
@@ -412,20 +413,65 @@ export default function EnterpriseDashboard() {
     }
   }
 
-  async function cancelInvitation(invitationId: string) {
+  function handleCancelInvitation(invitationId: string) {
+    setCancelInvitationId(invitationId);
+  }
+
+  async function confirmCancelInvitation() {
+    if (!cancelInvitationId || !selectedEnterprise?.id) return;
+    
+    setCancellingInvitation(true);
     try {
-      const r: any = await api.cancelInvitation(invitationId);
+      const r: any = await api.cancelInvitation(cancelInvitationId);
       if (r.success) {
-        toast({ title: "Success", description: "Invitation cancelled" });
-        if (selectedEnterprise?.id) await loadEnterpriseDetails(selectedEnterprise.id);
+        // Update the invitation status in state using the response data if available
+        if (r.invitation) {
+          setInvitations(prevInvitations => 
+            prevInvitations.map(inv => 
+              inv.id === cancelInvitationId 
+                ? r.invitation
+                : inv
+            )
+          );
+        } else {
+          // Fallback: update status manually if response doesn't include invitation
+          setInvitations(prevInvitations => 
+            prevInvitations.map(inv => 
+              inv.id === cancelInvitationId 
+                ? { ...inv, status: 'cancelled' }
+                : inv
+            )
+          );
+        }
+        
+        toast({ 
+          title: "Success", 
+          description: r.message || "Invitation cancelled successfully" 
+        });
+        
+        // Refresh to get latest data from server (with a small delay to ensure DB is updated)
+        setTimeout(async () => {
+          await loadEnterpriseDetails(selectedEnterprise.id);
+        }, 500);
       } else {
         // Handle error response - check both error and message fields
         const errorMsg = r.error || r.message || "Failed to cancel invitation";
+        // Check if invitation is already cancelled - this is now allowed by backend
+        if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('already cancelled')) {
+          toast({ 
+            title: "Info", 
+            description: "This invitation has already been cancelled.",
+            variant: "default"
+          });
+          // Refresh to update the UI
+          await loadEnterpriseDetails(selectedEnterprise.id);
+        } else {
         toast({ 
           title: "Error", 
           description: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg),
           variant: "destructive" 
         });
+        }
       }
     } catch (err: any) {
       // Handle exception - extract error message properly
@@ -445,6 +491,9 @@ export default function EnterpriseDashboard() {
         description: errorMsg,
         variant: "destructive" 
       });
+    } finally {
+      setCancellingInvitation(false);
+      setCancelInvitationId(null);
     }
   }
 
@@ -2191,10 +2240,18 @@ export default function EnterpriseDashboard() {
                                   className={
                                     inv.status === "accepted" 
                                       ? "bg-green-600 text-white font-semibold w-fit" 
+                                      : inv.status === "cancelled"
+                                      ? "bg-red-600 text-white font-semibold w-fit"
                                       : "w-fit"
                                   }
                                 >
-                                  {inv.status === "accepted" ? "✓ Accepted" : (inv.status ?? "pending")}
+                                  {inv.status === "accepted" 
+                                    ? "✓ Accepted" 
+                                    : inv.status === "cancelled" 
+                                    ? "✕ Cancelled" 
+                                    : inv.status === "expired"
+                                    ? "⏱ Expired"
+                                    : (inv.status ?? "pending")}
                               </Badge>
                                 {inv.status === "accepted" && inv.accepted_at && (
                                   <div className="mt-2 flex items-center gap-1 text-xs text-green-600 font-medium">
@@ -2207,14 +2264,14 @@ export default function EnterpriseDashboard() {
                               </div>
                             </td>
                             <td className="px-3 sm:px-6 py-4 text-right">
-                              {inv.status === "pending" && (
+                              {inv.status !== "cancelled" && (
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   className="rounded-full border-slate-200 px-3 sm:px-4 text-xs font-semibold"
-                                  onClick={() => cancelInvitation(inv.id)}
+                                  onClick={() => handleCancelInvitation(inv.id)}
                                 >
-                                  Cancel
+                                  {inv.status === "accepted" ? "Revoke" : "Cancel"}
                                 </Button>
                               )}
                             </td>
@@ -2340,13 +2397,21 @@ export default function EnterpriseDashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove this user from your organization? This will:
-              <ul className="list-disc list-inside mt-2 space-y-1">
+              Are you sure you want to permanently delete this user? This will:
+              <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
                 <li>Remove them from the organization</li>
-                <li>Delete their account completely</li>
-                <li>Remove all their data</li>
+                <li>Delete their Supabase authentication account</li>
+                <li>Delete all their data including:
+                  <ul className="list-circle list-inside ml-4 mt-1 space-y-0.5 text-xs">
+                    <li>User settings and history</li>
+                    <li>Meal plans</li>
+                    <li>Detection history</li>
+                    <li>Subscriptions and payment data</li>
+                    <li>All other user-related records</li>
               </ul>
-              <p className="mt-3 font-semibold text-red-600">This action cannot be undone!</p>
+                </li>
+              </ul>
+              <p className="mt-3 font-semibold text-red-600">This action cannot be undone! The user can be re-invited after deletion.</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2363,6 +2428,57 @@ export default function EnterpriseDashboard() {
                 </>
               ) : (
                 "Delete User"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Invitation Confirmation Dialog */}
+      <AlertDialog open={!!cancelInvitationId} onOpenChange={(open) => !open && setCancelInvitationId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Invitation</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const invitation = invitations.find(inv => inv.id === cancelInvitationId);
+                const isAccepted = invitation?.status === 'accepted';
+                return (
+                  <>
+                    {isAccepted ? (
+                      <>
+                        Are you sure you want to revoke this invitation? This will:
+                        <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                          <li>Cancel the invitation</li>
+                          <li>Remove the user from the organization</li>
+                        </ul>
+                        <p className="mt-3 font-semibold text-orange-600">The user will lose access to the organization.</p>
+                      </>
+                    ) : (
+                      <>
+                        Are you sure you want to cancel this invitation?
+                        <p className="mt-3 text-sm">The invitation will be marked as cancelled and cannot be used.</p>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancellingInvitation}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancelInvitation}
+              disabled={cancellingInvitation}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {cancellingInvitation ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {invitations.find(inv => inv.id === cancelInvitationId)?.status === 'accepted' ? 'Revoking...' : 'Cancelling...'}
+                </>
+              ) : (
+                invitations.find(inv => inv.id === cancelInvitationId)?.status === 'accepted' ? 'Revoke' : 'Cancel Invitation'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

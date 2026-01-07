@@ -66,23 +66,54 @@ def get_supabase_client(use_admin: bool = False) -> Client:
     raise Exception("Supabase service not available")
 
 def require_auth(f):
-    """Decorator to require authentication"""
+    """Decorator to require authentication - uses auth_service to verify user tokens"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Get auth header from request
         auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'error': 'Missing or invalid authorization header'}), 401
         
-        token = auth_header.split(' ')[1]
+        # Fallback to cookie if header is missing
+        if not auth_header:
+            cookie_token = request.cookies.get('access_token')
+            if cookie_token:
+                auth_header = f"Bearer {cookie_token}"
+            else:
+                return jsonify({'error': 'Missing or invalid authorization header'}), 401
+        
+        if not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Invalid authorization header format'}), 401
+        
         try:
-            supabase = get_supabase_client()
-            user = supabase.auth.get_user(token)
-            if not user:
-                return jsonify({'error': 'Invalid token'}), 401
-            request.user_id = user.user.id
-            request.user_email = user.user.email
-            request.user_metadata = getattr(user.user, 'user_metadata', {}) or {}
+            # Use auth_service (which uses service_role admin client) to verify user token
+            if not hasattr(current_app, 'auth_service') or not current_app.auth_service:
+                return jsonify({'error': 'Authentication service not available'}), 500
+            
+            user_id, auth_type = current_app.auth_service.get_supabase_user_id_from_token(auth_header)
+            
+            if not user_id:
+                return jsonify({'error': 'Invalid or expired token'}), 401
+            
+            # Set user info on request object for use in route handlers
+            request.user_id = user_id
+            # Try to get email from token if possible
+            try:
+                token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+                # Use service_role client to get user details
+                supabase = get_supabase_client(use_admin=True)
+                user = supabase.auth.admin.get_user_by_id(user_id)
+                if user and user.user:
+                    request.user_email = user.user.email
+                    request.user_metadata = getattr(user.user, 'user_metadata', {}) or {}
+                else:
+                    request.user_email = None
+                    request.user_metadata = {}
+            except Exception:
+                # If we can't get email, that's okay - user_id is sufficient
+                request.user_email = None
+                request.user_metadata = {}
+            
         except Exception as e:
+            current_app.logger.error(f'Authentication failed: {str(e)}', exc_info=True)
             return jsonify({'error': f'Authentication failed: {str(e)}'}), 401
         
         return f(*args, **kwargs)
@@ -914,39 +945,79 @@ def invite_user(enterprise_id):
         current_app.logger.info(f"[INVITE] User limit check disabled - unlimited users allowed")
         
         # Check if user already has an account with meallensai
-        # This prevents inviting users who already have accounts
+        # If they do, check if they're already a member - if not, we can still invite them
         current_app.logger.info(f"[INVITE] Checking if user with email {email} already has an account")
         user_exists = False
         existing_user_id = None
         try:
             user_exists, existing_user_id = check_user_exists_by_email(supabase, email)
-            if user_exists:
-                current_app.logger.warning(f"[INVITE] ❌ User with email {email} already has an account (user_id: {existing_user_id})")
+            if user_exists and existing_user_id:
+                current_app.logger.info(f"[INVITE] User with email {email} already has an account (user_id: {existing_user_id})")
                 
-                # Also check if they're already a member of this organization
-                if existing_user_id:
-                    try:
+                # Check if they're already a member of this organization
+                try:
                         existing_member = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', existing_user_id).execute()
                         if existing_member.data:
                             current_app.logger.warning(f"[INVITE] User is already a member")
                             return jsonify({'success': False, 'error': 'User is already a member of this organization'}), 400
-                    except Exception as member_check_error:
+                except Exception as member_check_error:
                         current_app.logger.warning(f"[INVITE] Could not check existing membership: {str(member_check_error)}")
-                
-                return jsonify({
-                    'success': False,
-                    'error': 'This user already has an account with MealLens AI. They cannot be invited.',
-                    'error_code': 'USER_ALREADY_EXISTS'
-                }), 400
+                    # Continue with invitation if we can't check membership
+                # User exists but is not a member - we can still invite them
+                current_app.logger.info(f"[INVITE] User exists but is not a member - allowing invitation")
         except Exception as user_check_error:
             # If we can't check (e.g., rate limit), log but continue
             # We'll catch duplicates later if needed
             current_app.logger.warning(f"[INVITE] Could not check if user exists: {str(user_check_error)}")
         
-        # Check if user is already invited
+        # Check if user is already invited (with retry logic for connection errors)
         current_app.logger.info(f"[INVITE] Checking for existing invitation")
-        existing_invitation = supabase.table('invitations').select('id').eq('enterprise_id', enterprise_id).eq('email', email).eq('status', 'pending').execute()
-        if existing_invitation.data:
+        existing_invitation = None
+        max_retries = 3
+        initial_delay = 0.5
+        
+        for attempt in range(max_retries):
+            try:
+                existing_invitation = supabase.table('invitations').select('id').eq('enterprise_id', enterprise_id).eq('email', email).eq('status', 'pending').execute()
+
+                break  # Success, exit retry loop
+            except Exception as invite_check_error:
+                error_str = str(invite_check_error).lower()
+                error_type = type(invite_check_error).__name__
+                
+                # Check if it's a connection error that should be retried
+                # Handle httpx.ReadError, httpx.RemoteProtocolError, and httpcore errors
+                is_connection_error = (
+                    'connectionterminated' in error_str or
+                    'remoteprotocolerror' in error_type.lower() or
+                    'readerror' in error_type.lower() or
+                    'httpx.readerror' in error_str or
+                    'httpx.remoteprotocolerror' in error_str or
+                    'httpcore.readerror' in error_str or
+                    'httpcore.remoteprotocolerror' in error_str or
+                    'connection' in error_str and ('terminated' in error_str or 'reset' in error_str or 'closed' in error_str) or
+                    'resource temporarily unavailable' in error_str or
+                    '[errno 35]' in error_str or
+                    'connectionterminated' in error_type.lower() or
+                    hasattr(invite_check_error, '__class__') and ('ConnectionTerminated' in str(invite_check_error.__class__) or 'ReadError' in str(invite_check_error.__class__) or 'RemoteProtocolError' in str(invite_check_error.__class__))
+                )
+                
+                if is_connection_error and attempt < max_retries - 1:
+                    delay = initial_delay * (2 ** attempt)
+                    current_app.logger.warning(f"[INVITE] Connection error checking invitations (attempt {attempt + 1}/{max_retries}): {str(invite_check_error)}. Retrying in {delay}s...")
+                    import time
+                    time.sleep(delay)
+                    # Get a fresh client for retry
+                    supabase = get_supabase_client(use_admin=True)
+                    continue
+                
+                # Not a retryable error or last attempt
+                current_app.logger.warning(f"[INVITE] Could not check existing invitations: {str(invite_check_error)}")
+                # Continue with invitation creation - we'll catch duplicates at insert time
+                existing_invitation = None
+                break
+        
+        if existing_invitation and existing_invitation.data:
             current_app.logger.warning(f"[INVITE] User already has pending invitation")
             return jsonify({'success': False, 'error': 'User already has a pending invitation'}), 400
         
@@ -1182,19 +1253,46 @@ def cancel_invitation(invitation_id):
                 'error': f'Access denied: {reason}'
             }), 403
         
-        # Only pending invitations can be cancelled
-        if invitation.get('status') != 'pending':
-            return jsonify({
-                'success': False,
-                'error': f"Cannot cancel invitation with status '{invitation.get('status')}'"
-            }), 400
+        # Allow cancelling/revoking invitations with any status (pending, accepted, etc.)
+        # This allows admins to revoke invitations even after they've been accepted
+        current_status = invitation.get('status')
+        current_app.logger.info(f"[CANCEL_INVITE] Cancelling invitation {invitation_id} with status: {current_status}")
         
-        # Cancel invitation
-        supabase.table('invitations').update({'status': 'cancelled'}).eq('id', invitation_id).execute()
+        # Cancel/revoke invitation by setting status to 'cancelled'
+        update_result = supabase.table('invitations').update({'status': 'cancelled'}).eq('id', invitation_id).execute()
+        
+        # If the invitation was accepted and the user is a member, we should also remove them from organization_users
+        if current_status == 'accepted':
+            try:
+                # Get the user_id from the invitation email
+                invitation_email = supabase.table('invitations').select('email').eq('id', invitation_id).execute()
+                if invitation_email.data:
+                    email = invitation_email.data[0].get('email')
+                    # Find user by email
+                    user_exists, user_id = check_user_exists_by_email(supabase, email)
+                    if user_exists and user_id:
+                        # Remove user from organization_users if they exist
+                        org_user_result = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+                        if org_user_result.data:
+                            supabase.table('organization_users').delete().eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+                            current_app.logger.info(f"[CANCEL_INVITE] Removed user {user_id} from organization_users")
+            except Exception as remove_error:
+                current_app.logger.warning(f"[CANCEL_INVITE] Could not remove user from organization: {str(remove_error)}")
+                # Don't fail the cancellation if we can't remove the user
+        
+        # Fetch the updated invitation to return to frontend
+        updated_invitation = None
+        try:
+            updated_result = supabase.table('invitations').select('*').eq('id', invitation_id).execute()
+            if updated_result.data:
+                updated_invitation = updated_result.data[0]
+        except Exception as fetch_error:
+            current_app.logger.warning(f"[CANCEL_INVITE] Could not fetch updated invitation: {str(fetch_error)}")
         
         return jsonify({
             'success': True,
-            'message': 'Invitation cancelled successfully'
+            'message': 'Invitation cancelled successfully',
+            'invitation': updated_invitation
         }), 200
         
     except Exception as e:
@@ -2217,6 +2315,46 @@ def delete_organization_user(user_relation_id):
         if not delete_succeeded:
             current_app.logger.error(f"[DELETE USER] Delete operation failed after all retries")
             return jsonify({'error': 'Failed to remove user from organization'}), 500
+
+        # Delete all user-related data from Supabase tables before deleting auth account
+        current_app.logger.info(f"[DELETE USER] Deleting all user data from Supabase tables for user_id: {user_id}")
+        tables_to_clean = [
+            'user_settings',
+            'user_settings_history',
+            'detection_history',
+            'meal_plan_management',
+            'user_sessions',
+            'feedback',
+            'ai_sessions',
+            'profiles',
+            'user_subscriptions',
+            'subscriptions',
+            'user_trials',
+            'payment_transactions'
+        ]
+        
+        deleted_tables = []
+        failed_tables = []
+        
+        for table_name in tables_to_clean:
+            try:
+                current_app.logger.info(f"[DELETE USER] Deleting from {table_name} for user_id: {user_id}")
+                delete_result = supabase.table(table_name).delete().eq('user_id', user_id).execute()
+                deleted_tables.append(table_name)
+                current_app.logger.info(f"[DELETE USER] ✅ Deleted from {table_name}")
+            except Exception as table_delete_error:
+                error_str = str(table_delete_error).lower()
+                # Some tables might not exist or might not have user_id column - that's okay
+                if 'does not exist' in error_str or 'column' in error_str:
+                    current_app.logger.info(f"[DELETE USER] ⚠️ Table {table_name} doesn't exist or doesn't have user_id column - skipping")
+                else:
+                    current_app.logger.warning(f"[DELETE USER] ⚠️ Error deleting from {table_name}: {str(table_delete_error)}")
+                    failed_tables.append(f"{table_name}: {str(table_delete_error)}")
+        
+        if deleted_tables:
+            current_app.logger.info(f"[DELETE USER] ✅ Successfully deleted data from tables: {', '.join(deleted_tables)}")
+        if failed_tables:
+            current_app.logger.warning(f"[DELETE USER] ⚠️ Failed to delete from some tables: {', '.join(failed_tables)}")
 
         # Also delete the user's Supabase authentication account
         try:
