@@ -129,13 +129,17 @@ FROM pg_policies
 WHERE tablename = 'invitations' 
 AND 'service_role' = ANY(roles);
 
--- Check ai_sessions
+-- Check ai_sessions (only if table exists)
 SELECT 
     'ai_sessions' as table_name,
-    COUNT(*) as service_role_policies,
+    COALESCE(COUNT(*), 0) as service_role_policies,
     CASE 
-        WHEN COUNT(*) > 0 THEN '✅ Has service_role policies'
-        ELSE '❌ Missing service_role policies'
+        WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ai_sessions') THEN
+            CASE 
+                WHEN COUNT(*) > 0 THEN '✅ Has service_role policies'
+                ELSE '❌ Missing service_role policies'
+            END
+        ELSE '⚠️ Table does not exist'
     END as status
 FROM pg_policies 
 WHERE tablename = 'ai_sessions' 
@@ -169,96 +173,213 @@ AND 'service_role' = ANY(roles);
 -- STEP 4: Create service_role policies for ALL backend-managed tables
 -- ============================================================================
 -- This ensures service_role can perform all operations on these tables
+-- Only creates policies for tables that actually exist
 
--- user_settings
-DROP POLICY IF EXISTS "service_role_full_access_user_settings" ON user_settings;
-CREATE POLICY "service_role_full_access_user_settings" 
-ON user_settings 
-FOR ALL 
-TO service_role
-USING (true)
-WITH CHECK (true);
+-- Helper function to check if table exists and create policy
+DO $$
+DECLARE
+    table_exists BOOLEAN;
+BEGIN
+    -- user_settings
+    SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'user_settings'
+    ) INTO table_exists;
+    
+    IF table_exists THEN
+        DROP POLICY IF EXISTS "service_role_full_access_user_settings" ON user_settings;
+        CREATE POLICY "service_role_full_access_user_settings" 
+        ON user_settings 
+        FOR ALL 
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        RAISE NOTICE 'Created policy for user_settings';
+    ELSE
+        RAISE NOTICE 'Table user_settings does not exist, skipping';
+    END IF;
 
--- user_settings_history
-DROP POLICY IF EXISTS "service_role_full_access_user_settings_history" ON user_settings_history;
-CREATE POLICY "service_role_full_access_user_settings_history" 
-ON user_settings_history 
-FOR ALL 
-TO service_role
-USING (true)
-WITH CHECK (true);
+    -- user_settings_history
+    SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'user_settings_history'
+    ) INTO table_exists;
+    
+    IF table_exists THEN
+        DROP POLICY IF EXISTS "service_role_full_access_user_settings_history" ON user_settings_history;
+        CREATE POLICY "service_role_full_access_user_settings_history" 
+        ON user_settings_history 
+        FOR ALL 
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        RAISE NOTICE 'Created policy for user_settings_history';
+    ELSE
+        RAISE NOTICE 'Table user_settings_history does not exist, skipping';
+    END IF;
 
--- detection_history
-DROP POLICY IF EXISTS "service_role_full_access_detection_history" ON detection_history;
-CREATE POLICY "service_role_full_access_detection_history" 
-ON detection_history 
-FOR ALL 
-TO service_role
-USING (true)
-WITH CHECK (true);
+    -- detection_history
+    SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'detection_history'
+    ) INTO table_exists;
+    
+    IF table_exists THEN
+        DROP POLICY IF EXISTS "service_role_full_access_detection_history" ON detection_history;
+        CREATE POLICY "service_role_full_access_detection_history" 
+        ON detection_history 
+        FOR ALL 
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        RAISE NOTICE 'Created policy for detection_history';
+    ELSE
+        RAISE NOTICE 'Table detection_history does not exist, skipping';
+    END IF;
 
--- organization_users
-DROP POLICY IF EXISTS "service_role_full_access_organization_users" ON organization_users;
-CREATE POLICY "service_role_full_access_organization_users" 
-ON organization_users 
-FOR ALL 
-TO service_role
-USING (true)
-WITH CHECK (true);
+    -- organization_users
+    SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'organization_users'
+    ) INTO table_exists;
+    
+    IF table_exists THEN
+        DROP POLICY IF EXISTS "service_role_full_access_organization_users" ON organization_users;
+        CREATE POLICY "service_role_full_access_organization_users" 
+        ON organization_users 
+        FOR ALL 
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        RAISE NOTICE 'Created policy for organization_users';
+    ELSE
+        RAISE NOTICE 'Table organization_users does not exist, skipping';
+    END IF;
 
--- enterprises
-DROP POLICY IF EXISTS "service_role_full_access_enterprises" ON enterprises;
-CREATE POLICY "service_role_full_access_enterprises" 
-ON enterprises 
-FOR ALL 
-TO service_role
-USING (true)
-WITH CHECK (true);
+    -- enterprises
+    SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'enterprises'
+    ) INTO table_exists;
+    
+    IF table_exists THEN
+        DROP POLICY IF EXISTS "service_role_full_access_enterprises" ON enterprises;
+        CREATE POLICY "service_role_full_access_enterprises" 
+        ON enterprises 
+        FOR ALL 
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        RAISE NOTICE 'Created policy for enterprises';
+    ELSE
+        RAISE NOTICE 'Table enterprises does not exist, skipping';
+    END IF;
 
--- invitations
-DROP POLICY IF EXISTS "service_role_full_access_invitations" ON invitations;
-CREATE POLICY "service_role_full_access_invitations" 
-ON invitations 
-FOR ALL 
-TO service_role
-USING (true)
-WITH CHECK (true);
+    -- invitations
+    SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'invitations'
+    ) INTO table_exists;
+    
+    IF table_exists THEN
+        DROP POLICY IF EXISTS "service_role_full_access_invitations" ON invitations;
+        CREATE POLICY "service_role_full_access_invitations" 
+        ON invitations 
+        FOR ALL 
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        RAISE NOTICE 'Created policy for invitations';
+    ELSE
+        RAISE NOTICE 'Table invitations does not exist, skipping';
+    END IF;
 
--- ai_sessions
-DROP POLICY IF EXISTS "service_role_full_access_ai_sessions" ON ai_sessions;
-CREATE POLICY "service_role_full_access_ai_sessions" 
-ON ai_sessions 
-FOR ALL 
-TO service_role
-USING (true)
-WITH CHECK (true);
+    -- ai_sessions (only if table exists)
+    SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'ai_sessions'
+    ) INTO table_exists;
+    
+    IF table_exists THEN
+        DROP POLICY IF EXISTS "service_role_full_access_ai_sessions" ON ai_sessions;
+        CREATE POLICY "service_role_full_access_ai_sessions" 
+        ON ai_sessions 
+        FOR ALL 
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        RAISE NOTICE 'Created policy for ai_sessions';
+    ELSE
+        RAISE NOTICE 'Table ai_sessions does not exist, skipping';
+    END IF;
 
--- user_sessions
-DROP POLICY IF EXISTS "service_role_full_access_user_sessions" ON user_sessions;
-CREATE POLICY "service_role_full_access_user_sessions" 
-ON user_sessions 
-FOR ALL 
-TO service_role
-USING (true)
-WITH CHECK (true);
+    -- user_sessions
+    SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'user_sessions'
+    ) INTO table_exists;
+    
+    IF table_exists THEN
+        DROP POLICY IF EXISTS "service_role_full_access_user_sessions" ON user_sessions;
+        CREATE POLICY "service_role_full_access_user_sessions" 
+        ON user_sessions 
+        FOR ALL 
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        RAISE NOTICE 'Created policy for user_sessions';
+    ELSE
+        RAISE NOTICE 'Table user_sessions does not exist, skipping';
+    END IF;
 
--- feedback
-DROP POLICY IF EXISTS "service_role_full_access_feedback" ON feedback;
-CREATE POLICY "service_role_full_access_feedback" 
-ON feedback 
-FOR ALL 
-TO service_role
-USING (true)
-WITH CHECK (true);
+    -- feedback
+    SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'feedback'
+    ) INTO table_exists;
+    
+    IF table_exists THEN
+        DROP POLICY IF EXISTS "service_role_full_access_feedback" ON feedback;
+        CREATE POLICY "service_role_full_access_feedback" 
+        ON feedback 
+        FOR ALL 
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        RAISE NOTICE 'Created policy for feedback';
+    ELSE
+        RAISE NOTICE 'Table feedback does not exist, skipping';
+    END IF;
 
--- profiles (if backend manages it)
-DROP POLICY IF EXISTS "service_role_full_access_profiles" ON profiles;
-CREATE POLICY "service_role_full_access_profiles" 
-ON profiles 
-FOR ALL 
-TO service_role
-USING (true)
-WITH CHECK (true);
+    -- profiles
+    SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'profiles'
+    ) INTO table_exists;
+    
+    IF table_exists THEN
+        DROP POLICY IF EXISTS "service_role_full_access_profiles" ON profiles;
+        CREATE POLICY "service_role_full_access_profiles" 
+        ON profiles 
+        FOR ALL 
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        RAISE NOTICE 'Created policy for profiles';
+    ELSE
+        RAISE NOTICE 'Table profiles does not exist, skipping';
+    END IF;
+END $$;
 
 -- ============================================================================
 -- STEP 5: Verify all policies were created
