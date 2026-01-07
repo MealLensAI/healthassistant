@@ -130,10 +130,46 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
         user_exists = _user_exists_by_email(normalized_email)
         
         # Attempt to authenticate with Supabase
-        response = supabase.auth.sign_in_with_password({
-            'email': normalized_email,
-            'password': password
-        })
+        # Try using service role client first (should work)
+        try:
+            current_app.logger.info(f"[LOGIN] Attempting login for {normalized_email}")
+            response = supabase.auth.sign_in_with_password({
+                'email': normalized_email,
+                'password': password
+            })
+            current_app.logger.info(f"[LOGIN] Sign in response received: user={bool(response.user)}, session={bool(getattr(response, 'session', None))}")
+        except Exception as auth_error:
+            error_str = str(auth_error)
+            error_lower = error_str.lower()
+            current_app.logger.error(f"[LOGIN] Supabase sign_in_with_password failed for {normalized_email}: {error_str}")
+            
+            # Check for specific error types
+            if 'invalid login credentials' in error_lower or 'invalid password' in error_lower or 'wrong password' in error_lower:
+                if not user_exists:
+                    return {'status': 'error', 'message': "You don't have an account. Please sign up to create one."}, 401
+                else:
+                    return {'status': 'error', 'message': 'Incorrect email or password. Please check your credentials and try again.'}, 401
+            elif 'email not confirmed' in error_lower or 'email not verified' in error_lower:
+                return {'status': 'error', 'message': 'Please verify your email address before logging in.'}, 401
+            else:
+                # Try using admin API as fallback
+                current_app.logger.info(f"[LOGIN] Trying admin API fallback for {normalized_email}")
+                try:
+                    admin_client = get_supabase_client(use_admin=True)
+                    if admin_client and hasattr(admin_client, 'auth') and hasattr(admin_client.auth, 'admin'):
+                        # Use admin API to get user and verify password
+                        admin_user = admin_client.auth.admin.get_user_by_email(normalized_email)
+                        if admin_user and (hasattr(admin_user, 'user') or (isinstance(admin_user, dict) and admin_user.get('user'))):
+                            # User exists, but password verification failed
+                            if not user_exists:
+                                return {'status': 'error', 'message': "You don't have an account. Please sign up to create one."}, 401
+                            else:
+                                return {'status': 'error', 'message': 'Incorrect email or password. Please check your credentials and try again.'}, 401
+                        else:
+                            return {'status': 'error', 'message': "You don't have an account. Please sign up to create one."}, 401
+                except Exception as admin_error:
+                    current_app.logger.error(f"[LOGIN] Admin API fallback also failed: {str(admin_error)}")
+                    return {'status': 'error', 'message': 'Login failed. Please try again.'}, 401
         
         if not response.user:
             current_app.logger.warning(f"Supabase login failed for {email}: No user in response")
@@ -243,8 +279,32 @@ def login_user():
 
     email = data.get('email')
     password = data.get('password')
+    
+    if not email or not password:
+        current_app.logger.warning("No email/password provided in login request")
+        return jsonify({'status': 'error', 'message': 'Email and password are required.'}), 400
+    
+    # Try to use anon key client for user authentication if available
+    # Service role key should work, but anon key is more appropriate for user auth
+    auth_client = supabase  # Default to service role client
+    try:
+        from supabase import create_client
+        import os
+        supabase_url = os.environ.get("SUPABASE_URL")
+        supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY")
+        
+        # If anon key is available, use it for user authentication
+        if supabase_url and supabase_anon_key:
+            current_app.logger.info("[LOGIN] Using anon key client for user authentication")
+            auth_client = create_client(supabase_url, supabase_anon_key)
+        else:
+            current_app.logger.info("[LOGIN] Anon key not available, using service role client")
+    except Exception as client_error:
+        current_app.logger.warning(f"[LOGIN] Failed to create anon key client, using service role: {str(client_error)}")
+        auth_client = supabase  # Fallback to service role client
+    
     if email and password:
-        response, status = _handle_supabase_login(email, password, supabase, supabase_service)
+        response, status = _handle_supabase_login(email, password, auth_client, supabase_service)
         if isinstance(response, Response):
             return response, status
         return jsonify(response), status
