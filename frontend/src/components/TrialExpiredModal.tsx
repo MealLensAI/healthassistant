@@ -19,13 +19,6 @@ const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose, 
     onClose();
   };
 
-  // Debug logging
-  console.log('🔍 TrialExpiredModal render:', {
-    isOpen,
-    isSubscriptionExpired,
-    shouldShow: isOpen
-  });
-
   // Don't render the modal if it's not supposed to be open
   if (!isOpen) {
     return null;
@@ -33,7 +26,6 @@ const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose, 
 
   // NEVER show trial modal if user has active subscription
   if (isSubscriptionExpired === false) {
-    console.log('🔍 TrialExpiredModal: User has active subscription, not showing modal');
     return null;
   }
 

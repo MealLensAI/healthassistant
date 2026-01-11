@@ -214,7 +214,6 @@ export default function EnterpriseDashboard() {
   useEffect(() => {
     if (activeSidebarItem === "overview" && selectedEnterprise?.id) {
       const interval = setInterval(() => {
-        console.log('[EnterpriseDashboard] Auto-refreshing invitations and users...');
         loadEnterpriseDetails(selectedEnterprise.id);
       }, 15000); // Refresh every 15 seconds for faster updates
 
@@ -225,7 +224,6 @@ export default function EnterpriseDashboard() {
   // Load settings history when history tab is activated
   useEffect(() => {
     if (activeSidebarItem === "history" && selectedEnterprise?.id) {
-      console.log('[EnterpriseDashboard] Loading settings history...');
       loadSettingsHistory(selectedEnterprise.id);
     }
   }, [activeSidebarItem, selectedEnterprise]);
@@ -244,13 +242,10 @@ export default function EnterpriseDashboard() {
 
   // --- API helpers ---
   async function loadEnterprises() {
-    console.log('[DASHBOARD] Loading enterprises...');
     try {
       const res: any = await api.getMyEnterprises();
-      console.log('[DASHBOARD] getMyEnterprises response:', res);
       if (res.success) {
         const loaded = res.enterprises || [];
-        console.log('[DASHBOARD] Loaded enterprises:', loaded);
         setEnterprises(loaded);
         
         // Cache the enterprises
@@ -262,7 +257,6 @@ export default function EnterpriseDashboard() {
         // auto-select first if nothing selected
         setSelectedEnterprise((prev: any) => {
           const selected = (prev && loaded.find((e: any) => e.id === prev.id)) ? prev : (loaded[0] ?? null);
-          console.log('[DASHBOARD] Selected enterprise:', selected);
           
           // Update cache with selected enterprise
           if (selected) {
@@ -507,7 +501,6 @@ export default function EnterpriseDashboard() {
       const res: any = await api.getEnterpriseSettingsHistory(enterpriseId);
       if (res.success) {
         setSettingsHistory(res.history || []);
-        console.log('[HISTORY] Loaded settings history:', res.history?.length || 0, 'records');
       } else {
         // Don't show error toast for empty history - just show empty state
         setSettingsHistory([]);
@@ -544,7 +537,6 @@ export default function EnterpriseDashboard() {
       if (res.success) {
         const userHistory = (res.history || []).filter((h: any) => h.user_id === userId);
         setUserHealthHistory(userHistory);
-        console.log('[USER_HISTORY] Loaded history for user:', userId, 'Records:', userHistory.length);
         
         // Cache the history
         setCachedUserHealthHistory({
@@ -838,15 +830,8 @@ export default function EnterpriseDashboard() {
 
   // Invite: always open the modal (no org selection guard)
   const handleInviteMemberClick = async (teamName?: string) => {
-    console.log('[INVITE] handleInviteMemberClick called');
-    console.log('[INVITE] selectedEnterprise:', selectedEnterprise);
-    console.log('[INVITE] enterprises:', enterprises);
-    console.log('[INVITE] enterprises.length:', enterprises?.length);
-    console.log('[INVITE] isLoading:', isLoading);
-    
     // If enterprises haven't loaded yet, try loading them first
     if (isLoading || (!enterprises || enterprises.length === 0)) {
-      console.log('[INVITE] Enterprises not loaded yet, loading now...');
       setIsLoading(true);
       await loadEnterprises();
       setIsLoading(false);
@@ -866,20 +851,10 @@ export default function EnterpriseDashboard() {
       if (!selectedEnterprise) {
         setSelectedEnterprise(currentEnterprises[0]);
       }
-      console.log('[INVITE] Using first enterprise from list:', enterpriseId);
     }
-    
-    console.log('[INVITE] Final enterpriseId:', enterpriseId);
-    console.log('[INVITE] Current enterprises after load:', currentEnterprises);
     
     // Check if we have a valid enterprise ID
     if (!enterpriseId) {
-      console.error('[INVITE] No enterprise ID available after loading!');
-      console.error('[INVITE] Enterprises array:', currentEnterprises);
-      console.error('[INVITE] Selected enterprise:', selectedEnterprise);
-      
-      // Only show registration form if user can create organizations
-      // Otherwise, this might be a permission/loading issue
       toast({
         title: "No Organization Found",
         description: "Unable to find an organization. Please refresh the page or contact support if you believe you should have access to an organization.",
@@ -888,8 +863,6 @@ export default function EnterpriseDashboard() {
       });
       return;
     }
-    
-    console.log('[INVITE] Opening invite form for enterprise:', enterpriseId);
     setInviteContextTeam(teamName);
     setShowInviteUserForm(true);
   };
@@ -2396,7 +2369,7 @@ export default function EnterpriseDashboard() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete User</AlertDialogTitle>
-            <AlertDialogDescription>
+            <div className="text-sm text-muted-foreground">
               Are you sure you want to permanently delete this user? This will:
               <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
                 <li>Remove them from the organization</li>
@@ -2408,11 +2381,11 @@ export default function EnterpriseDashboard() {
                     <li>Detection history</li>
                     <li>Subscriptions and payment data</li>
                     <li>All other user-related records</li>
-              </ul>
+                  </ul>
                 </li>
               </ul>
-              <p className="mt-3 font-semibold text-red-600">This action cannot be undone! The user can be re-invited after deletion.</p>
-            </AlertDialogDescription>
+              <div className="mt-3 font-semibold text-red-600">This action cannot be undone! The user can be re-invited after deletion.</div>
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletingUser}>Cancel</AlertDialogCancel>
@@ -2439,7 +2412,7 @@ export default function EnterpriseDashboard() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Invitation</AlertDialogTitle>
-            <AlertDialogDescription>
+            <div className="text-sm text-muted-foreground">
               {(() => {
                 const invitation = invitations.find(inv => inv.id === cancelInvitationId);
                 const isAccepted = invitation?.status === 'accepted';
@@ -2452,18 +2425,18 @@ export default function EnterpriseDashboard() {
                           <li>Cancel the invitation</li>
                           <li>Remove the user from the organization</li>
                         </ul>
-                        <p className="mt-3 font-semibold text-orange-600">The user will lose access to the organization.</p>
+                        <div className="mt-3 font-semibold text-orange-600">The user will lose access to the organization.</div>
                       </>
                     ) : (
                       <>
                         Are you sure you want to cancel this invitation?
-                        <p className="mt-3 text-sm">The invitation will be marked as cancelled and cannot be used.</p>
+                        <div className="mt-3 text-sm">The invitation will be marked as cancelled and cannot be used.</div>
                       </>
                     )}
                   </>
                 );
               })()}
-            </AlertDialogDescription>
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={cancellingInvitation}>Cancel</AlertDialogCancel>

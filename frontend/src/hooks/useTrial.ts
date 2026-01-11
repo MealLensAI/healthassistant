@@ -64,15 +64,11 @@ export const useTrial = () => {
 
   const updateTrialInfo = useCallback(async () => {
     try {
-      console.log('🔄 Starting trial status update...');
-
       // Fetch all backend data in parallel for speed
       const [backendResult, hasAccess] = await Promise.all([
         TrialService.fetchSubscriptionFromBackend(),
         TrialService.canAccessApp()
       ]);
-
-      console.log('🔍 Backend trial data:', backendResult.trialInfo);
 
       // Extract data from single backend call
       // Note: Backend can return either snake_case or camelCase depending on the endpoint
@@ -87,18 +83,8 @@ export const useTrial = () => {
         remainingMinutes: trialData.remainingMinutes ?? Math.floor(((trialData.remaining_time || 0) % (1000 * 60 * 60)) / (1000 * 60))
       } : null;
       
-      console.log('🔍 Parsed trial info:', info);
-      
       const subInfo = backendResult.subscriptionInfo;
       const hasEverPaid = backendResult.hasEverHadSubscription || false;
-
-      console.log('🔄 Trial status loaded:', {
-        hasAccess,
-        hasActiveSubscription: subInfo?.isActive,
-        isTrialExpired: info?.isExpired,
-        hasEverPaid,
-        isLoading: false
-      });
 
       setTrialInfo(info);
       setSubscriptionInfo(subInfo);

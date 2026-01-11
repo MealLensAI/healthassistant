@@ -183,6 +183,55 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
                 return {'status': 'error', 'message': "You don't have an account. Please sign up to create one."}, 401
             else:
                 return {'status': 'error', 'message': 'Incorrect email or password. Please check your credentials and try again.'}, 401
+        
+        # Verify user account still exists in auth (check for deleted accounts - reuse existing pattern)
+        user_id_from_response = response.user.id
+        try:
+            # Use admin client to verify user exists (reuse existing get_supabase_client pattern)
+            admin_supabase = get_supabase_client(use_admin=True)
+            if admin_supabase:
+                user_check = admin_supabase.auth.admin.get_user_by_id(user_id_from_response)
+                if not user_check or not hasattr(user_check, 'user') or not user_check.user:
+                    current_app.logger.warning(f"[LOGIN] User account deleted: {user_id_from_response}")
+                    return {'status': 'error', 'message': 'Your account has been deleted. Please contact your organization administrator.', 'error_type': 'account_deleted'}, 403
+                
+                # Additional check: If user has accepted invitations but is not in organization_users,
+                # they may have been deleted (reuse existing pattern from enterprise routes)
+                user_metadata = user_check.user.user_metadata or {}
+                user_email = user_check.user.email
+                
+                # Auto-accept any pending invitations for this user's email
+                try:
+                    from routes.invitation_helpers import auto_accept_pending_invitations
+                    accepted = auto_accept_pending_invitations(user_id_from_response, user_email, admin_supabase)
+                    if accepted:
+                        current_app.logger.info(f"[LOGIN] Auto-accepted {len(accepted)} pending invitation(s) for {user_email}")
+                except Exception as auto_accept_error:
+                    # Don't block login if auto-accept fails (non-critical)
+                    current_app.logger.warning(f"[LOGIN] Failed to auto-accept invitations (non-critical): {str(auto_accept_error)}")
+                
+                # Check if user has accepted invitations but is not in any organization
+                # This indicates they were deleted from organization_users after accepting
+                try:
+                    accepted_invitations = admin_supabase.table('invitations').select('id, enterprise_id').eq('email', user_email).eq('status', 'accepted').execute()
+                    if accepted_invitations.data:
+                        # User has accepted invitations - check if they're still in organization_users
+                        org_membership = admin_supabase.table('organization_users').select('id').eq('user_id', user_id_from_response).execute()
+                        if not org_membership.data:
+                            # User accepted invitation but not in any organization - likely deleted
+                            current_app.logger.warning(f"[LOGIN] User has accepted invitations but not in any organization (deleted): {user_id_from_response}")
+                            return {'status': 'error', 'message': 'Your account has been deleted from the organization. Please contact your organization administrator.', 'error_type': 'account_deleted'}, 403
+                except Exception as org_check_error:
+                    # If check fails, don't block login (might be temporary issue)
+                    current_app.logger.debug(f"[LOGIN] Could not check organization membership (non-critical): {str(org_check_error)}")
+        except Exception as auth_check_error:
+            error_str = str(auth_check_error).lower()
+            if 'not found' in error_str or 'does not exist' in error_str or 'user not found' in error_str:
+                current_app.logger.warning(f"[LOGIN] User account deleted or not found: {user_id_from_response}")
+                return {'status': 'error', 'message': 'Your account has been deleted. Please contact your organization administrator.', 'error_type': 'account_deleted'}, 403
+            # If it's a different error, log but don't block login (might be a temporary issue)
+            current_app.logger.debug(f"[LOGIN] Could not verify user account (non-critical): {str(auth_check_error)}")
+        
         # Prefer profiles.id when available; otherwise fall back to Supabase auth user ID
         user_id = None
         try:
@@ -749,18 +798,53 @@ def register_user():
         current_app.logger.info(f"Processing registration for email: {email}")
         current_app.logger.info(f"[SIGNUP] signup_type received: '{signup_type}'")
         
-        # Quick check if user already exists in profiles table
-        # This is much faster than checking via admin API
+        # Check if user already exists - verify both profile AND auth account exist
+        # If only profile exists (orphaned), clean it up and allow registration
         try:
-            profile_check = supabase.table('profiles').select('id').ilike('email', email).limit(1).execute()
+            admin_supabase = get_supabase_client(use_admin=True)
+            if admin_supabase:
+                profile_check = admin_supabase.table('profiles').select('id').ilike('email', email).limit(1).execute()
+            else:
+                current_app.logger.warning("Admin supabase client not available, skipping profile check")
+                profile_check = type('obj', (object,), {'data': None})()  # Empty result object
+            
             if profile_check.data:
-                current_app.logger.info(f"User already exists in profiles: {email}")
-                return jsonify({
-                    'status': 'error',
-                    'message': 'An account with this email already exists. Please login instead.',
-                    'error_type': 'user_already_exists',
-                    'suggestion': 'login'
-                }), 409
+                profile_user_id = profile_check.data[0].get('id')
+                current_app.logger.info(f"Found profile for {email}, checking if auth account exists: {profile_user_id}")
+                
+                # Check if auth account actually exists
+                try:
+                    auth_user = admin_supabase.auth.admin.get_user_by_id(profile_user_id)
+                    if auth_user and hasattr(auth_user, 'user') and auth_user.user:
+                        # Both profile and auth account exist - user is active
+                        current_app.logger.info(f"User already exists (both profile and auth account): {email}")
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'An account with this email already exists. Please login instead.',
+                            'error_type': 'user_already_exists',
+                            'suggestion': 'login'
+                        }), 409
+                except Exception as auth_check_err:
+                    error_str = str(auth_check_err).lower()
+                    # Auth account doesn't exist - orphaned profile
+                    if 'not found' in error_str or 'does not exist' in error_str or 'user not found' in error_str:
+                        current_app.logger.warning(f"Orphaned profile found for {email} (auth account missing), cleaning up...")
+                        # Delete the orphaned profile to allow re-registration
+                        try:
+                            admin_supabase.table('profiles').delete().eq('id', profile_user_id).execute()
+                            current_app.logger.info(f"Cleaned up orphaned profile for {email}, allowing registration")
+                        except Exception as cleanup_err:
+                            current_app.logger.warning(f"Failed to clean up orphaned profile: {str(cleanup_err)}")
+                            # Continue anyway - auth API will handle it
+                    else:
+                        # Unknown error checking auth - assume user exists to be safe
+                        current_app.logger.warning(f"Error checking auth account for {email}: {str(auth_check_err)}")
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'An account with this email may already exist. Please try logging in.',
+                            'error_type': 'user_already_exists',
+                            'suggestion': 'login'
+                        }), 409
         except Exception as profile_err:
             # If profile check fails, continue with user creation
             # The auth API will catch duplicates anyway
@@ -788,6 +872,18 @@ def register_user():
         # For initial registration, do not manually insert into profiles.
 
         current_app.logger.info(f"Successfully completed registration for user {user_id}")
+        
+        # Auto-accept any pending invitations for this user's email
+        try:
+            admin_supabase = get_supabase_client(use_admin=True)
+            if admin_supabase:
+                from routes.invitation_helpers import auto_accept_pending_invitations
+                accepted = auto_accept_pending_invitations(user_id, email, admin_supabase)
+                if accepted:
+                    current_app.logger.info(f"[REGISTER] Auto-accepted {len(accepted)} pending invitation(s) for {email}")
+        except Exception as auto_accept_error:
+            # Don't block registration if auto-accept fails (non-critical)
+            current_app.logger.warning(f"[REGISTER] Failed to auto-accept invitations (non-critical): {str(auto_accept_error)}")
         
         # Create a trial for the new user in Supabase (async, non-blocking)
         # Use a background thread to avoid blocking the response
@@ -885,26 +981,117 @@ def get_user_profile():
             return jsonify({'status': 'error', 'message': 'Database service not available'}), 500
 
         # Get user profile from profiles table
-        profile_result = supabase.table('profiles').select('*').eq('id', user_id).single().execute()
+        # Get profile - handle missing profiles gracefully
+        profile = None
+        try:
+            # Try maybe_single() first
+            try:
+                profile_result = supabase.table('profiles').select('*').eq('id', user_id).maybe_single().execute()
+                if profile_result.data:
+                    profile = profile_result.data
+            except AttributeError:
+                # maybe_single() not available, use regular select
+                profile_result = supabase.table('profiles').select('*').eq('id', user_id).limit(1).execute()
+                if profile_result.data and len(profile_result.data) > 0:
+                    profile = profile_result.data[0]
+        except Exception as profile_error:
+            error_str = str(profile_error).lower()
+            # Check if it's the "no rows" error (PGRST116)
+            if 'no rows' in error_str or 'pgrst116' in error_str or 'multiple (or no) rows' in error_str:
+                current_app.logger.warning(f"Profile not found for user {user_id}")
+                profile = None
+            else:
+                # Re-raise if it's a different error
+                raise
         
-        if not profile_result.data:
-            return jsonify({'status': 'error', 'message': 'Profile not found'}), 404
+        # If no profile found, return minimal profile
+        if not profile:
+            # Profile doesn't exist - return minimal profile
+            current_app.logger.warning(f"Profile not found for user {user_id}, returning minimal profile")
+            email = None
+            signup_type = None
+            try:
+                user_auth = supabase.auth.admin.get_user_by_id(user_id)
+                if user_auth and hasattr(user_auth, 'user'):
+                    user_obj = user_auth.user
+                    email = getattr(user_obj, 'email', None) or (user_obj.get('email') if isinstance(user_obj, dict) else None)
+                    user_metadata = getattr(user_obj, 'user_metadata', None) or (user_obj.get('user_metadata', {}) if isinstance(user_obj, dict) else {})
+                    signup_type = user_metadata.get('signup_type') if isinstance(user_metadata, dict) else None
+            except Exception as e:
+                error_str = str(e).lower()
+                # Check if user account was deleted
+                if 'not found' in error_str or 'does not exist' in error_str or 'user not found' in error_str:
+                    current_app.logger.warning(f"User account deleted or not found: {user_id}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Your account has been deleted. Please contact your organization administrator.',
+                        'error_type': 'account_deleted'
+                    }), 404
+                current_app.logger.debug(f"Could not fetch user data from auth: {str(e)}")
+            
+            return jsonify({
+                'status': 'success',
+                'profile': {
+                    'id': user_id,
+                    'email': email or '',
+                    'first_name': None,
+                    'last_name': None,
+                    'display_name': '',
+                    'created_at': None,
+                    'updated_at': None,
+                    'signup_type': signup_type
+                }
+            }), 200
 
-        profile = profile_result.data
+        # Verify user still exists in auth (check for deleted accounts - reuse existing pattern)
+        try:
+            user_auth_check = supabase.auth.admin.get_user_by_id(user_id)
+            if not user_auth_check or not hasattr(user_auth_check, 'user') or not user_auth_check.user:
+                current_app.logger.warning(f"User account deleted: {user_id}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Your account has been deleted. Please contact your organization administrator.',
+                    'error_type': 'account_deleted'
+                }), 404
+        except Exception as auth_check_error:
+            error_str = str(auth_check_error).lower()
+            if 'not found' in error_str or 'does not exist' in error_str or 'user not found' in error_str:
+                current_app.logger.warning(f"User account deleted or not found: {user_id}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Your account has been deleted. Please contact your organization administrator.',
+                    'error_type': 'account_deleted'
+                }), 404
         
         # Get user metadata from auth.users to check signup_type
+        # Avoid admin API if possible to prevent "User not allowed" errors
         signup_type = None
         try:
-            # Try to get user from auth.users via admin API
-            user_auth = supabase.auth.admin.get_user_by_id(user_id)
-            if user_auth and hasattr(user_auth, 'user'):
-                user_obj = user_auth.user
-                if hasattr(user_obj, 'user_metadata'):
-                    signup_type = user_obj.user_metadata.get('signup_type')
-                elif isinstance(user_obj, dict):
-                    signup_type = user_obj.get('user_metadata', {}).get('signup_type')
+            # Try to get signup_type from profiles table metadata first (faster, no admin API)
+            if profile:
+                # Check if profiles table has metadata field with signup_type
+                profile_metadata = profile.get('metadata') or {}
+                if isinstance(profile_metadata, dict):
+                    signup_type = profile_metadata.get('signup_type')
+            
+            # Only use admin API as last resort if signup_type not found
+            if not signup_type:
+                try:
+                    user_auth = supabase.auth.admin.get_user_by_id(user_id)
+                    if user_auth and hasattr(user_auth, 'user'):
+                        user_obj = user_auth.user
+                        if hasattr(user_obj, 'user_metadata'):
+                            signup_type = user_obj.user_metadata.get('signup_type')
+                        elif isinstance(user_obj, dict):
+                            signup_type = user_obj.get('user_metadata', {}).get('signup_type')
+                except Exception as e:
+                    error_str = str(e).lower()
+                    # Only log if it's not the expected "User not allowed" error
+                    if 'not allowed' not in error_str:
+                        current_app.logger.debug(f"Could not fetch signup_type from user metadata: {str(e)}")
+                    # Don't fail - signup_type is optional
         except Exception as e:
-            current_app.logger.debug(f"Could not fetch signup_type from user metadata: {str(e)}")
+            current_app.logger.debug(f"Could not fetch signup_type: {str(e)}")
         
         return jsonify({
             'status': 'success',

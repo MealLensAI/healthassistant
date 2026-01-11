@@ -114,9 +114,7 @@ export function HistoryPage() {
       setError(null)
 
       try {
-        console.log('🔄 Fetching detection history from backend...')
         const result = await api.getDetectionHistory()
-        console.log('📦 Detection history API response:', result)
 
         if (result.status === 'success') {
           let historyData: any[] = []
@@ -131,8 +129,6 @@ export function HistoryPage() {
           } else {
             historyData = []
           }
-
-          console.log('✅ Detection history loaded from backend:', historyData.length, 'records')
           setHistory(historyData)
           setCachedHistory(historyData, userId)
           setError(null)
@@ -199,9 +195,7 @@ export function HistoryPage() {
       }
 
       try {
-        console.log('🔄 Fetching health settings history from backend...')
         const result = await api.getUserSettingsHistory('health_profile', 50)
-        console.log('📦 Health settings history API response:', result)
         
         if (!isMounted) return
         
@@ -211,7 +205,6 @@ export function HistoryPage() {
                               (result as any).data?.history || 
                               (result as any).data || 
                               []
-          console.log('✅ Health settings history loaded from backend:', historyData.length, 'records')
           setSettingsHistory(Array.isArray(historyData) ? historyData : [])
           
           // Cache the updated history

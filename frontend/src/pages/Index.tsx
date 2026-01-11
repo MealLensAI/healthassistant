@@ -175,7 +175,6 @@ const Index = () => {
     }
 
     if (prevSicknessStatus.current !== sicknessSettings.hasSickness) {
-      console.log('[Index] Sickness settings changed, refreshing meal plans');
       refreshMealPlans();
       prevSicknessStatus.current = sicknessSettings.hasSickness;
     }
@@ -325,13 +324,11 @@ const Index = () => {
 
       // Handle Medical AI Auto-Generate
       if (inputType === 'auto_medical' && isHealthProfileComplete()) {
-        console.log('[Index] Using Medical AI Nutrition Plan endpoint');
         // Map goal to backend format before sending
         const mappedPayload = {
           ...healthProfilePayload,
           goal: mapGoalToBackendFormat(healthProfilePayload!.goal)
         };
-        console.log('[Index] Health Profile Payload:', mappedPayload);
 
         const response = await fetch(`${APP_CONFIG.api.ai_api_url}/ai_nutrition_plan`, {
           method: 'POST',
@@ -346,7 +343,6 @@ const Index = () => {
         }
 
         const data = await response.json();
-        console.log('[Index] Medical AI Response:', data);
 
         if (data.success && data.meal_plan) {
           // Transform the response to match our MealPlan interface
@@ -443,8 +439,6 @@ const Index = () => {
           formData.append('budget_state', 'true');
           formData.append('budget', budget);
 
-          console.log('[Index] Using Sick Smart Plan (Auto) with budget_state=true');
-
           const response = await fetch(`${APP_CONFIG.api.ai_api_url}/sick_smart_plan`, {
             method: 'POST',
             body: formData,
@@ -455,7 +449,6 @@ const Index = () => {
           }
 
           const data = await response.json();
-          console.log('[Index] Auto Sick Smart Plan Response:', data);
 
           if (data.success && data.meal_plan) {
             // Transform the response to match our MealPlan interface
@@ -534,8 +527,6 @@ const Index = () => {
           }
 
           const data = await response.json();
-          console.log('[Index] Auto Healthy API Response:', data);
-          console.log('[Index] Meal Plan Data:', data.meal_plan);
 
           // Save the new meal plan and await the result
           const savedPlan = await saveMealPlan(
@@ -597,8 +588,6 @@ const Index = () => {
         formData.append('budget_state', 'false');
         formData.append('budget', '0');
 
-        console.log('[Index] Using Sick Smart Plan endpoint with health profile');
-
         const response = await fetch(`${APP_CONFIG.api.ai_api_url}/sick_smart_plan`, {
           method: 'POST',
           body: formData,
@@ -609,7 +598,6 @@ const Index = () => {
         }
 
         const data = await response.json();
-        console.log('[Index] Sick Smart Plan Response:', data);
 
         if (data.success && data.meal_plan) {
           // Transform the response to match our MealPlan interface (same as medical AI)
@@ -682,8 +670,6 @@ const Index = () => {
         }
 
         const data = await response.json();
-        console.log('[Index] Smart Plan Response:', data);
-        console.log('[Index] Meal Plan Data:', data.meal_plan);
 
         // Save the new meal plan and await the result
         const savedPlan = await saveMealPlan(
@@ -787,7 +773,6 @@ const Index = () => {
       }
     }
 
-    console.log('[Index] Recipe clicked:', { cleanName, mealType, ingredients });
     setSelectedRecipe(cleanName);
     setSelectedIngredients(ingredients);
     setShowTutorialModal(true);
@@ -812,19 +797,6 @@ const Index = () => {
     const dayPlan = rotatedPlan[0];
     if (!dayPlan) return [];
 
-    // Debug: Log the current plan and day plan data
-    console.log('[DEBUG] getRecipesForSelectedDay - Current Plan:', {
-      id: currentPlan?.id,
-      name: currentPlan?.name,
-      hasSickness: currentPlan?.hasSickness,
-      sicknessType: currentPlan?.sicknessType
-    });
-    console.log('[DEBUG] getRecipesForSelectedDay - Day Plan Data:', {
-      breakfast: dayPlan.breakfast,
-      breakfast_calories: dayPlan.breakfast_calories,
-      breakfast_protein: dayPlan.breakfast_protein,
-      hasNutritionalData: !!(dayPlan.breakfast_calories || dayPlan.breakfast_protein)
-    });
     // Helper function to extract clean food name from meal description
     const extractFoodName = (mealDescription: string): string => {
       // Remove the "(buy: ...)" part and any extra text

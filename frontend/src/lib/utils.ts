@@ -187,7 +187,6 @@ export function useProvideAuth(): AuthContextType {
 
     lifecycleRef.current.isRefreshing = true
     setLoading(true)
-    console.log('🔄 refreshAuth called', { skipVerification })
 
     try {
       const storedToken = safeGetItem(TOKEN_KEY)
@@ -211,7 +210,6 @@ export function useProvideAuth(): AuthContextType {
 
           setToken(() => storedToken)
           setUser(() => parsedUser as User)
-          console.log('✅ Auth state restored from storage')
 
           // Only verify token if not skipping verification and we have valid stored data
           // Use storedToken and parsedUser instead of stale closure values (token, user)
@@ -220,19 +218,50 @@ export function useProvideAuth(): AuthContextType {
               const { api } = await import('./api')
               const profileResult = await api.getUserProfile()
 
-              if (profileResult.status === 'success') {
-                console.log('✅ Token verified, auth state confirmed')
-              } else {
+              if (profileResult.status !== 'success') {
                 console.warn('⚠️ Token verification returned non-success, but keeping session')
               }
             } catch (verifyError: any) {
+              // Check if user account was deleted (reuse existing error handling pattern)
+              const errorMessage = (verifyError?.message || '').toLowerCase()
+              const errorType = verifyError?.data?.error_type || verifyError?.error_type || ''
+              const isDeleted = errorType === 'account_deleted' ||
+                               errorMessage.includes('deleted') || 
+                               errorMessage.includes('account has been deleted') ||
+                               (verifyError?.status === 404 && (errorMessage.includes('user') || errorMessage.includes('account')))
+              
+              if (isDeleted) {
+                // User account was deleted - show deletion message and clear session (reuse existing signOut pattern)
+                console.warn('⚠️ User account has been deleted')
+                clearSession()
+                // Show deletion message modal (reuse existing fade transition pattern)
+                showFadeTransition()
+                try {
+                  const deletionMessage = document.createElement('div')
+                  deletionMessage.id = 'account-deletion-message'
+                  deletionMessage.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 1rem;'
+                  deletionMessage.innerHTML = `
+                    <div style="background: white; padding: 2rem; border-radius: 8px; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+                      <h2 style="margin: 0 0 1rem 0; color: #dc2626; font-size: 1.5rem; font-weight: 600;">Account Deleted</h2>
+                      <p style="margin: 0 0 1.5rem 0; color: #4b5563; line-height: 1.6;">Your account has been deleted by your organization administrator. Please contact your provider for assistance.</p>
+                      <button onclick="window.location.href='/landing'" style="background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 500; width: 100%;">Return to Home</button>
+                    </div>
+                  `
+                  document.body.appendChild(deletionMessage)
+                  return
+                } catch {
+                  // If DOM manipulation fails, just redirect (reuse existing pattern)
+                  setTimeout(() => window.location.replace('/landing'), 200)
+                  return
+                }
+              }
+              
               // Only clear session if it's a real 401 auth failure, not network errors
               const is401 = verifyError?.status === 401 || verifyError?.response?.status === 401
-              const errorMessage = verifyError?.message || ''
               const isAuthFailure = is401 && (
-                errorMessage.toLowerCase().includes('expired') ||
-                errorMessage.toLowerCase().includes('invalid token') ||
-                errorMessage.toLowerCase().includes('authentication failed')
+                errorMessage.includes('expired') ||
+                errorMessage.includes('invalid token') ||
+                errorMessage.includes('authentication failed')
               )
               
               if (isAuthFailure) {
@@ -240,12 +269,10 @@ export function useProvideAuth(): AuthContextType {
                 const refreshToken = safeGetItem('supabase_refresh_token')
                 if (refreshToken && refreshToken.length > 10) {
                   try {
-                    console.log('🔄 Attempting token refresh in refreshAuth...')
                     const { api } = await import('./api')
                     const refreshResult: any = await api.refreshToken()
                     
                     if (refreshResult.status === 'success' && refreshResult.access_token) {
-                      console.log('✅ Token refreshed successfully in refreshAuth')
                       safeSetItem('access_token', refreshResult.access_token)
                       if (refreshResult.refresh_token) {
                         safeSetItem('supabase_refresh_token', refreshResult.refresh_token)
@@ -268,11 +295,7 @@ export function useProvideAuth(): AuthContextType {
                 console.warn('⚠️ Token verification failed (non-auth error), keeping session:', verifyError?.message)
               }
             }
-          } else if (skipVerification) {
-            console.log('⏭️ Skipping token verification (fresh login)')
           }
-
-          console.log('✅ refreshAuth completed successfully')
 
           try {
             await import('./trialService')
@@ -289,7 +312,6 @@ export function useProvideAuth(): AuthContextType {
         }
       }
 
-      console.log('ℹ️ No stored auth data found')
       clearSession()
     } catch (error) {
       console.error('❌ Error in refreshAuth:', error)
@@ -347,6 +369,20 @@ export function useProvideAuth(): AuthContextType {
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (!context) {
+    // During hot-reload, context might be temporarily unavailable
+    // Return a safe default instead of throwing to prevent crashes
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      console.warn('useAuth called outside AuthProvider (likely hot-reload issue)')
+      return {
+        user: null,
+        token: null,
+        loading: true,
+        isAuthenticated: false,
+        refreshAuth: async () => {},
+        signOut: async () => {},
+        clearSession: () => {}
+      } as AuthContextType
+    }
     throw new Error("useAuth must be used within an AuthProvider")
   }
   return context

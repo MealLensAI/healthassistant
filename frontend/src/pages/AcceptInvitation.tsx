@@ -22,6 +22,11 @@ interface InvitationDetails {
     } | null;
     enterprise_name?: string;
     organization_type?: string;
+    inviter?: {
+        id: string;
+        email: string;
+        name: string;
+    } | null;
 }
 
 export default function AcceptInvitation() {
@@ -41,10 +46,17 @@ export default function AcceptInvitation() {
     useEffect(() => {
         // Check if user is logged in
         const authToken = localStorage.getItem('access_token') || localStorage.getItem('token');
-        setIsLoggedIn(!!authToken);
+        const userIsLoggedIn = !!authToken;
+        setIsLoggedIn(userIsLoggedIn);
 
         if (token) {
-            verifyInvitation();
+            verifyInvitation().then(() => {
+                // After verifying invitation, if user is not logged in, show registration form immediately
+                if (!userIsLoggedIn && invitation) {
+                    setRequiresRegistration(true);
+                    setPendingInvitation(invitation);
+                }
+            });
         } else {
             setError('Invalid invitation link');
             setIsLoading(false);
@@ -91,26 +103,30 @@ export default function AcceptInvitation() {
             }
 
             if (data.requires_registration) {
-                // User needs to register first
+                // User needs to register first - show registration form
                 setRequiresRegistration(true);
-                setPendingInvitation(data.invitation);
+                setPendingInvitation(data.invitation || invitation);
                 toast({
-                    title: 'Account Required',
-                    description: 'Please create an account to accept this invitation.'
+                    title: 'Create Your Account',
+                    description: 'Please create a password to complete your registration and accept the invitation.'
                 });
             } else {
                 // User is already logged in and invitation accepted
                 toast({
                     title: 'Success!',
-                    description: 'Invitation accepted! Welcome to the organization. Redirecting to your account...'
+                    description: 'Invitation accepted! Welcome to the organization. Redirecting to your dashboard...'
                 });
 
                 // Clear the stored invitation token
                 localStorage.removeItem('invitation_token');
 
-                // Redirect to dashboard (user's account dashboard)
+                // Redirect to enterprise dashboard if user is part of an organization, otherwise normal dashboard
+                // Check if user has enterprise access
+                const userData = localStorage.getItem('user_data');
+                const hasEnterprise = userData ? (JSON.parse(userData)?.metadata?.signup_type === 'organization' || JSON.parse(userData)?.user_metadata?.signup_type === 'organization') : false;
+                
                 setTimeout(() => {
-                    navigate('/ai-kitchen', { replace: true });
+                    navigate(hasEnterprise ? '/enterprise' : '/ai-kitchen', { replace: true });
                 }, 1500);
             }
         } catch (error: any) {
@@ -125,50 +141,20 @@ export default function AcceptInvitation() {
     };
 
     const handleRegisterAndAccept = async (userData: any) => {
-        // This will be called after successful registration
-        try {
-            if (!pendingInvitation || !pendingInvitation.id) {
-                throw new Error('Invalid invitation data');
-            }
+        // Invitation is automatically accepted by the backend on registration/login
+        // Just redirect to the enterprise dashboard
+        toast({
+            title: 'Success!',
+            description: 'Account created and invitation accepted! Welcome to the organization. Redirecting to your dashboard...'
+        });
 
-            const authToken = localStorage.getItem('access_token') || localStorage.getItem('token');
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/invitation/complete`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`
-                },
-                body: JSON.stringify({
-                    invitation_id: pendingInvitation.id,
-                    role: pendingInvitation.role || 'patient'
-                })
-            });
+        // Clear the stored invitation token
+        localStorage.removeItem('invitation_token');
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to complete invitation');
-            }
-
-            toast({
-                title: 'Success!',
-                description: 'Account created and invitation accepted! Welcome to the organization. Redirecting to your account...'
-            });
-
-            // Clear the stored invitation token
-            localStorage.removeItem('invitation_token');
-
-            // Redirect to dashboard (user's account dashboard)
-            setTimeout(() => {
-                navigate('/ai-kitchen', { replace: true });
-            }, 1500);
-        } catch (error: any) {
-            toast({
-                title: 'Error',
-                description: error.message || 'Failed to complete invitation',
-                variant: 'destructive'
-            });
-        }
+        // Redirect to enterprise dashboard since user accepted an organization invitation
+        setTimeout(() => {
+            navigate('/enterprise', { replace: true });
+        }, 1500);
     };
 
     const handleDecline = () => {
@@ -256,6 +242,21 @@ export default function AcceptInvitation() {
                                     </div>
                                 </div>
 
+                                {/* Inviter Info */}
+                                {invitation.inviter && (
+                                    <div className="flex items-center space-x-3">
+                                        <div className="p-3 bg-white">
+                                            <User className="h-6 w-6 text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-600">Invited By</p>
+                                            <p className="font-semibold">
+                                                {invitation.inviter.name || invitation.inviter.email || 'Administrator'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex items-center space-x-2">
                                     {(invitation.enterprise?.organization_type || invitation.organization_type) && (
                                         <Badge variant="outline" className="capitalize">
@@ -303,16 +304,19 @@ export default function AcceptInvitation() {
 
                             {/* Action Buttons */}
                             {!isLoggedIn && (
-                                <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
-                                    <p className="text-sm text-yellow-800">
-                                        <strong>Note:</strong> You need to log in or create an account to accept this invitation.
+                                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                                    <p className="text-sm text-blue-800">
+                                        <strong>Create Your Account:</strong> You'll be able to create your password after accepting this invitation.
                                     </p>
                                 </div>
                             )}
 
                             <div className="space-y-3">
                                 <Button
-                                    onClick={handleAccept}
+                                    onClick={isLoggedIn ? handleAccept : () => {
+                                        setPendingInvitation(invitation);
+                                        setRequiresRegistration(true);
+                                    }}
                                     className="w-full"
                                     disabled={isAccepting}
                                     size="lg"
@@ -320,12 +324,12 @@ export default function AcceptInvitation() {
                                     {isAccepting ? (
                                         <>
                                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                            Accepting...
+                                            Processing...
                                         </>
                                     ) : (
                                         <>
                                             <CheckCircle className="h-4 w-4 mr-2" />
-                                            {isLoggedIn ? 'Accept Invitation' : 'Log In to Accept'}
+                                            {isLoggedIn ? 'Accept Invitation' : 'Create Account & Accept'}
                                         </>
                                     )}
                                 </Button>
@@ -408,7 +412,36 @@ function RegistrationForm({ invitation, onRegister }: { invitation: any, onRegis
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || 'Registration failed');
+                // If user already exists (409), try to log them in instead
+                if (response.status === 409 && (data.error_type === 'user_already_exists' || data.error_type === 'duplicate_email')) {
+                    // User exists, try to log in with the password they provided
+                    const loginResponse = await fetch(`${APP_CONFIG.api.base_url}/api/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            email: invitation.email,
+                            password: formData.password
+                        })
+                    });
+
+                    const loginData = await loginResponse.json();
+
+                    if (!loginResponse.ok) {
+                        throw new Error(loginData.error || data.message || 'Account exists but login failed. Please use the correct password.');
+                    }
+
+                    // Store the auth token
+                    if (loginData.access_token) {
+                        localStorage.setItem('access_token', loginData.access_token);
+                    }
+
+                    // Complete the invitation
+                    onRegister(loginData);
+                    return;
+                }
+                throw new Error(data.message || data.error || 'Registration failed');
             }
 
             // Registration successful, now we need to log the user in

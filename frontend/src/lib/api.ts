@@ -79,9 +79,18 @@ export interface RequestOptions {
 // Centralized API service
 class APIService {
   private refreshTokenPromise: Promise<RefreshTokenResponse | null> | null = null
+  // Request deduplication: track in-flight requests to prevent duplicate calls
+  private pendingRequests = new Map<string, Promise<any>>()
 
   private getAuthToken(): string | null {
     return safeGetItem('access_token')
+  }
+
+  private getRequestKey(endpoint: string, options: RequestOptions): string {
+    // Create a unique key for the request (endpoint + method + body hash)
+    const method = options.method || 'GET'
+    const bodyKey = options.body ? JSON.stringify(options.body) : ''
+    return `${method}:${endpoint}:${bodyKey}`
   }
 
   private async makeRequest<T = any>(
@@ -96,6 +105,16 @@ class APIService {
       timeout = 10000,
       suppressAuthRedirect = false
     } = options
+
+    // For GET requests, check if the same request is already in flight
+    if (method === 'GET') {
+      const requestKey = this.getRequestKey(endpoint, options)
+      const pendingRequest = this.pendingRequests.get(requestKey)
+      if (pendingRequest) {
+        // Return the existing promise instead of making a new request
+        return pendingRequest as Promise<T>
+      }
+    }
 
     // Add auth header if token is present; otherwise rely on cookie-based auth
     if (!skipAuth) {
@@ -137,7 +156,9 @@ class APIService {
       config.body = typeof body === 'string' ? body : JSON.stringify(body)
     }
 
-    try {
+    // Create request promise and store it for GET requests (deduplication)
+    const requestKey = method === 'GET' ? this.getRequestKey(endpoint, options) : null
+    const requestPromise = (async () => {
       const fullUrl = `${API_BASE_URL}${endpoint}`
 
       const response = await fetch(fullUrl, config)
@@ -175,7 +196,6 @@ class APIService {
               // Check if a refresh is already in progress
               if (!this.refreshTokenPromise) {
                 // Start a new refresh
-                console.log('🔄 Token expired, refreshing...')
                 this.refreshTokenPromise = this.refreshToken().then((result) => {
                   this.refreshTokenPromise = null // Clear the promise after completion
                   return result
@@ -184,12 +204,10 @@ class APIService {
                   throw error
                 })
               }
-              // If refresh is in progress, wait for it (no need to log - reduces console noise)
               
               const refreshResult = await this.refreshTokenPromise as RefreshTokenResponse
               
               if (refreshResult.status === 'success' && refreshResult.access_token) {
-                console.log('✅ Token refreshed successfully')
                 // Update stored token
                 safeSetItem('access_token', refreshResult.access_token)
                 if (refreshResult.refresh_token) {
@@ -301,6 +319,20 @@ class APIService {
       }
 
       return data
+    })().finally(() => {
+      // Clean up pending request for GET requests
+      if (requestKey) {
+        this.pendingRequests.delete(requestKey)
+      }
+    })
+
+    // Store the promise for GET requests to enable deduplication
+    if (requestKey) {
+      this.pendingRequests.set(requestKey, requestPromise)
+    }
+
+    try {
+      return await requestPromise
     } catch (error) {
       // Clear pending timeout in error path as well
       // (AbortController may trigger an exception before response object exists)
@@ -588,6 +620,11 @@ class APIService {
 
   async getUserHealthHistory(enterpriseId: string, userId: string): Promise<APIResponse> {
     return this.get(`/enterprise/${enterpriseId}/user/${userId}/health-history`)
+  }
+
+  // Comprehensive User Activity (combines all activity types)
+  async getUserActivity(enterpriseId: string, userId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/user/${userId}/activity`)
   }
 }
 

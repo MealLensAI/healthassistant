@@ -310,9 +310,6 @@ const AIResponsePage: FC = () => {
       }
 
       const data = await response.json()
-      console.log("Detection response:", data)
-      console.log("Meal options from API:", data.meal_options)
-      console.log("Main ingredients from API:", data.main_ingredients)
 
       if (data.error) {
         Swal.fire({
@@ -515,17 +512,10 @@ const AIResponsePage: FC = () => {
         resources_link: resourcesJson
       }
       
-      console.log("[AIResponse] Saving ingredient detection to history with complete data:", {
-        ...historyData,
-        resources_link: "..." // Don't log full resources JSON
-      })
-      
       const saveResult = await api.saveDetectionHistory(historyData)
       
-      if (saveResult.status === 'success') {
-        console.log("[AIResponse] ✅ Ingredient detection saved to history successfully with resources")
-      } else {
-        console.warn("[AIResponse] ⚠️ Failed to save to history:", saveResult.message)
+      if (saveResult.status !== 'success') {
+        console.warn("[AIResponse] Failed to save to history:", saveResult.message)
       }
     } catch (historyError) {
       console.error("[AIResponse] Error fetching resources or saving to history:", historyError)

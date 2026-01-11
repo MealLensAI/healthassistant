@@ -200,19 +200,55 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
 
   const loadUserHealthProfile = async (userId: string) => {
     try {
-      // Use the health history endpoint to get the most recent health profile
-      // This contains all historical settings data ordered by created_at desc
-      const result: any = await api.getUserHealthHistory(enterpriseId, userId);
-      console.log('[AdminDietPlanner] User health history result:', result);
+      // First, try to get current user settings (most up-to-date)
+      let settingsData: any = null;
       
-      if (result.success && result.health_history && result.health_history.length > 0) {
-        // Get the most recent health history record (first in the array since it's ordered by created_at desc)
-        const mostRecentRecord = result.health_history[0];
+      try {
+        const currentSettingsResult: any = await api.getEnterpriseUserSettings(enterpriseId, userId);
+        console.log('[AdminDietPlanner] getEnterpriseUserSettings result:', {
+          success: currentSettingsResult?.success,
+          hasSettings: !!currentSettingsResult?.settings,
+          settingsKeys: currentSettingsResult?.settings ? Object.keys(currentSettingsResult.settings) : [],
+          settingsPreview: currentSettingsResult?.settings ? JSON.stringify(currentSettingsResult.settings).substring(0, 200) : 'none'
+        });
         
-        // The health data is stored in the settings_data field
-        const settingsData = mostRecentRecord.settings_data || mostRecentRecord;
-        console.log('[AdminDietPlanner] Most recent settings_data:', settingsData);
+        if (currentSettingsResult?.success && currentSettingsResult?.settings) {
+          // Check if settings is not empty (has at least one non-null/non-empty value)
+          const settingsObj = currentSettingsResult.settings;
+          const hasData = Object.keys(settingsObj).some(key => {
+            const value = settingsObj[key];
+            return value != null && value !== '' && value !== undefined && value !== 'null';
+          });
+          
+          if (hasData) {
+            settingsData = settingsObj;
+            console.log('[AdminDietPlanner] ✅ Using current settings with', Object.keys(settingsData).filter(k => {
+              const val = settingsData[k];
+              return val != null && val !== '' && val !== undefined && val !== 'null';
+            }).length, 'non-empty fields');
+          } else {
+            console.log('[AdminDietPlanner] ⚠️ Settings exist but are empty or all null');
+          }
+        }
+      } catch (settingsErr) {
+        console.error('[AdminDietPlanner] Error fetching current settings:', settingsErr);
+        // If current settings fail, fall back to history
+      }
+      
+      // If no current settings, try health history (fallback)
+      if (!settingsData) {
+        const historyResult: any = await api.getUserHealthHistory(enterpriseId, userId);
         
+        if (historyResult.success && historyResult.health_history && historyResult.health_history.length > 0) {
+          // Get the most recent health history record (first in the array since it's ordered by created_at desc)
+          const mostRecentRecord = historyResult.health_history[0];
+          // The health data is stored in the settings_data field
+          settingsData = mostRecentRecord.settings_data || mostRecentRecord;
+        }
+      }
+      
+      // Parse the health profile data
+      if (settingsData) {
         // Handle both camelCase and snake_case field names
         const hasSickness = settingsData.hasSickness || settingsData.has_sickness || false;
         const sicknessType = settingsData.sicknessType || settingsData.sickness_type || '';
@@ -231,20 +267,41 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
           location: settingsData.location
         };
         
-        console.log('[AdminDietPlanner] Parsed health profile from history:', healthProfile);
-        
         // Set the health profile if user has sickness OR has basic health data
-        if (hasSickness || settingsData.age || settingsData.weight || settingsData.height) {
+        // Check more fields to be more inclusive
+        const hasBasicData = !!(
+          settingsData.age || 
+          settingsData.weight || 
+          settingsData.height || 
+          settingsData.waist || 
+          settingsData.gender || 
+          settingsData.goal || 
+          settingsData.activityLevel || 
+          settingsData.activity_level ||
+          settingsData.location
+        );
+        
+        if (hasSickness || hasBasicData) {
           setUserHealthProfile(healthProfile);
+          console.log('[AdminDietPlanner] ✅ Health profile loaded:', {
+            hasSickness,
+            hasBasicData,
+            fields: Object.keys(settingsData).filter(k => {
+              const val = settingsData[k];
+              return val != null && val !== '' && val !== undefined && val !== 'null';
+            }),
+            profile: healthProfile
+          });
         } else {
           setUserHealthProfile(null);
+          console.log('[AdminDietPlanner] ⚠️ No health profile data found. Settings keys:', Object.keys(settingsData), 'Values:', settingsData);
         }
       } else {
-        console.log('[AdminDietPlanner] No health history found for user');
         setUserHealthProfile(null);
+        console.log('[AdminDietPlanner] ⚠️ No settings data available');
       }
     } catch (err) {
-      console.error('[AdminDietPlanner] Error loading health profile from history:', err);
+      console.error('[AdminDietPlanner] Error loading health profile:', err);
       setUserHealthProfile(null);
     }
   };
@@ -464,14 +521,14 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
           // Use sick_smart_plan for users with health conditions
           formData.append('image_or_ingredient_list', 'ingredient_list');
           formData.append('ingredient_list', '');
-          formData.append('age', (healthProfile.age || 30).toString());
-          formData.append('weight', (healthProfile.weight || 70).toString());
-          formData.append('height', (healthProfile.height || 170).toString());
-          formData.append('waist', (healthProfile.waist || 80).toString());
-          formData.append('gender', healthProfile.gender || 'male');
-          formData.append('activity_level', healthProfile.activity_level || 'moderate');
+          formData.append('age', (healthProfile?.age || 30).toString());
+          formData.append('weight', (healthProfile?.weight || 70).toString());
+          formData.append('height', (healthProfile?.height || 170).toString());
+          formData.append('waist', (healthProfile?.waist || 80).toString());
+          formData.append('gender', healthProfile?.gender || 'male');
+          formData.append('activity_level', healthProfile?.activity_level || 'moderate');
           formData.append('condition', sicknessType || 'general');
-          formData.append('goal', mapGoalToBackendFormat(healthProfile.goal));
+          formData.append('goal', mapGoalToBackendFormat(healthProfile?.goal));
           formData.append('budget_state', 'true');
 
           const response = await fetch(`${APP_CONFIG.api.ai_api_url}/sick_smart_plan`, {
@@ -535,20 +592,17 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         }
       } else if (inputType === 'auto_medical') {
         // Medical AI - uses ai_nutrition_plan endpoint
-        if (!hasSickness || !healthProfile) {
-          throw new Error('User does not have a health condition configured');
-        }
-
+        // Allow admins to create meal plans even without health profile (use defaults)
         const healthPayload = {
-          age: healthProfile.age || 30,
-          weight: healthProfile.weight || 70,
-          height: healthProfile.height || 170,
-          waist: healthProfile.waist || 80,
-          gender: healthProfile.gender || 'male',
-          activity_level: healthProfile.activity_level || 'moderate',
+          age: healthProfile?.age || 30,
+          weight: healthProfile?.weight || 70,
+          height: healthProfile?.height || 170,
+          waist: healthProfile?.waist || 80,
+          gender: healthProfile?.gender || 'male',
+          activity_level: healthProfile?.activity_level || 'moderate',
           condition: sicknessType || 'general',
-          goal: mapGoalToBackendFormat(healthProfile.goal),
-          location: healthProfile.location || 'USA'
+          goal: mapGoalToBackendFormat(healthProfile?.goal),
+          location: healthProfile?.location || 'USA'
         };
 
         const response = await fetch(`${APP_CONFIG.api.ai_api_url}/ai_nutrition_plan`, {
@@ -614,15 +668,15 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
 
         if (hasSickness && healthProfile) {
           // Use sick_smart_plan
-          formData.append('age', (healthProfile.age || 30).toString());
-          formData.append('weight', (healthProfile.weight || 70).toString());
-          formData.append('height', (healthProfile.height || 170).toString());
-          formData.append('waist', (healthProfile.waist || 80).toString());
-          formData.append('gender', healthProfile.gender || 'male');
-          formData.append('activity_level', healthProfile.activity_level || 'moderate');
+          formData.append('age', (healthProfile?.age || 30).toString());
+          formData.append('weight', (healthProfile?.weight || 70).toString());
+          formData.append('height', (healthProfile?.height || 170).toString());
+          formData.append('waist', (healthProfile?.waist || 80).toString());
+          formData.append('gender', healthProfile?.gender || 'male');
+          formData.append('activity_level', healthProfile?.activity_level || 'moderate');
           formData.append('condition', sicknessType || 'general');
-          formData.append('goal', mapGoalToBackendFormat(healthProfile.goal));
-          formData.append('location', healthProfile.location || 'USA');
+          formData.append('goal', mapGoalToBackendFormat(healthProfile?.goal));
+          formData.append('location', healthProfile?.location || 'USA');
         formData.append('budget_state', 'false');
         formData.append('budget', '0');
 

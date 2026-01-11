@@ -41,7 +41,6 @@ export const useTutorialContent = () => {
 
     try {
       const sicknessInfo = getSicknessInfo();
-      console.log('[useTutorialContent] Generating content for:', { recipeName, ingredients, sicknessInfo });
 
       // 1. Get cooking instructions first
       const requestBody = {
@@ -68,7 +67,6 @@ export const useTutorialContent = () => {
       }
 
       const instrData = await instrRes.json();
-      console.log('[useTutorialContent] Instructions API response:', instrData);
 
       // The API returns markdown, so convert to HTML (same as the HTML code)
       let htmlInstructions = instrData.instructions || '';
@@ -95,8 +93,6 @@ export const useTutorialContent = () => {
       }
 
       const resData = await resRes.json();
-      console.log('[useTutorialContent] Resources API response:', resData);
-      console.log('[useTutorialContent] Raw response string:', JSON.stringify(resData));
 
       // Check if response contains GNU make
       const responseString = JSON.stringify(resData);
@@ -122,7 +118,6 @@ export const useTutorialContent = () => {
         url: item.link,
         image: item.image || '',
       }));
-      console.log('[useTutorialContent] Processed Google results:', googleResults);
 
       // Check processed results for GNU make
       const processedString = JSON.stringify(googleResults);

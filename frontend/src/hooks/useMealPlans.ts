@@ -149,16 +149,14 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       if (filteredCached.length > 0) {
         setCurrentPlan(filteredCached[0]);
       }
-      console.log('✅ Loaded meal plans from cache:', filteredCached.length);
     }
   }, [userId]); // Run when userId changes
 
   // Fetch all meal plans from backend API on mount
   // BUT ONLY when authentication is ready AND cache is expired/missing!
   useEffect(() => {
-    // Don't fetch if not authenticated or auth still loading
-    if (!isAuthenticated || authLoading) {
-      console.log('⏸️ useMealPlans: Skipping fetch (not authenticated or auth loading)');
+      // Don't fetch if not authenticated or auth still loading
+      if (!isAuthenticated || authLoading) {
       // Don't clear cached data if auth is still loading
       if (!isAuthenticated) {
         setSavedPlans([]);
@@ -174,7 +172,6 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     // Show cached data immediately if available (for better UX), but always fetch from backend
     const cachedPlans = getCachedPlans(userId);
     if (cachedPlans && cachedPlans.length > 0) {
-      console.log('✅ useMealPlans: Showing cached data, fetching fresh data from backend...');
       // Filter cached plans if needed
       let filteredCached = cachedPlans;
       if (filterBySickness !== undefined) {
@@ -191,7 +188,6 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       setLoading(true);
       setError(null);
       try {
-        console.log('🔄 useMealPlans: Fetching meal plans from backend...');
         const token = safeGetItem('access_token');
         const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
           method: 'GET',
@@ -208,8 +204,6 @@ export const useMealPlans = (filterBySickness?: boolean) => {
 
         const result = await response.json();
 
-        console.log('[DEBUG] Received meal plans response:', result);
-
         if (result.status === 'success' && result.meal_plans) {
           const plans = result.meal_plans.map((plan: any) => ({
             id: plan.id,
@@ -224,40 +218,10 @@ export const useMealPlans = (filterBySickness?: boolean) => {
             hasSickness: plan.has_sickness || false,
             sicknessType: plan.sickness_type || ''
           }));
-          console.log('[DEBUG] Processed meal plans:', plans);
-          // Debug: Check if meal plans have sickness data
-          if (plans.length > 0) {
-            console.log('[DEBUG] First meal plan sickness data:', {
-              id: plans[0].id,
-              name: plans[0].name,
-              hasSickness: plans[0].hasSickness,
-              sicknessType: plans[0].sicknessType,
-              rawBackendData: result.meal_plans[0] // Show raw backend data
-            });
-          }
-          // Debug: Check if meal plans have nutritional data
-          if (plans.length > 0 && plans[0].mealPlan && plans[0].mealPlan.length > 0) {
-            const firstDay = plans[0].mealPlan[0];
-            console.log('[DEBUG] First day meal plan data:', {
-              hasBreakfastCalories: firstDay.breakfast_calories !== undefined,
-              hasBreakfastProtein: firstDay.breakfast_protein !== undefined,
-              hasHealthAssessment: plans[0].healthAssessment !== undefined,
-              sampleData: {
-                breakfast_calories: firstDay.breakfast_calories,
-                breakfast_protein: firstDay.breakfast_protein,
-                breakfast_name: firstDay.breakfast_name
-              }
-            });
-          }
           // Filter plans based on sickness profile
           let filteredPlans = plans;
           if (filterBySickness !== undefined) {
             filteredPlans = plans.filter((plan: SavedMealPlan) => plan.hasSickness === filterBySickness);
-            console.log(`[DEBUG] Filtered plans for sickness=${filterBySickness}:`, {
-              totalPlans: plans.length,
-              filteredPlans: filteredPlans.length,
-              filteredPlanIds: filteredPlans.map((p: SavedMealPlan) => ({ id: p.id, name: p.name, hasSickness: p.hasSickness }))
-            });
           }
 
           // Cache the plans
@@ -530,13 +494,6 @@ export const useMealPlans = (filterBySickness?: boolean) => {
   const selectMealPlan = (id: string) => {
     const plan = savedPlans.find(p => p.id === id);
     if (plan) {
-      console.log('[DEBUG] Selecting meal plan:', {
-        id: plan.id,
-        name: plan.name,
-        hasSickness: plan.hasSickness,
-        sicknessType: plan.sicknessType,
-        fullPlan: plan
-      });
       setCurrentPlan(plan);
     } else {
       console.error('[DEBUG] Plan not found for id:', id);
@@ -661,7 +618,6 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     setLoading(true);
     setError(null);
     try {
-      console.log('🔄 useMealPlans: Refreshing meal plans from backend', forceRefresh ? '(forced)' : '');
       const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
         method: 'GET',
@@ -696,10 +652,6 @@ export const useMealPlans = (filterBySickness?: boolean) => {
         let filteredPlans = plans;
         if (filterBySickness !== undefined) {
           filteredPlans = plans.filter((plan: SavedMealPlan) => plan.hasSickness === filterBySickness);
-          console.log(`[DEBUG] Refresh filtered plans for sickness=${filterBySickness}:`, {
-            totalPlans: plans.length,
-            filteredPlans: filteredPlans.length
-          });
         }
 
         // Update cache

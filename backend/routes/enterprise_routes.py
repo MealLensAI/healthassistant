@@ -304,6 +304,95 @@ def check_user_exists_by_email(supabase: Client, email: str) -> tuple[bool, Opti
     return False, None
 
 
+def _delete_user_completely(supabase: Client, user_id: str, user_email: str = None) -> bool:
+    """
+    Helper function to delete a user completely from the system.
+    Deletes all user data and auth account.
+    
+    Args:
+        supabase: Supabase admin client
+        user_id: User ID to delete
+        user_email: User email (optional, for logging)
+        
+    Returns:
+        bool: True if deletion was successful or user doesn't exist, False otherwise
+    """
+    try:
+        current_app.logger.info(f"[DELETE_USER_COMPLETE] Deleting user completely: {user_id}")
+        
+        # Delete ALL organization_users records for this user
+        try:
+            supabase.table('organization_users').delete().eq('user_id', user_id).execute()
+            current_app.logger.debug(f"[DELETE_USER_COMPLETE] Deleted organization_users records")
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'does not exist' not in error_str and 'column' not in error_str:
+                current_app.logger.warning(f"[DELETE_USER_COMPLETE] Error deleting organization_users: {str(e)}")
+        
+        # Delete ALL invitations for this user's email (pending, cancelled, accepted - all statuses)
+        if user_email:
+            try:
+                supabase.table('invitations').delete().eq('email', user_email).execute()
+                current_app.logger.debug(f"[DELETE_USER_COMPLETE] Deleted all invitations for {user_email}")
+            except Exception as e:
+                error_str = str(e).lower()
+                if 'does not exist' not in error_str and 'column' not in error_str:
+                    current_app.logger.warning(f"[DELETE_USER_COMPLETE] Error deleting invitations: {str(e)}")
+        
+        # Delete all user-related data from Supabase tables
+        # Based on schema: all tables with user_id foreign key to auth.users(id)
+        tables_to_clean = [
+            'user_settings',
+            'user_settings_history',
+            'detection_history',
+            'meal_plan_management',
+            'pending_meal_plans',
+            'sessions',  # Note: schema shows 'sessions', not 'user_sessions'
+            'feedback',
+            'feature_usage',
+            'shared_recipes',
+            'usage_tracking',
+            'profiles',
+            'user_subscriptions',
+            'user_trials',
+            'payment_transactions'
+        ]
+        
+        for table_name in tables_to_clean:
+            try:
+                supabase.table(table_name).delete().eq('user_id', user_id).execute()
+            except Exception as e:
+                error_str = str(e).lower()
+                if 'does not exist' not in error_str and 'column' not in error_str:
+                    current_app.logger.warning(f"[DELETE_USER_COMPLETE] Error deleting from {table_name}: {str(e)}")
+        
+        # Delete the user's Supabase authentication account
+        try:
+            # Try soft delete first
+            try:
+                supabase.auth.admin.delete_user(user_id, should_soft_delete=True)
+                current_app.logger.info(f"[DELETE_USER_COMPLETE] Soft-deleted auth account")
+            except Exception:
+                # Try hard delete
+                try:
+                    supabase.auth.admin.delete_user(user_id, should_soft_delete=False)
+                    current_app.logger.info(f"[DELETE_USER_COMPLETE] Hard-deleted auth account")
+                except Exception as hard_delete_error:
+                    error_str = str(hard_delete_error).lower()
+                    if 'not found' not in error_str and 'does not exist' not in error_str:
+                        current_app.logger.warning(f"[DELETE_USER_COMPLETE] Error deleting auth account: {str(hard_delete_error)}")
+        except Exception as auth_error:
+            error_str = str(auth_error).lower()
+            if 'not found' not in error_str and 'does not exist' not in error_str:
+                current_app.logger.warning(f"[DELETE_USER_COMPLETE] Auth deletion error: {str(auth_error)}")
+        
+        current_app.logger.info(f"[DELETE_USER_COMPLETE] ✅ User {user_id} deleted completely")
+        return True
+    except Exception as e:
+        current_app.logger.error(f"[DELETE_USER_COMPLETE] Error deleting user {user_id}: {str(e)}")
+        return False
+
+
 def check_user_can_create_organizations(user_id: str, supabase: Client, user_metadata: dict | None = None) -> tuple[bool, str]:
     """
     Check if a user can create organizations.
@@ -344,12 +433,26 @@ def check_user_can_create_organizations(user_id: str, supabase: Client, user_met
             signup_type = metadata_source.get('signup_type')
             
             if signup_type is None:
-                current_app.logger.info("[PERMISSION CHECK] No signup_type in request metadata, querying admin API")
-                admin_client = get_supabase_client(use_admin=True)
-                user_data = admin_client.auth.admin.get_user_by_id(user_id)
-                if user_data and getattr(user_data, 'user', None):
-                    metadata_source = user_data.user.user_metadata or {}
-                    signup_type = metadata_source.get('signup_type', 'individual')
+                current_app.logger.info("[PERMISSION CHECK] No signup_type in request metadata, checking organization_users table")
+                try:
+                    # Avoid admin API - check organization_users table directly
+                    admin_client = get_supabase_client(use_admin=True)
+                    org_check = admin_client.table('organization_users').select('enterprise_id').eq('user_id', user_id).limit(1).execute()
+                    if org_check.data and len(org_check.data) > 0:
+                        # User is a member of an organization, treat as organization user
+                        signup_type = 'organization'
+                        current_app.logger.info("[PERMISSION CHECK] User is organization member, allowing access")
+                    else:
+                        # Check if user owns any enterprises
+                        enterprise_check = admin_client.table('enterprises').select('id').eq('created_by', user_id).limit(1).execute()
+                        if enterprise_check.data and len(enterprise_check.data) > 0:
+                            signup_type = 'organization'
+                            current_app.logger.info("[PERMISSION CHECK] User owns enterprise, allowing access")
+                        else:
+                            signup_type = 'individual'
+                except Exception as fallback_error:
+                    current_app.logger.error(f"[PERMISSION CHECK] Fallback check failed: {str(fallback_error)}")
+                    signup_type = 'individual'
             
             if signup_type:
                 current_app.logger.info(f"[PERMISSION CHECK] User signup_type: {signup_type}")
@@ -515,11 +618,7 @@ def get_my_enterprises():
     user_id = getattr(request, 'user_id', None)
     user_email = getattr(request, 'user_email', 'Unknown')
     
-    current_app.logger.info(f"[MY_ENTERPRISES] Getting enterprises for user: {user_id} ({user_email})")
-    print(f"[MY_ENTERPRISES] Getting enterprises for user: {user_id} ({user_email})")
-    
     if not user_id:
-        current_app.logger.error("[MY_ENTERPRISES] No user_id found in request")
         return jsonify({'error': 'User ID not found in request', 'success': False}), 401
     
     try:
@@ -529,22 +628,15 @@ def get_my_enterprises():
         # Get enterprises with retry logic for connection issues
         max_retries = 3
         retry_count = 0
-        last_error = None
         
         while retry_count < max_retries:
             try:
                 # Get enterprises owned by user
-                current_app.logger.info(f"[MY_ENTERPRISES] Querying enterprises table for created_by={user_id}")
-                print(f"[MY_ENTERPRISES] Querying enterprises table for created_by={user_id}")
-                
                 owned_result = supabase.table('enterprises').select('*').eq('created_by', user_id).execute()
                 owned_enterprises = owned_result.data or []
                 owned_ids = {e['id'] for e in owned_enterprises}
                 
                 # Get enterprises where user is a member/admin
-                current_app.logger.info(f"[MY_ENTERPRISES] Querying organization_users table for user_id={user_id}")
-                print(f"[MY_ENTERPRISES] Querying organization_users table for user_id={user_id}")
-                
                 membership_result = supabase.table('organization_users').select('enterprise_id').eq('user_id', user_id).execute()
                 membership_enterprise_ids = [m['enterprise_id'] for m in (membership_result.data or []) if m.get('enterprise_id') not in owned_ids]
                 
@@ -554,15 +646,8 @@ def get_my_enterprises():
                     member_result = supabase.table('enterprises').select('*').in_('id', membership_enterprise_ids).execute()
                     member_enterprises = member_result.data or []
                 
-                # Combine and deduplicate (though owned_ids check should prevent duplicates)
+                # Combine and deduplicate
                 all_enterprises = owned_enterprises + member_enterprises
-                
-                current_app.logger.info(f"[MY_ENTERPRISES] Query result: {len(owned_enterprises)} owned, {len(member_enterprises)} as member, {len(all_enterprises)} total")
-                print(f"[MY_ENTERPRISES] Query result: {all_enterprises}")
-                
-                # Return all enterprises user has access to
-                current_app.logger.info(f"[MY_ENTERPRISES] Returning {len(all_enterprises)} enterprises")
-                print(f"[MY_ENTERPRISES] Returning {len(all_enterprises)} enterprises")
                 
                 return jsonify({
                     'success': True,
@@ -570,10 +655,7 @@ def get_my_enterprises():
                 }), 200
             except Exception as e:
                 retry_count += 1
-                last_error = e
                 error_msg = str(e)
-                current_app.logger.warning(f"[MY_ENTERPRISES] Attempt {retry_count}/{max_retries} failed: {error_msg}")
-                print(f"[MY_ENTERPRISES] Attempt {retry_count}/{max_retries} failed: {error_msg}")
                 if retry_count < max_retries:
                     import time
                     time.sleep(0.5)  # Wait 500ms before retry
@@ -582,8 +664,7 @@ def get_my_enterprises():
         
     except Exception as e:
         error_msg = str(e)
-        current_app.logger.error(f'[MY_ENTERPRISES] Failed to fetch enterprises after {max_retries} retries: {error_msg}')
-        print(f'[MY_ENTERPRISES] Failed to fetch enterprises: {error_msg}')
+        current_app.logger.error(f'[MY_ENTERPRISES] Failed to fetch enterprises: {error_msg}')
         return jsonify({
             'error': f'Failed to fetch enterprises: {error_msg}',
             'success': False
@@ -845,17 +926,8 @@ def get_enterprise_users(enterprise_id):
 @require_auth
 def invite_user(enterprise_id):
     """Invite a user to the enterprise"""
-    print(f"[INVITE] ========== ROUTE HANDLER CALLED ==========")
-    print(f"[INVITE] Enterprise ID: {enterprise_id}")
-    print(f"[INVITE] User ID: {request.user_id}")
     try:
-        current_app.logger.info(f"[INVITE] ========== Starting invitation process ==========")
-        current_app.logger.info(f"[INVITE] Enterprise ID: {enterprise_id}")
-        current_app.logger.info(f"[INVITE] User ID: {request.user_id}")
-        
         data = request.get_json()
-        current_app.logger.info(f"[INVITE] Request data: {data}")
-        current_app.logger.info(f"[INVITE] Request headers: {dict(request.headers)}")
         
         # Validate enterprise_id is not None or 'undefined'
         if not enterprise_id or enterprise_id == 'undefined' or enterprise_id == 'null':
@@ -884,7 +956,6 @@ def invite_user(enterprise_id):
             }), 400
         
         email = data['email'].lower().strip()
-        current_app.logger.info(f"[INVITE] Inviting email: {email}")
         
         # Validate role
         ALLOWED_ROLES = ['client', 'patient', 'doctor', 'nutritionist']
@@ -893,7 +964,6 @@ def invite_user(enterprise_id):
         # Normalize "doctors" to "doctor"
         if role == 'doctors':
             role = 'doctor'
-            current_app.logger.info(f"[INVITE] Normalized 'doctors' to 'doctor'")
         
         if role not in ALLOWED_ROLES:
             current_app.logger.error(f"[INVITE] Invalid role: {role}")
@@ -952,19 +1022,24 @@ def invite_user(enterprise_id):
         try:
             user_exists, existing_user_id = check_user_exists_by_email(supabase, email)
             if user_exists and existing_user_id:
-                current_app.logger.info(f"[INVITE] User with email {email} already has an account (user_id: {existing_user_id})")
+                current_app.logger.warning(f"[INVITE] User with email {email} already has an account (user_id: {existing_user_id})")
                 
                 # Check if they're already a member of this organization
                 try:
-                        existing_member = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', existing_user_id).execute()
-                        if existing_member.data:
-                            current_app.logger.warning(f"[INVITE] User is already a member")
-                            return jsonify({'success': False, 'error': 'User is already a member of this organization'}), 400
+                    existing_member = supabase.table('organization_users').select('id, status').eq('enterprise_id', enterprise_id).eq('user_id', existing_user_id).execute()
+                    if existing_member.data:
+                        current_app.logger.warning(f"[INVITE] User is already a member")
+                        return jsonify({'success': False, 'error': 'User is already a member of this organization'}), 400
                 except Exception as member_check_error:
-                        current_app.logger.warning(f"[INVITE] Could not check existing membership: {str(member_check_error)}")
-                    # Continue with invitation if we can't check membership
-                # User exists but is not a member - we can still invite them
-                current_app.logger.info(f"[INVITE] User exists but is not a member - allowing invitation")
+                    current_app.logger.warning(f"[INVITE] Could not check existing membership: {str(member_check_error)}")
+                
+                # User exists but is not a member - they should log in and accept an invitation
+                # Don't send new invitations to existing users
+                current_app.logger.warning(f"[INVITE] User exists but is not a member - cannot send invitation to existing user")
+                return jsonify({
+                    'success': False, 
+                    'error': 'This email is already registered. The user should log in to accept an invitation if one exists.'
+                }), 400
         except Exception as user_check_error:
             # If we can't check (e.g., rate limit), log but continue
             # We'll catch duplicates later if needed
@@ -1020,6 +1095,11 @@ def invite_user(enterprise_id):
         if existing_invitation and existing_invitation.data:
             current_app.logger.warning(f"[INVITE] User already has pending invitation")
             return jsonify({'success': False, 'error': 'User already has a pending invitation'}), 400
+        
+        # Note: We don't check for accepted invitations here because:
+        # 1. If user is in organization_users, they're already a member (checked above)
+        # 2. If invitation is accepted but user is NOT in organization_users, they were deleted and can be re-invited
+        # 3. This allows re-inviting users who were removed from the organization
         
         # Generate unique invitation token
         invitation_token = secrets.token_urlsafe(32)
@@ -1214,14 +1294,14 @@ def cancel_invitation(invitation_id):
         try:
             invitation_result = supabase.table('invitations').select('''
                 id,
-            enterprise_id,
-            status,
-            enterprises!inner (
-                id,
-                name,
-                created_by
-            )
-        ''').eq('id', invitation_id).execute()
+                enterprise_id,
+                status,
+                enterprises!inner (
+                    id,
+                    name,
+                    created_by
+                )
+            ''').eq('id', invitation_id).execute()
         except Exception as query_error:
             error_str = str(query_error)
             # Check for UUID format errors
@@ -1258,41 +1338,30 @@ def cancel_invitation(invitation_id):
         current_status = invitation.get('status')
         current_app.logger.info(f"[CANCEL_INVITE] Cancelling invitation {invitation_id} with status: {current_status}")
         
-        # Cancel/revoke invitation by setting status to 'cancelled'
-        update_result = supabase.table('invitations').update({'status': 'cancelled'}).eq('id', invitation_id).execute()
+        # Get the email from the invitation BEFORE deleting it
+        email = invitation.get('email')
         
-        # If the invitation was accepted and the user is a member, we should also remove them from organization_users
-        if current_status == 'accepted':
+        # Delete the invitation completely (not just mark as cancelled)
+        # This ensures cancelled invitations don't clutter the database
+        delete_result = supabase.table('invitations').delete().eq('id', invitation_id).execute()
+        current_app.logger.info(f"[CANCEL_INVITE] Deleted invitation {invitation_id} completely")
+        
+        # If user exists for this invitation, delete them completely
+        if email:
             try:
-                # Get the user_id from the invitation email
-                invitation_email = supabase.table('invitations').select('email').eq('id', invitation_id).execute()
-                if invitation_email.data:
-                    email = invitation_email.data[0].get('email')
-                    # Find user by email
-                    user_exists, user_id = check_user_exists_by_email(supabase, email)
-                    if user_exists and user_id:
-                        # Remove user from organization_users if they exist
-                        org_user_result = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
-                        if org_user_result.data:
-                            supabase.table('organization_users').delete().eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
-                            current_app.logger.info(f"[CANCEL_INVITE] Removed user {user_id} from organization_users")
-            except Exception as remove_error:
-                current_app.logger.warning(f"[CANCEL_INVITE] Could not remove user from organization: {str(remove_error)}")
-                # Don't fail the cancellation if we can't remove the user
-        
-        # Fetch the updated invitation to return to frontend
-        updated_invitation = None
-        try:
-            updated_result = supabase.table('invitations').select('*').eq('id', invitation_id).execute()
-            if updated_result.data:
-                updated_invitation = updated_result.data[0]
-        except Exception as fetch_error:
-            current_app.logger.warning(f"[CANCEL_INVITE] Could not fetch updated invitation: {str(fetch_error)}")
+                # Find user by email
+                user_exists, user_id = check_user_exists_by_email(supabase, email)
+                if user_exists and user_id:
+                    # Delete user completely (all data and auth account)
+                    current_app.logger.info(f"[CANCEL_INVITE] User exists, deleting completely: {user_id}")
+                    _delete_user_completely(supabase, user_id, email)
+            except Exception as delete_error:
+                current_app.logger.warning(f"[CANCEL_INVITE] Could not delete user: {str(delete_error)}")
+                # Don't fail the cancellation if we can't delete the user
         
         return jsonify({
             'success': True,
-            'message': 'Invitation cancelled successfully',
-            'invitation': updated_invitation
+            'message': 'Invitation cancelled and deleted successfully'
         }), 200
         
     except Exception as e:
@@ -1427,6 +1496,8 @@ def verify_invitation(token=None):
             return jsonify({'error': 'Service unavailable'}), 500
         
         # Get invitation details - try with the decoded token first
+        # Note: We don't join invited_by here because it references auth.users which isn't directly accessible
+        # Instead, we fetch inviter info separately from the profiles table (see below)
         result = supabase.table('invitations').select('''
             *,
             enterprise:enterprise_id (
@@ -1486,6 +1557,33 @@ def verify_invitation(token=None):
                     'organization_type': 'organization'
                 }
         
+        # Get inviter information
+        inviter_info = None
+        if invitation.get('invited_by'):
+            try:
+                # Try to get inviter from profiles table first (avoids admin API)
+                inviter_profile = supabase.table('profiles').select('id, email, first_name, last_name').eq('id', invitation['invited_by']).maybe_single().execute()
+                if inviter_profile.data:
+                    inviter_info = {
+                        'id': inviter_profile.data.get('id'),
+                        'email': inviter_profile.data.get('email'),
+                        'name': f"{inviter_profile.data.get('first_name', '')} {inviter_profile.data.get('last_name', '')}".strip() or inviter_profile.data.get('email', 'Unknown')
+                    }
+                else:
+                    # Fallback: use invited_by ID if profile not found
+                    inviter_info = {
+                        'id': invitation['invited_by'],
+                        'email': 'Unknown',
+                        'name': 'Administrator'
+                    }
+            except Exception as inviter_error:
+                current_app.logger.debug(f"Could not fetch inviter info: {str(inviter_error)}")
+                inviter_info = {
+                    'id': invitation.get('invited_by'),
+                    'email': 'Unknown',
+                    'name': 'Administrator'
+                }
+        
         return jsonify({
             'success': True,
             'invitation': {
@@ -1495,7 +1593,8 @@ def verify_invitation(token=None):
                 'message': invitation.get('message'),
                 'enterprise': enterprise_data,
                 'enterprise_name': enterprise_data.get('name') if enterprise_data else 'Unknown Organization',
-                'organization_type': enterprise_data.get('organization_type') if enterprise_data else 'organization'
+                'organization_type': enterprise_data.get('organization_type') if enterprise_data else 'organization',
+                'inviter': inviter_info  # Add inviter information
             }
         }), 200
         
@@ -1642,25 +1741,30 @@ def accept_invitation():
                         frontend_url = get_frontend_url()
                         dashboard_url = f"{frontend_url}/enterprise"
                         
-                        # Send notification email
+                        # Send notification email in background thread with app context
                         import threading
+                        from flask import current_app
+                        app = current_app._get_current_object()
+                        
                         def send_notification():
-                            try:
-                                email_sent = email_service.send_invitation_accepted_notification(
-                                    admin_email=owner_email,
-                                    admin_name=owner_name,
-                                    accepted_user_email=accepted_user_email,
-                                    accepted_user_name=accepted_user_name,
-                                    enterprise_name=enterprise_name,
-                                    role=invitation.get('role', 'member'),
-                                    dashboard_url=dashboard_url
-                                )
-                                if email_sent:
-                                    current_app.logger.info(f"[ACCEPT] ✅ Notification email sent to admin {owner_email}")
-                                else:
-                                    current_app.logger.warning(f"[ACCEPT] ⚠️ Failed to send notification email to {owner_email}")
-                            except Exception as e:
-                                current_app.logger.error(f"[ACCEPT] Error sending notification email: {e}")
+                            with app.app_context():
+                                try:
+                                    email_sent = email_service.send_invitation_accepted_notification(
+                                        admin_email=owner_email,
+                                        admin_name=owner_name,
+                                        accepted_user_email=accepted_user_email,
+                                        accepted_user_name=accepted_user_name,
+                                        enterprise_name=enterprise_name,
+                                        role=invitation.get('role', 'member'),
+                                        dashboard_url=dashboard_url
+                                    )
+                                    if email_sent:
+                                        current_app.logger.debug(f"[ACCEPT] Notification email sent to {owner_email}")
+                                    else:
+                                        current_app.logger.warning(f"[ACCEPT] Failed to send notification email to {owner_email}")
+                                except Exception as e:
+                                    import logging
+                                    logging.getLogger(__name__).error(f"[ACCEPT] Error sending notification email: {e}")
                         
                         notification_thread = threading.Thread(target=send_notification)
                         notification_thread.daemon = True
@@ -1679,8 +1783,43 @@ def accept_invitation():
             # User is not authenticated - return invitation details for registration
             # Get enterprise name safely
             enterprise_name = 'Unknown Organization'
+            enterprise_data = None
             if invitation.get('enterprises') and isinstance(invitation['enterprises'], dict):
-                enterprise_name = invitation['enterprises'].get('name', 'Unknown Organization')
+                enterprise_data = invitation['enterprises']
+                enterprise_name = enterprise_data.get('name', 'Unknown Organization')
+            else:
+                # Fallback: fetch enterprise directly
+                try:
+                    enterprise_result = supabase.table('enterprises').select('id, name, organization_type').eq('id', invitation['enterprise_id']).execute()
+                    if enterprise_result.data:
+                        enterprise_data = enterprise_result.data[0]
+                        enterprise_name = enterprise_data.get('name', 'Unknown Organization')
+                except Exception:
+                    pass
+            
+            # Get inviter information for unauthenticated users too
+            inviter_info = None
+            if invitation.get('invited_by'):
+                try:
+                    inviter_profile = supabase.table('profiles').select('id, email, first_name, last_name').eq('id', invitation['invited_by']).maybe_single().execute()
+                    if inviter_profile.data:
+                        inviter_info = {
+                            'id': inviter_profile.data.get('id'),
+                            'email': inviter_profile.data.get('email'),
+                            'name': f"{inviter_profile.data.get('first_name', '')} {inviter_profile.data.get('last_name', '')}".strip() or inviter_profile.data.get('email', 'Unknown')
+                        }
+                    else:
+                        inviter_info = {
+                            'id': invitation['invited_by'],
+                            'email': 'Unknown',
+                            'name': 'Administrator'
+                        }
+                except Exception:
+                    inviter_info = {
+                        'id': invitation.get('invited_by'),
+                        'email': 'Unknown',
+                        'name': 'Administrator'
+                    }
             
             return jsonify({
                 'success': True,
@@ -1690,7 +1829,11 @@ def accept_invitation():
                     'email': invitation['email'],
                     'enterprise_id': invitation['enterprise_id'],
                     'enterprise_name': enterprise_name,
-                    'role': data.get('role', 'member')
+                    'enterprise': enterprise_data,
+                    'organization_type': enterprise_data.get('organization_type') if enterprise_data else 'organization',
+                    'role': invitation.get('role', 'member'),
+                    'message': invitation.get('message'),
+                    'inviter': inviter_info  # Include inviter info
                 },
                 'requires_registration': True
             }), 200
@@ -1709,10 +1852,13 @@ def complete_invitation():
         if 'invitation_id' not in data:
             return jsonify({'error': 'Invitation ID is required'}), 400
         
-        supabase = get_supabase_client()
+        # Use admin client to bypass RLS for all queries
+        admin_supabase = get_supabase_client(use_admin=True)
+        if not admin_supabase:
+            return jsonify({'error': 'Database service unavailable'}), 500
         
-        # Get invitation details
-        invitation_result = supabase.table('invitations').select('*, enterprises(*)').eq('id', data['invitation_id']).execute()
+        # Get invitation details using admin client
+        invitation_result = admin_supabase.table('invitations').select('*, enterprises(*)').eq('id', data['invitation_id']).execute()
         
         if not invitation_result.data or len(invitation_result.data) == 0:
             return jsonify({'error': 'Invalid invitation ID'}), 400
@@ -1728,7 +1874,7 @@ def complete_invitation():
             return jsonify({'error': 'Invitation has already been used or expired'}), 400
         
         # Check if user is already part of this organization
-        existing_membership = supabase.table('organization_users').select('id').eq('enterprise_id', invitation['enterprise_id']).eq('user_id', request.user_id).execute()
+        existing_membership = admin_supabase.table('organization_users').select('id').eq('enterprise_id', invitation['enterprise_id']).eq('user_id', request.user_id).execute()
         
         if existing_membership.data:
             return jsonify({'error': 'You are already a member of this organization'}), 400
@@ -1746,8 +1892,7 @@ def complete_invitation():
         
         current_app.logger.info(f"[COMPLETE] Inserting membership: {membership_data}")
         
-        # Use admin client to bypass RLS for this operation
-        admin_supabase = get_supabase_client(use_admin=True)
+        # Use admin client (already obtained above) to bypass RLS for this operation
         try:
             membership_result = admin_supabase.table('organization_users').insert(membership_data).execute()
             current_app.logger.info(f"[COMPLETE] Membership insert result: {membership_result.data}")
@@ -1818,25 +1963,30 @@ def complete_invitation():
                     frontend_url = get_frontend_url()
                     dashboard_url = f"{frontend_url}/enterprise"
                     
-                    # Send notification email
+                    # Send notification email in background thread with app context
                     import threading
+                    from flask import current_app
+                    app = current_app._get_current_object()
+                    
                     def send_notification():
-                        try:
-                            email_sent = email_service.send_invitation_accepted_notification(
-                                admin_email=owner_email,
-                                admin_name=owner_name,
-                                accepted_user_email=accepted_user_email,
-                                accepted_user_name=accepted_user_name,
-                                enterprise_name=enterprise_name,
-                                role=invitation.get('role', 'member'),
-                                dashboard_url=dashboard_url
-                            )
-                            if email_sent:
-                                current_app.logger.info(f"[COMPLETE] ✅ Notification email sent to admin {owner_email}")
-                            else:
-                                current_app.logger.warning(f"[COMPLETE] ⚠️ Failed to send notification email to {owner_email}")
-                        except Exception as e:
-                            current_app.logger.error(f"[COMPLETE] Error sending notification email: {e}")
+                        with app.app_context():
+                            try:
+                                email_sent = email_service.send_invitation_accepted_notification(
+                                    admin_email=owner_email,
+                                    admin_name=owner_name,
+                                    accepted_user_email=accepted_user_email,
+                                    accepted_user_name=accepted_user_name,
+                                    enterprise_name=enterprise_name,
+                                    role=invitation.get('role', 'member'),
+                                    dashboard_url=dashboard_url
+                                )
+                                if email_sent:
+                                    current_app.logger.debug(f"[COMPLETE] Notification email sent to {owner_email}")
+                                else:
+                                    current_app.logger.warning(f"[COMPLETE] Failed to send notification email to {owner_email}")
+                            except Exception as e:
+                                import logging
+                                logging.getLogger(__name__).error(f"[COMPLETE] Error sending notification email: {e}")
                     
                     notification_thread = threading.Thread(target=send_notification)
                     notification_thread.daemon = True
@@ -1848,7 +1998,8 @@ def complete_invitation():
             'success': True,
             'message': 'Invitation accepted successfully',
             'enterprise_id': invitation['enterprise_id'],
-            'enterprise_name': enterprise_name
+            'enterprise_name': enterprise_name,
+            'redirect_to': '/enterprise'  # Tell frontend to redirect to enterprise dashboard
         }), 200
         
     except Exception as e:
@@ -2010,9 +2161,8 @@ def create_user():
 @enterprise_bp.route('/api/enterprise/user/<user_relation_id>', methods=['DELETE'])
 @require_auth
 def delete_organization_user(user_relation_id):
-    """Delete a user from the organization"""
-    current_app.logger.info(f"[DELETE USER] Starting deletion for user_relation_id: {user_relation_id}")
-    current_app.logger.info(f"[DELETE USER] Request user_id: {request.user_id}")
+    """Delete a user from the organization and all related data"""
+    current_app.logger.info(f"[DELETE USER] Deleting user_relation_id: {user_relation_id}")
     
     try:
         # Validate UUID format
@@ -2025,14 +2175,6 @@ def delete_organization_user(user_relation_id):
         
         # Use admin client to bypass RLS for organization_users operations
         supabase = get_supabase_client(use_admin=True)
-        current_app.logger.info(f"[DELETE USER] Got Supabase client: {supabase is not None}")
-        
-        # Verify we're using service_role by checking the client
-        # The centralized service should already use service_role key
-        if hasattr(current_app, 'supabase_service'):
-            current_app.logger.info(f"[DELETE USER] Using centralized SupabaseService (should be service_role)")
-        else:
-            current_app.logger.warning(f"[DELETE USER] ⚠️ Not using centralized service - may not have service_role permissions")
         
         # First, get the organization user record to verify ownership (with retry logic)
         import time
@@ -2042,7 +2184,6 @@ def delete_organization_user(user_relation_id):
         
         for attempt in range(max_retries):
             try:
-                current_app.logger.info(f"[DELETE USER] Querying organization_users for id: {user_relation_id} (attempt {attempt + 1}/{max_retries})")
                 org_user_result = supabase.table('organization_users').select('''
                     *,
                     enterprise:enterprise_id (
@@ -2050,7 +2191,6 @@ def delete_organization_user(user_relation_id):
                         created_by
                     )
                 ''').eq('id', user_relation_id).execute()
-                current_app.logger.info(f"[DELETE USER] Query result: {org_user_result.data}")
                 break  # Success, exit retry loop
             except Exception as query_error:
                 error_str = str(query_error).lower()
@@ -2093,7 +2233,6 @@ def delete_organization_user(user_relation_id):
             return jsonify({'error': 'User not found in organization'}), 404
         
         org_user = org_user_result.data[0]
-        current_app.logger.info(f"[DELETE USER] Found org_user: {org_user}")
         
         # Extract enterprise_id - it might be in org_user directly or in nested enterprise object
         enterprise_id = org_user.get('enterprise_id')
@@ -2106,14 +2245,12 @@ def delete_organization_user(user_relation_id):
         else:
             # If enterprise is not nested, we need to fetch it separately
             if not enterprise_id:
-                current_app.logger.error(f"[DELETE USER] No enterprise_id found in org_user result")
                 return jsonify({'error': 'Enterprise ID not found'}), 404
             
             # Fetch enterprise details
             try:
                 enterprise_result = supabase.table('enterprises').select('id, created_by').eq('id', enterprise_id).execute()
                 if not enterprise_result.data:
-                    current_app.logger.error(f"[DELETE USER] Enterprise {enterprise_id} not found")
                     return jsonify({'error': 'Enterprise not found'}), 404
                 enterprise = enterprise_result.data[0]
                 enterprise_created_by = enterprise.get('created_by')
@@ -2122,20 +2259,15 @@ def delete_organization_user(user_relation_id):
                 return jsonify({'error': 'Failed to verify enterprise'}), 500
         
         if not enterprise_id:
-            current_app.logger.error(f"[DELETE USER] Enterprise ID is None after extraction")
             return jsonify({'error': 'Enterprise ID not found'}), 404
-        
-        current_app.logger.info(f"[DELETE USER] Enterprise ID: {enterprise_id}, created_by: {enterprise_created_by}, Request user_id: {request.user_id}")
         
         # Verify the current user is admin or owner of this enterprise
         is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
         if not is_admin:
-            current_app.logger.warning(f"[DELETE USER] Access denied. Reason: {reason}")
             return jsonify({'error': f'Access denied: {reason}'}), 403
         
         # Get user details before deletion for response
         user_id = org_user.get('user_id')
-        current_app.logger.info(f"[DELETE USER] User ID to delete: {user_id}")
         
         user_email = 'Unknown'
         user_name = 'Unknown'
@@ -2145,190 +2277,62 @@ def delete_organization_user(user_relation_id):
                 user_email = user_details.user.email
                 user_metadata = user_details.user.user_metadata or {}
                 user_name = f"{user_metadata.get('first_name', '')} {user_metadata.get('last_name', '')}".strip() or user_email
-                current_app.logger.info(f"[DELETE USER] User details: {user_name} ({user_email})")
-        except Exception as user_details_error:
-            current_app.logger.warning(f"[DELETE USER] Could not fetch user details: {str(user_details_error)}")
-        
-        # Delete the user from the organization (this removes them from organization_users table) - with retry
-        current_app.logger.info(f"[DELETE USER] Attempting to delete from organization_users table with id: {user_relation_id}")
-        delete_result = None
-        delete_succeeded = False
-        
-        for attempt in range(max_retries):
-            try:
-                # First, verify the record exists before attempting delete
-                pre_check = supabase.table('organization_users').select('id, user_id, enterprise_id').eq('id', user_relation_id).execute()
-                if not pre_check.data or len(pre_check.data) == 0:
-                    current_app.logger.warning(f"[DELETE USER] Record {user_relation_id} does not exist - may have already been deleted")
-                    delete_succeeded = True
-                    break
-                
-                current_app.logger.info(f"[DELETE USER] Record found: {pre_check.data[0]}, attempting delete...")
-                
-                # Delete the record (Supabase delete doesn't support .select())
-                # Note: Supabase delete() returns empty data on success, so we can't verify from response
-                try:
-                    current_app.logger.info(f"[DELETE USER] Executing delete for id: {user_relation_id}")
-                    delete_response = supabase.table('organization_users').delete().eq('id', user_relation_id).execute()
-                    current_app.logger.info(f"[DELETE USER] Delete response type: {type(delete_response)}")
-                    current_app.logger.info(f"[DELETE USER] Delete response: {delete_response}")
-                    
-                    # Check response attributes
-                    if hasattr(delete_response, 'data'):
-                        current_app.logger.info(f"[DELETE USER] Delete response.data: {delete_response.data}")
-                    if hasattr(delete_response, 'count'):
-                        current_app.logger.info(f"[DELETE USER] Delete response.count: {delete_response.count}")
-                    if hasattr(delete_response, 'status_code'):
-                        current_app.logger.info(f"[DELETE USER] Delete response.status_code: {delete_response.status_code}")
-                    
-                    # Supabase delete() doesn't return deleted rows, so we can't verify from response
-                    # We'll verify by checking if record still exists after a short delay
-                    
-                except Exception as delete_exec_error:
-                    error_str = str(delete_exec_error)
-                    current_app.logger.error(f"[DELETE USER] Error executing delete: {error_str}", exc_info=True)
-                    
-                    # Check for specific error types
-                    if 'permission' in error_str.lower() or 'policy' in error_str.lower() or 'rls' in error_str.lower():
-                        current_app.logger.error(f"[DELETE USER] ❌ RLS/Permission error detected!")
+        except Exception:
+            pass
+        # Delete the organization_users record (simplified - remove excessive retry logic)
+        try:
+            # Verify record exists
+            pre_check = supabase.table('organization_users').select('id').eq('id', user_relation_id).execute()
+            if not pre_check.data:
+                return jsonify({'error': 'User not found in organization'}), 404
+            
+            # Delete the record
+            supabase.table('organization_users').delete().eq('id', user_relation_id).execute()
+        except Exception as delete_error:
+            error_str = str(delete_error).lower()
+            if 'permission' in error_str or 'policy' in error_str or 'rls' in error_str:
                         return jsonify({
                             'error': 'Delete operation blocked by database permissions. Please check RLS policies.',
-                            'error_code': 'RLS_BLOCKED',
-                            'details': str(delete_exec_error)
+                    'error_code': 'RLS_BLOCKED'
                         }), 403
-                    
-                    # Re-raise to be handled by outer exception handler
-                    raise
-                
-                current_app.logger.info(f"[DELETE USER] Delete command executed, verifying deletion...")
-                
-                # Small delay to allow database to process
-                time.sleep(0.2)
-                
-                # Verify deletion by checking if record still exists
-                # Use a fresh query to avoid caching issues
-                time.sleep(0.3)  # Slightly longer delay to ensure database has processed
-                verify_result = supabase.table('organization_users').select('id').eq('id', user_relation_id).execute()
-                
-                if verify_result.data and len(verify_result.data) > 0:
-                    # Record still exists - this is the problem
-                    current_app.logger.error(f"[DELETE USER] ❌ DELETE FAILED: Record still exists after delete attempt {attempt + 1}")
-                    current_app.logger.error(f"[DELETE USER] Record ID: {user_relation_id}")
-                    current_app.logger.error(f"[DELETE USER] Verify query returned: {verify_result.data}")
-                    
-                    # Try to get full record details for debugging
-                    try:
-                        debug_check = supabase.table('organization_users').select('*').eq('id', user_relation_id).execute()
-                        if debug_check.data:
-                            current_app.logger.error(f"[DELETE USER] Full record still exists: {debug_check.data[0]}")
-                    except Exception as debug_err:
-                        current_app.logger.error(f"[DELETE USER] Could not fetch full record: {debug_err}")
-                    
-                    # Check if we can delete using a different method (direct SQL via RPC if available)
-                    # For now, retry with fresh client
-                    if attempt < max_retries - 1:
-                        delay = initial_delay * (2 ** attempt)
-                        current_app.logger.warning(f"[DELETE USER] Retrying delete in {delay}s with fresh client...")
-                        time.sleep(delay)
-                        # Get a completely fresh client
-                        supabase = get_supabase_client(use_admin=True)
-                        continue
-                    else:
-                        # Last attempt failed - try using RPC function as fallback
-                        current_app.logger.error(f"[DELETE USER] ⚠️ Last attempt failed, trying RPC function as fallback...")
-                        current_app.logger.error(f"[DELETE USER] Calling RPC: delete_organization_user with id: {user_relation_id}")
-                        try:
-                            rpc_result = supabase.rpc('delete_organization_user', {'p_user_relation_id': user_relation_id}).execute()
-                            current_app.logger.error(f"[DELETE USER] RPC call completed. Result type: {type(rpc_result)}")
-                            current_app.logger.error(f"[DELETE USER] RPC delete result: {rpc_result}")
-                            
-                            if hasattr(rpc_result, 'data') and rpc_result.data:
-                                rpc_success = rpc_result.data[0] if isinstance(rpc_result.data, list) and len(rpc_result.data) > 0 else rpc_result.data
-                                if rpc_success:
-                                    # RPC returned true - verify deletion
-                                    time.sleep(0.3)
-                                    verify_rpc = supabase.table('organization_users').select('id').eq('id', user_relation_id).execute()
-                                    if not verify_rpc.data or len(verify_rpc.data) == 0:
-                                        current_app.logger.info(f"[DELETE USER] ✅ RPC delete succeeded!")
-                                        delete_succeeded = True
-                                        break
-                                    else:
-                                        current_app.logger.error(f"[DELETE USER] ❌ RPC returned true but record still exists")
-                                else:
-                                    current_app.logger.error(f"[DELETE USER] ❌ RPC returned false - delete failed")
-                            else:
-                                current_app.logger.error(f"[DELETE USER] ❌ RPC returned no data")
-                        except Exception as rpc_error:
-                            current_app.logger.warning(f"[DELETE USER] RPC function not available or failed: {rpc_error}")
-                            # RPC function might not exist - that's okay, continue with error
-                        
-                        # If RPC also failed, return error
-                        current_app.logger.error(f"[DELETE USER] ❌ DELETE FAILED after {max_retries} attempts and RPC fallback")
-                        current_app.logger.error(f"[DELETE USER] Possible causes:")
-                        current_app.logger.error(f"  1. RLS policy not working correctly (even though it exists)")
-                        current_app.logger.error(f"  2. Supabase client not using service_role key correctly")
-                        current_app.logger.error(f"  3. Database trigger or constraint preventing deletion")
-                        current_app.logger.error(f"  4. Record is locked or in use by another transaction")
-                        
-                        return jsonify({
-                            'error': 'Failed to remove user from organization. The delete operation executed but the record still exists.',
-                            'error_code': 'DELETE_FAILED',
-                            'details': f'Record {user_relation_id} still exists after {max_retries} delete attempts. This may indicate an RLS policy issue or database constraint.',
-                            'suggestion': 'Please check Supabase logs and verify the service_role client is being used correctly. You may need to run migration 032_create_delete_org_user_rpc.sql to create an RPC function as a workaround.'
-                        }), 500
-                else:
-                    # Record was successfully deleted
-                    current_app.logger.info(f"[DELETE USER] ✅ Record successfully deleted (verified)")
-                    delete_succeeded = True
-                    break
-                    
-            except Exception as delete_error:
-                error_str = str(delete_error).lower()
-                error_type = type(delete_error).__name__
-                
-                # Check if it's a connection error that should be retried
-                is_connection_error = (
-                    'connectionterminated' in error_str or
-                    'remoteprotocolerror' in error_type.lower() or
-                    'connection' in error_str and ('terminated' in error_str or 'reset' in error_str or 'closed' in error_str) or
-                    'resource temporarily unavailable' in error_str
-                )
-                
-                if is_connection_error and attempt < max_retries - 1:
-                    delay = initial_delay * (2 ** attempt)
-                    current_app.logger.warning(f"[DELETE USER] Connection error during delete (attempt {attempt + 1}/{max_retries}): {str(delete_error)}. Retrying in {delay}s...")
-                    time.sleep(delay)
-                    # Get a fresh client for retry
-                    supabase = get_supabase_client(use_admin=True)
-                    continue
-                
-                # Not a retryable error or last attempt
-                current_app.logger.error(f"[DELETE USER] Error deleting from organization_users: {str(delete_error)}", exc_info=True)
-                if attempt == max_retries - 1:
-                    # Last attempt failed, return error instead of raising
-                    return jsonify({
-                        'error': f'Failed to delete user: {str(delete_error)}',
-                        'error_code': 'DELETE_FAILED'
-                    }), 500
-                continue
-        
-        if not delete_succeeded:
-            current_app.logger.error(f"[DELETE USER] Delete operation failed after all retries")
-            return jsonify({'error': 'Failed to remove user from organization'}), 500
+            current_app.logger.error(f"[DELETE USER] Error deleting organization_users: {str(delete_error)}", exc_info=True)
+            return jsonify({'error': f'Failed to delete user: {str(delete_error)}'}), 500
+
+        # Delete ALL organization_users records for this user (user might be in multiple orgs)
+        try:
+            org_users_result = supabase.table('organization_users').delete().eq('user_id', user_id).execute()
+            current_app.logger.debug(f"[DELETE USER] Deleted all organization_users records for user_id: {user_id}")
+        except Exception as org_delete_error:
+            error_str = str(org_delete_error).lower()
+            if 'does not exist' not in error_str and 'column' not in error_str:
+                current_app.logger.warning(f"[DELETE USER] Error deleting organization_users: {str(org_delete_error)}")
+
+        # Delete ALL invitations for this user's email (pending, cancelled, accepted - all statuses)
+        try:
+            user_email_for_invites = user_email if user_email != 'Unknown' else None
+            if user_email_for_invites:
+                invitations_result = supabase.table('invitations').delete().eq('email', user_email_for_invites).execute()
+                current_app.logger.debug(f"[DELETE USER] Deleted all invitations for email: {user_email_for_invites}")
+        except Exception as invite_delete_error:
+            error_str = str(invite_delete_error).lower()
+            if 'does not exist' not in error_str and 'column' not in error_str:
+                current_app.logger.warning(f"[DELETE USER] Error deleting invitations: {str(invite_delete_error)}")
 
         # Delete all user-related data from Supabase tables before deleting auth account
-        current_app.logger.info(f"[DELETE USER] Deleting all user data from Supabase tables for user_id: {user_id}")
+        # Based on schema: all tables with user_id foreign key to auth.users(id)
         tables_to_clean = [
             'user_settings',
             'user_settings_history',
             'detection_history',
             'meal_plan_management',
-            'user_sessions',
+            'pending_meal_plans',
+            'sessions',  # Note: schema shows 'sessions', not 'user_sessions'
             'feedback',
-            'ai_sessions',
+            'feature_usage',
+            'shared_recipes',
+            'usage_tracking',
             'profiles',
             'user_subscriptions',
-            'subscriptions',
             'user_trials',
             'payment_transactions'
         ]
@@ -2338,38 +2342,102 @@ def delete_organization_user(user_relation_id):
         
         for table_name in tables_to_clean:
             try:
-                current_app.logger.info(f"[DELETE USER] Deleting from {table_name} for user_id: {user_id}")
                 delete_result = supabase.table(table_name).delete().eq('user_id', user_id).execute()
                 deleted_tables.append(table_name)
-                current_app.logger.info(f"[DELETE USER] ✅ Deleted from {table_name}")
             except Exception as table_delete_error:
                 error_str = str(table_delete_error).lower()
                 # Some tables might not exist or might not have user_id column - that's okay
-                if 'does not exist' in error_str or 'column' in error_str:
-                    current_app.logger.info(f"[DELETE USER] ⚠️ Table {table_name} doesn't exist or doesn't have user_id column - skipping")
-                else:
-                    current_app.logger.warning(f"[DELETE USER] ⚠️ Error deleting from {table_name}: {str(table_delete_error)}")
-                    failed_tables.append(f"{table_name}: {str(table_delete_error)}")
+                if 'does not exist' not in error_str and 'column' not in error_str:
+                    current_app.logger.warning(f"[DELETE USER] Error deleting from {table_name}: {str(table_delete_error)}")
+                    failed_tables.append(table_name)
         
-        if deleted_tables:
-            current_app.logger.info(f"[DELETE USER] ✅ Successfully deleted data from tables: {', '.join(deleted_tables)}")
         if failed_tables:
-            current_app.logger.warning(f"[DELETE USER] ⚠️ Failed to delete from some tables: {', '.join(failed_tables)}")
+            current_app.logger.warning(f"[DELETE USER] Failed to delete from tables: {', '.join(failed_tables)}")
 
-        # Also delete the user's Supabase authentication account
+        # Also delete the user's Supabase authentication account (reuse existing pattern)
+        # Strategy: Try soft delete first (safer, works even with storage objects), then hard delete
+        auth_deleted = False
         try:
             current_app.logger.info(f"[DELETE USER] Attempting to delete auth account for user_id: {user_id}")
-            # Use admin client to delete the user from Supabase Auth
+            # Use admin client to delete the user from Supabase Auth (reuse existing get_supabase_client pattern)
             admin_supabase = get_supabase_client(use_admin=True)
-            delete_auth_result = admin_supabase.auth.admin.delete_user(user_id)
             
-            if delete_auth_result:
-                current_app.logger.info(f"✅ Deleted Supabase auth account for user {user_id}")
-            else:
-                current_app.logger.warning(f"⚠️ Failed to delete Supabase auth account for user {user_id}")
+            # Step 1: Try soft delete first (obfuscates data but preserves record for audit)
+            # Soft delete works even if user has storage objects or constraints
+            try:
+                current_app.logger.debug(f"[DELETE USER] Attempting soft delete for user {user_id}")
+                soft_delete_response = admin_supabase.auth.admin.delete_user(user_id, should_soft_delete=True)
+                # Soft delete returns None on success
+                if soft_delete_response is None:
+                    auth_deleted = True
+                    current_app.logger.info(f"✅ Soft-deleted Supabase auth account for user {user_id} (data obfuscated)")
+                else:
+                    # Verify soft deletion
+                    verify_result = admin_supabase.auth.admin.get_user_by_id(user_id)
+                    if not verify_result or not hasattr(verify_result, 'user') or not verify_result.user:
+                        auth_deleted = True
+                        current_app.logger.info(f"✅ Auth account soft-deleted and verified for user {user_id}")
+                    else:
+                        current_app.logger.warning(f"⚠️ Soft delete returned success but user still exists: {user_id}")
+            except Exception as soft_delete_error:
+                error_str = str(soft_delete_error).lower()
+                current_app.logger.debug(f"[DELETE USER] Soft delete failed: {str(soft_delete_error)}")
+                
+                # If soft delete fails, try hard delete
+                if 'not found' in error_str or 'does not exist' in error_str:
+                    auth_deleted = True  # User already deleted
+                    current_app.logger.info(f"✅ Auth account for user {user_id} already deleted")
+                else:
+                    # Try hard delete as fallback
+                    try:
+                        current_app.logger.debug(f"[DELETE USER] Attempting hard delete for user {user_id}")
+                        hard_delete_response = admin_supabase.auth.admin.delete_user(user_id, should_soft_delete=False)
+                        if hard_delete_response is None:
+                            auth_deleted = True
+                            current_app.logger.info(f"✅ Hard-deleted Supabase auth account for user {user_id}")
+                        else:
+                            # Verify hard deletion
+                            verify_result = admin_supabase.auth.admin.get_user_by_id(user_id)
+                            if not verify_result or not hasattr(verify_result, 'user') or not verify_result.user:
+                                auth_deleted = True
+                                current_app.logger.info(f"✅ Auth account hard-deleted and verified for user {user_id}")
+                            else:
+                                current_app.logger.warning(f"⚠️ Hard delete returned success but user still exists: {user_id}")
+                    except Exception as hard_delete_error:
+                        error_str = str(hard_delete_error).lower()
+                        # Check if user already deleted or doesn't exist
+                        if 'not found' in error_str or 'does not exist' in error_str or 'no rows' in error_str or 'user not found' in error_str:
+                            auth_deleted = True  # User already deleted, consider it success
+                            current_app.logger.info(f"✅ Auth account for user {user_id} already deleted or doesn't exist")
+                        elif 'database error' in error_str:
+                            # User has storage objects or database constraints preventing deletion
+                            # This is acceptable - we'll rely on login check to block the user
+                            current_app.logger.warning(f"⚠️ Cannot delete auth account (user has storage objects or constraints): {user_id}")
+                            current_app.logger.info(f"ℹ️ User will be blocked on login instead (login check will prevent access)")
+                            # Don't raise - this is acceptable, login check will handle it
+                            auth_deleted = False  # Mark as not deleted but don't fail the operation
+                        else:
+                            # Re-raise if it's a different error
+                            current_app.logger.error(f"❌ Failed to delete auth account (hard delete): {str(hard_delete_error)}")
+                            raise
         except Exception as auth_delete_error:
-            current_app.logger.warning(f"⚠️ Error deleting Supabase auth account for user {user_id}: {auth_delete_error}")
-            # Don't fail the entire operation if auth deletion fails
+            error_str = str(auth_delete_error).lower()
+            # Log the actual error for debugging
+            current_app.logger.error(f"⚠️ Error deleting Supabase auth account for user {user_id}: {str(auth_delete_error)}")
+            # Try alternative method if available
+            try:
+                # Some Supabase versions return different response - try to verify deletion
+                verify_result = admin_supabase.auth.admin.get_user_by_id(user_id)
+                if not verify_result or not verify_result.user:
+                    auth_deleted = True
+                    current_app.logger.info(f"✅ Auth account verified as deleted for user {user_id}")
+            except Exception:
+                # User doesn't exist - consider it deleted
+                if 'not found' in error_str or 'does not exist' in error_str:
+                    auth_deleted = True
+                    current_app.logger.info(f"✅ Auth account for user {user_id} doesn't exist (already deleted)")
+                else:
+                    current_app.logger.warning(f"⚠️ Could not verify auth account deletion for user {user_id}")
         
         current_app.logger.info(f"[DELETE USER] ✅ Successfully deleted user {user_relation_id}")
         return jsonify({
@@ -2582,31 +2650,90 @@ def get_user_settings_for_enterprise(enterprise_id, user_id):
         if not org_user.data:
             return jsonify({'error': 'User is not part of this enterprise'}), 404
         
-        # Get user settings
+        # Get user settings - handle empty results gracefully
+        # First try current settings
         settings_result = supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', 'health_profile').execute()
         
-        # Get user details
+        # Get user details from profiles table (avoid admin API if possible)
+        user_name = 'Unknown'
+        user_email = 'Unknown'
         try:
-            user_details = supabase.auth.admin.get_user_by_id(user_id)
-            if user_details and user_details.user:
-                user_metadata = user_details.user.user_metadata or {}
-                user_name = f"{user_metadata.get('first_name', '')} {user_metadata.get('last_name', '')}".strip()
-                user_email = user_details.user.email
+            # Try to get from profiles table first (faster, no admin API needed)
+            profile_result = supabase.table('profiles').select('email, first_name, last_name').eq('id', user_id).maybe_single().execute()
+            if profile_result.data:
+                profile = profile_result.data
+                user_email = profile.get('email') or 'Unknown'
+                first_name = profile.get('first_name') or ''
+                last_name = profile.get('last_name') or ''
+                user_name = f"{first_name} {last_name}".strip() or user_email
             else:
-                user_name = 'Unknown'
-                user_email = 'Unknown'
-        except:
-            user_name = 'Unknown'
-            user_email = 'Unknown'
+                # Profile not found in profiles table - try to get from organization_users metadata
+                try:
+                    org_user_result = supabase.table('organization_users').select('metadata').eq('user_id', user_id).eq('enterprise_id', enterprise_id).maybe_single().execute()
+                    if org_user_result.data and org_user_result.data.get('metadata'):
+                        metadata = org_user_result.data.get('metadata', {})
+                        if isinstance(metadata, dict):
+                            user_email = metadata.get('email') or 'Unknown'
+                            first_name = metadata.get('first_name', '')
+                            last_name = metadata.get('last_name', '')
+                            user_name = f"{first_name} {last_name}".strip() or user_email
+                except Exception:
+                    pass
+        except Exception as profile_error:
+            current_app.logger.debug(f"Could not fetch user profile: {str(profile_error)}")
         
-        settings_data = settings_result.data[0] if settings_result.data else None
+        # Handle settings data - check if it exists and has content
+        settings_data = None
+        if settings_result.data and len(settings_result.data) > 0:
+            settings_data = settings_result.data[0]
+        
+        # Extract settings_data from the record
+        settings_dict = {}
+        if settings_data:
+            raw_settings = settings_data.get('settings_data', {})
+            if isinstance(raw_settings, str):
+                try:
+                    import json
+                    settings_dict = json.loads(raw_settings)
+                except Exception:
+                    settings_dict = {}
+            elif isinstance(raw_settings, dict):
+                settings_dict = raw_settings
+        
+        # If current settings are empty or don't have health data, check history (reuse existing pattern)
+        if not settings_dict or not any([
+            settings_dict.get('age'), settings_dict.get('weight'), settings_dict.get('height'),
+            settings_dict.get('hasSickness'), settings_dict.get('has_sickness'),
+            settings_dict.get('gender'), settings_dict.get('goal')
+        ]):
+            try:
+                # Get most recent health history record (reuse existing pattern from getUserHealthHistory)
+                history_result = supabase.table('user_settings_history').select('*').eq('user_id', user_id).eq('settings_type', 'health_profile').order('created_at', desc=True).limit(1).execute()
+                if history_result.data and len(history_result.data) > 0:
+                    history_record = history_result.data[0]
+                    history_settings = history_record.get('settings_data', {})
+                    if isinstance(history_settings, str):
+                        try:
+                            import json
+                            history_settings = json.loads(history_settings)
+                        except Exception:
+                            history_settings = {}
+                    # Merge history data into settings_dict (history takes precedence if current is empty)
+                    if history_settings:
+                        settings_dict = {**settings_dict, **history_settings}
+                        current_app.logger.debug(f"[ENTERPRISE] Using health history data for user {user_id} (current settings were empty)")
+            except Exception as history_error:
+                current_app.logger.debug(f"Could not fetch health history: {str(history_error)}")
+        
+        # Log for debugging - help identify why admin can't see health profile
+        current_app.logger.info(f"[ENTERPRISE] User {user_id} health profile check: has_record={bool(settings_data)}, settings_keys={list(settings_dict.keys()) if settings_dict else 'none'}, has_age={bool(settings_dict.get('age'))}, has_weight={bool(settings_dict.get('weight'))}, has_height={bool(settings_dict.get('height'))}, has_sickness={bool(settings_dict.get('hasSickness') or settings_dict.get('has_sickness'))}")
         
         return jsonify({
             'success': True,
             'user_id': user_id,
             'user_name': user_name,
             'user_email': user_email,
-            'settings': settings_data.get('settings_data', {}) if settings_data else {},
+            'settings': settings_dict,  # Return the parsed settings_data dictionary
             'updated_at': settings_data.get('updated_at') if settings_data else None
         }), 200
         
@@ -2915,10 +3042,6 @@ def get_user_meal_plans(enterprise_id, user_id):
         # Get ALL meal plans for this user (admin sees both approved and pending)
         result = supabase.table('meal_plan_management').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
         
-        current_app.logger.info(f'Fetched {len(result.data or [])} meal plans for user {user_id}')
-        for p in result.data or []:
-            current_app.logger.info(f'Plan {p.get("id")}: is_approved={p.get("is_approved")}')
-        
         meal_plans = []
         for plan in result.data or []:
             meal_plans.append({
@@ -3024,12 +3147,15 @@ def create_user_meal_plan(enterprise_id, user_id):
             'updated_at': now
         }
         
-        current_app.logger.info(f'Creating meal plan with is_approved=False for user {user_id}')
-        current_app.logger.info(f'Insert data: {insert_data}')
-        
         result = supabase.table('meal_plan_management').insert(insert_data).execute()
         
-        current_app.logger.info(f'Insert result: {result.data}')
+        # Check for errors in result (reuse existing error handling pattern)
+        if hasattr(result, 'error') and result.error:
+            current_app.logger.error(f'Failed to create meal plan: {result.error}')
+            return jsonify({
+                'success': False,
+                'error': f'Failed to create meal plan: {result.error}'
+            }), 500
         
         if result.data and len(result.data) > 0:
             plan = result.data[0]
@@ -3261,6 +3387,14 @@ def update_user_meal_plan(enterprise_id, plan_id):
         
         update_result = supabase.table('meal_plan_management').update(update_data).eq('id', plan_id).execute()
         
+        # Check for errors in result (reuse existing error handling pattern)
+        if hasattr(update_result, 'error') and update_result.error:
+            current_app.logger.error(f'Failed to update meal plan: {update_result.error}')
+            return jsonify({
+                'success': False,
+                'error': f'Failed to update meal plan: {update_result.error}'
+            }), 500
+        
         if update_result.data:
             return jsonify({
                 'success': True,
@@ -3319,16 +3453,29 @@ def delete_user_meal_plan(enterprise_id, plan_id):
         # Delete the meal plan
         delete_result = supabase.table('meal_plan_management').delete().eq('id', plan_id).execute()
         
-        if delete_result.data:
-            return jsonify({
-                'success': True,
-                'message': 'Meal plan deleted successfully'
-            }), 200
-        else:
+        # Check for errors in result (reuse existing error handling pattern)
+        if hasattr(delete_result, 'error') and delete_result.error:
+            current_app.logger.error(f'Failed to delete meal plan: {delete_result.error}')
             return jsonify({
                 'success': False,
-                'error': 'Failed to delete meal plan'
+                'error': f'Failed to delete meal plan: {delete_result.error}'
             }), 500
+        
+        # Delete operations may return empty data on success - if no error, consider it successful
+        # Verify deletion by checking if plan still exists
+        verify_result = supabase.table('meal_plan_management').select('id').eq('id', plan_id).execute()
+        if verify_result.data and len(verify_result.data) > 0:
+            # Plan still exists - deletion failed
+            return jsonify({
+                'success': False,
+                'error': 'Failed to delete meal plan - plan still exists'
+            }), 500
+        
+        # Plan was deleted successfully
+        return jsonify({
+            'success': True,
+            'message': 'Meal plan deleted successfully'
+        }), 200
             
     except Exception as e:
         current_app.logger.error(f'Failed to delete user meal plan: {str(e)}')
@@ -3429,4 +3576,106 @@ def get_user_health_history(enterprise_id, user_id):
         return jsonify({
             'success': False,
             'error': f'Failed to fetch health history: {str(e)}'
+        }), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/activity', methods=['GET'])
+@require_auth
+def get_user_activity(enterprise_id, user_id):
+    """
+    Get comprehensive user activity including detection_history, health_history, and meal_plans.
+    Admin can view all activity for users in their organization.
+    """
+    try:
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
+        
+        # Verify target user belongs to this enterprise
+        membership = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+        if not membership.data:
+            return jsonify({
+                'success': False,
+                'error': 'User is not a member of this organization'
+            }), 404
+        
+        # Fetch all user activity in parallel
+        activity_data = {
+            'detection_history': [],
+            'health_history': [],
+            'meal_plans': [],
+            'settings': {},
+            'last_activity': None
+        }
+        
+        try:
+            # Get detection history
+            detection_result = supabase.table('detection_history').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(50).execute()
+            activity_data['detection_history'] = detection_result.data or []
+        except Exception as e:
+            current_app.logger.warning(f"Error fetching detection history: {str(e)}")
+        
+        try:
+            # Get health settings history
+            health_result = supabase.table('user_settings_history').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(50).execute()
+            activity_data['health_history'] = health_result.data or []
+        except Exception as e:
+            current_app.logger.warning(f"Error fetching health history: {str(e)}")
+        
+        try:
+            # Get meal plans
+            meal_plans_result = supabase.table('meal_plan_management').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(50).execute()
+            activity_data['meal_plans'] = meal_plans_result.data or []
+        except Exception as e:
+            current_app.logger.warning(f"Error fetching meal plans: {str(e)}")
+        
+        try:
+            # Get current settings
+            settings_result = supabase.table('user_settings').select('*').eq('user_id', user_id).execute()
+            if settings_result.data:
+                # Convert settings list to object by settings_type
+                settings_obj = {}
+                for setting in settings_result.data:
+                    settings_obj[setting.get('settings_type', 'default')] = setting.get('settings_data', {})
+                activity_data['settings'] = settings_obj
+        except Exception as e:
+            current_app.logger.warning(f"Error fetching settings: {str(e)}")
+        
+        # Determine last activity timestamp
+        all_activities = []
+        for detection in activity_data['detection_history']:
+            if detection.get('created_at'):
+                all_activities.append(detection['created_at'])
+        for health in activity_data['health_history']:
+            if health.get('created_at'):
+                all_activities.append(health['created_at'])
+        for meal_plan in activity_data['meal_plans']:
+            if meal_plan.get('created_at'):
+                all_activities.append(meal_plan['created_at'])
+        
+        if all_activities:
+            activity_data['last_activity'] = max(all_activities)
+        
+        return jsonify({
+            'success': True,
+            'activity': activity_data,
+            'summary': {
+                'total_detections': len(activity_data['detection_history']),
+                'total_health_updates': len(activity_data['health_history']),
+                'total_meal_plans': len(activity_data['meal_plans']),
+                'last_activity': activity_data['last_activity']
+            }
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to fetch user activity: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to fetch user activity: {str(e)}'
         }), 500

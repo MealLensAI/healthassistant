@@ -110,12 +110,24 @@ class SupabaseService:
         try:
             print("[DEBUG] Creating Supabase client...")
             
-            # Create the client (HTTP/2 is disabled via HTTPX_DISABLE_HTTP2 env var)
+            # Create the client with service role key
+            # IMPORTANT: Use service role key to bypass RLS. This client should NOT use user sessions.
+            # Do not pass any user auth tokens to this client - it should only use the service role key.
+            # HTTP/2 is disabled via HTTPX_DISABLE_HTTP2 environment variable (set above)
+            # Note: ClientOptions causes issues in this version - using defaults
+            # The service role key bypasses RLS regardless of ClientOptions
             self.supabase: Client = create_client(supabase_url, supabase_key)
             
             # Store the key for verification
             self._service_role_key = supabase_key
-            print("[INFO] Supabase client initialized successfully.")
+            
+            # Verify we're using service role key (starts with 'eyJ' and contains 'service_role' in claims)
+            # Note: We don't decode the JWT here, just verify it exists
+            if supabase_key and len(supabase_key) > 50:
+                print("[INFO] Supabase service role client initialized successfully.")
+                print("[INFO] This client will bypass RLS policies for admin operations.")
+            else:
+                print("[WARNING] Supabase key appears invalid - RLS bypass may not work!")
             
         except Exception as e:
             error_msg = f"Failed to initialize Supabase client: {str(e)}"
@@ -494,9 +506,6 @@ class SupabaseService:
         If RLS errors occur, it indicates the service role key is not being recognized properly.
         """
         try:
-            print(f"[DEBUG] Saving meal plan for user: {user_id}, plan_data: {plan_data}")
-            print(f"[DEBUG] Using service role key: {bool(self._service_role_key)}")
-
             # Extract data from plan_data to match React structure
             name = plan_data.get('name')
             start_date = plan_data.get('startDate') or plan_data.get('start_date')
@@ -505,10 +514,6 @@ class SupabaseService:
             has_sickness = plan_data.get('has_sickness', False)
             sickness_type = plan_data.get('sickness_type', '')
             
-            print(f"[DEBUG] Extracted data - name: {name}, start_date: {start_date}, end_date: {end_date}")
-            print(f"[DEBUG] sickness data - has_sickness: {has_sickness}, sickness_type: {sickness_type}")
-            print(f"[DEBUG] meal_plan data: {meal_plan}")
-            print(f"[DEBUG] meal_plan type: {type(meal_plan)}")
 
             # Create insert data matching React structure
             # User-created meal plans are AUTO-APPROVED (is_approved = TRUE)
@@ -557,14 +562,12 @@ class SupabaseService:
             if 'health_assessment' in plan_data:
                 insert_data['health_assessment'] = plan_data['health_assessment']
 
-            print(f"[DEBUG] Insert data prepared: {list(insert_data.keys())}")
             
             # Try RPC function first (if it exists) - it explicitly bypasses RLS with SECURITY DEFINER
             # This is more reliable than relying on service role key recognition
             rpc_function_exists = True  # Assume it exists until we know otherwise
             rpc_succeeded = False
             try:
-                print(f"[DEBUG] Attempting RPC function insert_meal_plan_management (bypasses RLS)...")
                 rpc_result = self.supabase.rpc('insert_meal_plan_management', {
                     'p_id': insert_data['id'],
                     'p_user_id': insert_data['user_id'],
@@ -583,8 +586,6 @@ class SupabaseService:
                 
                 if rpc_result.data and len(rpc_result.data) > 0:
                     inserted_data = rpc_result.data[0]
-                    print(f"[SUCCESS] RPC function succeeded!")
-                    print(f"[DEBUG] inserted_data = {inserted_data}")
                     rpc_succeeded = True
                     
                     # Return data in the format expected by frontend
@@ -605,7 +606,6 @@ class SupabaseService:
                 error_str = str(rpc_error)
                 # Check if RPC function doesn't exist (function not found error)
                 if 'function' in error_str.lower() and ('does not exist' in error_str.lower() or 'not found' in error_str.lower() or '42883' in error_str):
-                    print(f"[INFO] RPC function does not exist (error: {error_str}), will try direct insert")
                     rpc_function_exists = False
                 else:
                     print(f"[WARNING] RPC function call failed: {rpc_error}, falling back to direct insert")
@@ -618,17 +618,12 @@ class SupabaseService:
             
             # Fallback: Try direct insert with service role key
             # The service role key should bypass RLS, but sometimes it's not recognized properly
-            print(f"[DEBUG] Attempting direct insert with service role key (should bypass RLS)...")
             try:
                 result = self.supabase.table('meal_plan_management').insert(insert_data).execute()
-                print(f"[DEBUG] Supabase insert result: data={result.data}")
 
                 if result.data and len(result.data) > 0:
                     # Get the inserted record (first item in the array)
                     inserted_data = result.data[0]
-                    
-                    print(f"[SUCCESS] Direct insert succeeded!")
-                    print(f"[DEBUG] inserted_data = {inserted_data}")
                     
                     # Return data in the format expected by frontend
                     return {
@@ -643,7 +638,6 @@ class SupabaseService:
                         'sicknessType': inserted_data.get('sickness_type', '')
                     }
                 else:
-                    print(f"[ERROR] Supabase insert error: No data returned")
                     return None, 'Failed to save meal plan: No data returned from insert'
             except Exception as insert_error:
                 error_str = str(insert_error)
@@ -762,7 +756,6 @@ class SupabaseService:
                 
                 last_error = e
                 delay = initial_delay * (2 ** attempt)  # Exponential backoff
-                print(f"[RETRY] Attempt {attempt + 1}/{max_retries} failed: {str(e)}. Retrying in {delay}s...")
                 time.sleep(delay)
         
         # Should never reach here, but just in case
@@ -1057,6 +1050,10 @@ class SupabaseService:
     def save_user_settings(self, user_id: str, settings_type: str, settings_data: dict) -> tuple[bool, str | None]:
         """
         Saves user settings using direct table insert (fallback if RPC doesn't work).
+        
+        NOTE: This method uses the service role client which should bypass RLS.
+        If you see RLS errors here, verify that SUPABASE_SERVICE_ROLE_KEY is the correct
+        service role key from Supabase dashboard (not the anon key).
 
         Args:
             user_id (str): The Supabase user ID.
@@ -1067,12 +1064,14 @@ class SupabaseService:
             tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
         try:
-            print(f"[DEBUG] save_user_settings called: user_id={user_id}, type={settings_type}")
-            print(f"[DEBUG] settings_data: {settings_data}")
+            # Verify we have service role key configured
+            if not hasattr(self, '_service_role_key') or not self._service_role_key:
+                error_msg = "Supabase service role key is not configured. Cannot bypass RLS."
+                print(f"[ERROR] {error_msg}")
+                return False, error_msg
             
             # Get existing settings BEFORE saving (for history comparison)
             # Add retry logic for connection errors
-            print(f"[DEBUG] Getting existing settings for comparison...")
             existing = None
             record_exists = False
             existing_settings = {}
@@ -1121,7 +1120,6 @@ class SupabaseService:
                 elif isinstance(existing_settings_raw, dict):
                     existing_settings = existing_settings_raw
             
-            print(f"[DEBUG] Existing settings: {existing_settings}")
             
             # Normalize new settings
             normalized_settings = settings_data
@@ -1172,15 +1170,12 @@ class SupabaseService:
                                 if isinstance(key, str) and not key.isdigit()
                                 and value is not None and value != '']
             
-            print(f"[DEBUG] Changed fields: {changed_fields}")
-            
             # Try RPC first
             rpc_success = False
             persisted_record = None
             timestamp = datetime.utcnow().isoformat() + 'Z'
             
             try:
-                print(f"[DEBUG] Attempting RPC upsert_user_settings...")
                 result, rpc_error = self._retry_operation(
                     lambda: self.supabase.rpc('upsert_user_settings', {
                     'p_user_id': user_id,
@@ -1193,62 +1188,15 @@ class SupabaseService:
                 if rpc_error:
                     raise rpc_error
                 
-                print(f"[DEBUG] RPC result: {result.data}")
-                
                 if result.data and len(result.data) > 0:
                     data = result.data[0] if isinstance(result.data, list) else result.data
                     if data.get('status') == 'success':
-                        print(f"[SUCCESS] Settings saved via RPC")
                         rpc_success = True
                         
                         # RPC function should have created history automatically
-                        # Verify history was created by RPC (with small delay to ensure commit)
-                        import time
-                        time.sleep(0.2)  # Small delay to ensure RPC transaction is committed
-                        
-                        try:
-                            # Try checking history multiple times (in case of replication delay)
-                            history_found = False
-                            for check_attempt in range(3):
-                                history_check = self.supabase.table('user_settings_history')\
-                                    .select('id, created_at, changed_fields')\
-                                    .eq('user_id', user_id)\
-                                    .eq('settings_type', settings_type)\
-                                    .order('created_at', desc=True)\
-                                    .limit(1)\
-                                    .execute()
-                                
-                                if history_check.data and len(history_check.data) > 0:
-                                    history_record = history_check.data[0]
-                                    print(f"[DEBUG] ✅ RPC created history record: id={history_record.get('id')}, created_at={history_record.get('created_at')}")
-                                    print(f"[DEBUG] History changed_fields: {history_record.get('changed_fields')}")
-                                    history_found = True
-                                    break
-                                
-                                if check_attempt < 2:
-                                    time.sleep(0.1)  # Wait a bit before retry
-                            
-                            if history_found:
-                                # History already created by RPC, verify it has data
-                                history_record = history_check.data[0]
-                                has_data = history_record.get('settings_data') is not None
-                                if has_data:
-                                    print(f"[SUCCESS] Settings and history saved successfully via RPC")
-                                    # Still create history manually as backup to ensure it exists
-                                    # (RPC might have created it but we want to be sure)
-                                    print(f"[DEBUG] RPC created history, but creating backup history entry anyway...")
-                                else:
-                                    print(f"[WARNING] RPC created history but it has no data - will create manually")
-                            else:
-                                print(f"[WARNING] RPC succeeded but no history found after 3 checks - will create manually")
-                        except Exception as check_error:
-                            print(f"[WARNING] Could not verify RPC history creation: {check_error}, will create manually")
-                        
-                        # Get the saved record for history (always needed for manual history creation)
+                        # Get the saved record for history
                         saved_record, fetch_error = self.get_user_settings(user_id, settings_type)
-                        print(f"[DEBUG] Saved record from get_user_settings: {saved_record}")
                         if saved_record:
-                            # get_user_settings returns {'settings_data': {...}, 'settings_type': ..., ...}
                             if 'settings_data' in saved_record:
                                 settings_data_saved = saved_record['settings_data']
                                 if isinstance(settings_data_saved, str):
@@ -1258,21 +1206,16 @@ class SupabaseService:
                                         settings_data_saved = normalized_settings
                                 persisted_record = {'settings_data': settings_data_saved}
                             else:
-                                # If it's the raw record format
                                 persisted_record = {'settings_data': saved_record.get('settings_data', normalized_settings)}
                         else:
-                            print(f"[WARNING] Could not fetch saved record, using normalized_settings")
                             persisted_record = {'settings_data': normalized_settings}
-                        print(f"[DEBUG] Persisted record for history: {persisted_record}")
                     else:
                         error = data.get('message', 'Failed to save settings')
-                        print(f"[WARNING] RPC error: {error}, falling back to direct insert")
             except Exception as rpc_error:
-                print(f"[WARNING] RPC failed: {rpc_error}, falling back to direct insert")
+                pass  # RPC failed, will use direct upsert
             
             # If RPC didn't succeed, use direct table upsert
             if not rpc_success:
-                print(f"[DEBUG] Using direct table upsert for user_id={user_id}, type={settings_type}")
                 
                 upsert_payload = {
                     'user_id': user_id,
@@ -1284,6 +1227,19 @@ class SupabaseService:
                     upsert_payload['created_at'] = timestamp
                 
                 # Use retry logic for direct upsert
+                # IMPORTANT: This operation uses the service role client which should bypass RLS
+                # If you see RLS errors here, it means:
+                # 1. The service role key is not being used correctly, OR
+                # 2. User session tokens are somehow overriding the service role key
+                # 
+                # To fix: Ensure this client is ONLY initialized with service role key
+                # and never receives user JWT tokens in headers or cookies
+                
+                if not hasattr(self, '_service_role_key') or not self._service_role_key:
+                    return False, 'Supabase service role key not configured properly'
+                
+                # Create a fresh client call without any user session context
+                # This ensures we're using ONLY the service role key, not user tokens
                 result, upsert_error = self._retry_operation(
                     lambda: self.supabase
                         .table('user_settings')
@@ -1297,8 +1253,20 @@ class SupabaseService:
                 )
                 
                 if upsert_error:
+                    # Check if it's an RLS error - this should NOT happen with service role key
+                    error_str = str(upsert_error).lower()
+                    if 'row-level security' in error_str or 'rls' in error_str or '42501' in str(upsert_error):
+                        error_msg = (
+                            f"CRITICAL RLS ERROR: Service role key should bypass RLS, but got error: {upsert_error}. "
+                            f"This usually means:\n"
+                            f"1. The SUPABASE_SERVICE_ROLE_KEY environment variable is not the service role key, OR\n"
+                            f"2. User session tokens are overriding the service role key, OR\n"
+                            f"3. The Supabase client is incorrectly configured.\n"
+                            f"Please verify that SUPABASE_SERVICE_ROLE_KEY is the actual service role key from Supabase dashboard."
+                        )
+                        print(f"[ERROR] {error_msg}")
+                        return False, error_msg
                     raise upsert_error
-                print(f"[DEBUG] Upsert result: {result.data}")
                 
                 if not result.data:
                     print(f"[ERROR] No data returned from upsert operation")
@@ -1312,17 +1280,10 @@ class SupabaseService:
                 return False, 'Failed to save settings'
             
             # ALWAYS create history entry after settings are saved (both RPC and direct paths)
-            print(f"[DEBUG] ✅ Settings saved, now creating history entry...")
-            print(f"[DEBUG] User ID: {user_id}, Settings Type: {settings_type}")
-            
             try:
                 # Use the same Supabase client (already has service role key for admin operations)
-                # This ensures we use the same database connection
                 admin_client = self.supabase
                 
-                # Always create history manually to ensure it exists
-                # (RPC might fail silently or have RLS issues)
-                # Note: This might create duplicates if RPC also created history, but that's better than missing history
                 # Get settings_data from persisted record
                 settings_data_for_history = persisted_record.get('settings_data', normalized_settings)
                 if isinstance(settings_data_for_history, str):
@@ -1341,10 +1302,6 @@ class SupabaseService:
                     'created_by': user_id
                 }
                 
-                print(f"[DEBUG] History data to insert: user_id={user_id}, settings_type={settings_type}")
-                print(f"[DEBUG] Inserting history with {len(changed_fields)} changed fields: {changed_fields}")
-                print(f"[DEBUG] History data keys: {list(history_data.keys())}")
-                
                 # Use retry logic for history insert
                 history_result, history_error = self._retry_operation(
                     lambda: admin_client.table('user_settings_history').insert(history_data).execute(),
@@ -1354,17 +1311,7 @@ class SupabaseService:
                 if history_error:
                     raise history_error
                 
-                print(f"[DEBUG] History insert result type: {type(history_result)}")
-                print(f"[DEBUG] History insert result.data: {history_result.data}")
-                print(f"[DEBUG] History insert result.data type: {type(history_result.data) if history_result.data else 'None'}")
-                
-                if history_result and history_result.data and len(history_result.data) > 0:
-                    print(f"[DEBUG] ✅ Saved settings history successfully")
-                    print(f"[DEBUG] History record ID: {history_result.data[0].get('id', 'unknown')}")
-                    print(f"[DEBUG] History record created_at: {history_result.data[0].get('created_at', 'unknown')}")
-                else:
-                    print(f"[ERROR] ❌ History insert returned no data!")
-                    print(f"[ERROR] This means the insert didn't create a record - check RLS policies and table permissions")
+                if not (history_result and history_result.data and len(history_result.data) > 0):
                     # Try to verify if record was actually created despite no data returned
                     verify_history, verify_error = self._retry_operation(
                         lambda: admin_client.table('user_settings_history')
@@ -1376,24 +1323,13 @@ class SupabaseService:
                             .execute(),
                         operation_name="history verification"
                     )
-                    if verify_history and verify_history.data:
-                        print(f"[DEBUG] ✅ History record verified: {verify_history.data[0].get('id')}")
-                    else:
-                        print(f"[ERROR] ❌ History record not found after insert - this is a problem!")
+                    if not (verify_history and verify_history.data):
+                        print(f"[ERROR] History record not found after insert - check RLS policies")
             except Exception as history_error:
                 error_str = str(history_error)
-                print(f"[ERROR] ❌ Failed to save settings history: {error_str}")
-                print(f"[ERROR] Exception type: {type(history_error).__name__}")
-                import traceback
-                traceback.print_exc()
-                
-                # Check if it's an RLS/permission error
+                # Only log actual errors, not warnings
                 if 'permission' in error_str.lower() or 'policy' in error_str.lower() or 'row-level security' in error_str.lower():
-                    print(f"[ERROR] This appears to be an RLS/permissions issue. Service role should bypass RLS.")
-                
-                print(f"[WARNING] Settings saved but history was not recorded - this needs to be fixed!")
-            
-            print(f"[SUCCESS] Settings saved successfully")
+                    print(f"[ERROR] Failed to save settings history (RLS/permissions issue): {error_str}")
             return True, None
                 
         except Exception as e:
@@ -1417,11 +1353,8 @@ class SupabaseService:
                                           (None, error_message) on failure.
         """
         try:
-            print(f"[DEBUG] get_user_settings called: user_id={user_id}, type={settings_type}")
-            
             # First try RPC function with retry
             try:
-                print(f"[DEBUG] Attempting RPC get_user_settings...")
                 result = self._retry_supabase_call(
                     lambda: self.supabase.rpc('get_user_settings', {
                         'p_user_id': user_id,
@@ -1429,25 +1362,15 @@ class SupabaseService:
                     }).execute()
                 )
                 
-                print(f"[DEBUG] RPC result: {result.data}")
-                
                 if result.data and len(result.data) > 0:
                     data = result.data[0] if isinstance(result.data, list) else result.data
                     if data.get('status') == 'success':
-                        print(f"[SUCCESS] Settings retrieved via RPC")
                         return data.get('data'), None
             except Exception as rpc_error:
-                error_str = str(rpc_error).lower()
-                # Only fall back if it's not a transient connection error (those are retried)
-                if 'resource temporarily unavailable' not in error_str and '35' not in str(getattr(rpc_error, 'errno', '')):
-                    print(f"[WARNING] RPC failed: {rpc_error}, falling back to direct query")
-                else:
-                    # Transient error that failed after retries, try direct query
-                    print(f"[WARNING] RPC failed after retries: {rpc_error}, falling back to direct query")
-                # Fall through to direct query
+                # Fall through to direct query - no need to log every RPC failure
+                pass
             
             # Fallback: Direct table query with retry
-            print(f"[DEBUG] Using direct table query...")
             result = self._retry_supabase_call(
                 lambda: self.supabase.table('user_settings')
                     .select('*')
@@ -1455,13 +1378,10 @@ class SupabaseService:
                     .eq('settings_type', settings_type)
                     .execute()
             )
-            print(f"[DEBUG] Query result: {result.data}")
             
             if result.data and len(result.data) > 0:
-                print(f"[SUCCESS] Settings retrieved via direct query")
                 return result.data[0], None
             else:
-                print(f"[INFO] No settings found for user")
                 return None, None  # No settings found is not an error
                 
         except Exception as e:

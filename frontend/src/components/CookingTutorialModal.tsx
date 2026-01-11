@@ -23,7 +23,6 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 
   useEffect(() => {
     if (isOpen && recipeName) {
-      console.log('[CookingTutorialModal] Opening modal and generating content for:', recipeName, ingredients);
       generateContent(recipeName, ingredients);
     }
   }, [isOpen, recipeName, ingredients]);

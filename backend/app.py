@@ -155,12 +155,14 @@ def create_app():
           response.headers.add('Access-Control-Max-Age', '600')
           return response
   
-  # Log all incoming requests for debugging
+  # Log all incoming requests (debug level only)
   @app.before_request
   def log_request():
-      print(f"[REQUEST] {request.method} {request.path}")
-      if request.method == 'POST' and request.is_json:
-          print(f"[REQUEST BODY] {request.get_json()}")
+      # Only log at debug level to reduce noise
+      if app.debug:
+          app.logger.debug(f"{request.method} {request.path}")
+          if request.method in ['POST', 'PUT', 'PATCH'] and request.is_json:
+              app.logger.debug(f"Request body: {request.get_json()}")
   
   # Add CORS headers to all responses for preflight requests
   @app.after_request
@@ -253,7 +255,9 @@ def create_app():
   # Register enterprise routes
   if ENTERPRISE_ROUTES_ENABLED:
       try:
-          app.register_blueprint(enterprise_bp)
+          # Enterprise routes are defined with full /api/enterprise paths in route decorators
+          # Register with empty prefix since routes already include full path
+          app.register_blueprint(enterprise_bp, url_prefix='')
           print("✅ Enterprise routes registered successfully.")
           # Debug: Print registered routes
           enterprise_routes = [str(rule) for rule in app.url_map.iter_rules() if 'enterprise' in str(rule)]

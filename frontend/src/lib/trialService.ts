@@ -96,15 +96,6 @@ export class TrialService {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const isValidUuid = uuidRegex.test(userId);
 
-      console.log('🔍 getCurrentUserId result:', {
-        raw,
-        user,
-        userId,
-        isValidUuid,
-        uid: user?.uid,
-        id: user?.id,
-        email: user?.email
-      });
 
       if (!isValidUuid && userId !== 'anon') {
         console.warn('⚠️ User ID is not in UUID format, this may cause backend errors:', userId);
@@ -128,7 +119,6 @@ export class TrialService {
   static initializeTrial(): void {
     // Trial is now created by backend during user registration
     // This method is kept for backward compatibility only
-    console.log('Trial initialization is now handled by backend during registration');
   }
 
   /**
@@ -181,30 +171,21 @@ export class TrialService {
     try {
       let userId = this.getCurrentUserId();
       if (userId === 'anon') {
-        console.log('🔍 No user ID found, attempting to resolve from backend /profile...');
         const resolved = await this.resolveUserIdFromBackend();
         if (resolved) {
           userId = resolved;
         } else {
-          console.log('🔍 No user ID found, cannot fetch subscription from backend');
           return { hasActiveSubscription: false, subscriptionInfo: null, trialInfo: null };
         }
       }
-
-      console.log('🔄 Fetching subscription status from backend...');
-      console.log('🔍 User ID being used:', userId);
-      console.log('🔍 Request URL:', `${this.API_BASE_URL}/subscription/status?user_id=${userId}`);
       const response = await fetch(`${this.API_BASE_URL}/subscription/status?user_id=${userId}`, {
         method: 'GET',
         headers: this.getAuthHeaders(),
         credentials: 'include'
       });
 
-      console.log('🔍 Backend response status:', response.status);
-
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Backend subscription response:', result);
 
         if (result.success && result.data) {
           const data = result.data as any;
@@ -320,7 +301,6 @@ export class TrialService {
       if (response.ok) {
         const result = await response.json();
         const canAccess = !!(result?.data?.can_access_app);
-        console.log('🔍 Access check (backend):', result?.data);
         return canAccess;
       }
     } catch (e) {
