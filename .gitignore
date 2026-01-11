@@ -1,3 +1,10 @@
-.venv
-.vite
-.ideabackend/.DS_Store
+# Python
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+.env
+
+# Node
+node_modules/
+backend/node_modules/
