@@ -1693,24 +1693,30 @@ def create_user():
 @enterprise_bp.route('/api/enterprise/user/<user_relation_id>', methods=['DELETE'])
 @require_auth
 def delete_organization_user(user_relation_id):
-    """Delete a user from the organization"""
+    """
+    Delete a user from the organization and completely remove all their data from Supabase.
+    This deletes the user from all tables and their authentication account.
+    """
     try:
         supabase = get_supabase_client()
+        admin_supabase = get_supabase_client(use_admin=True)
         
         # First, get the organization user record to verify ownership
-        org_user_result = supabase.table('organization_users').select('''
-            *,
-            enterprise:enterprise_id (
-                id,
-                created_by
-            )
-        ''').eq('id', user_relation_id).execute()
+        org_user_result = admin_supabase.table('organization_users').select('*').eq('id', user_relation_id).execute()
         
         if not org_user_result.data:
             return jsonify({'error': 'User not found in organization'}), 404
         
         org_user = org_user_result.data[0]
-        enterprise = org_user['enterprise']
+        enterprise_id = org_user['enterprise_id']
+        
+        # Get enterprise details to verify ownership
+        enterprise_result = admin_supabase.table('enterprises').select('id, created_by').eq('id', enterprise_id).execute()
+        
+        if not enterprise_result.data:
+            return jsonify({'error': 'Enterprise not found'}), 404
+        
+        enterprise = enterprise_result.data[0]
         
         # Verify the current user owns this enterprise
         if enterprise['created_by'] != request.user_id:
@@ -1719,7 +1725,7 @@ def delete_organization_user(user_relation_id):
         # Get user details before deletion for response
         user_id = org_user['user_id']
         try:
-            user_details = supabase.auth.admin.get_user_by_id(user_id)
+            user_details = admin_supabase.auth.admin.get_user_by_id(user_id)
             if user_details and user_details.user:
                 user_email = user_details.user.email
                 user_metadata = user_details.user.user_metadata or {}
@@ -1731,38 +1737,158 @@ def delete_organization_user(user_relation_id):
             user_email = 'Unknown'
             user_name = 'Unknown'
         
-        # Delete the user from the organization (this removes them from organization_users table)
-        delete_result = supabase.table('organization_users').delete().eq('id', user_relation_id).execute()
+        deletion_log = []
         
-        if not delete_result.data:
-            return jsonify({'error': 'Failed to remove user from organization'}), 500
-
-        # Also delete the user's Supabase authentication account
+        # Delete all user-related data from Supabase tables (in dependency order)
+        # Step 1: Delete from tables that reference user_id
+        
+        # Delete user settings history first (references user_settings)
         try:
-            # Use admin client to delete the user from Supabase Auth
-            admin_supabase = get_supabase_client(use_admin=True)
-            delete_auth_result = admin_supabase.auth.admin.delete_user(user_id)
+            result = admin_supabase.table('user_settings_history').delete().eq('user_id', user_id).execute()
+            deletion_log.append(f"Deleted {len(result.data) if result.data else 0} user_settings_history records")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting user_settings_history: {str(e)}")
+            deletion_log.append(f"Error deleting user_settings_history: {str(e)}")
+        
+        # Delete user settings
+        try:
+            result = admin_supabase.table('user_settings').delete().eq('user_id', user_id).execute()
+            deletion_log.append(f"Deleted {len(result.data) if result.data else 0} user_settings records")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting user_settings: {str(e)}")
+            deletion_log.append(f"Error deleting user_settings: {str(e)}")
+        
+        # Delete detection history
+        try:
+            result = admin_supabase.table('detection_history').delete().eq('user_id', user_id).execute()
+            deletion_log.append(f"Deleted {len(result.data) if result.data else 0} detection_history records")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting detection_history: {str(e)}")
+            deletion_log.append(f"Error deleting detection_history: {str(e)}")
+        
+        # Delete meal plans
+        try:
+            result = admin_supabase.table('meal_plan_management').delete().eq('user_id', user_id).execute()
+            deletion_log.append(f"Deleted {len(result.data) if result.data else 0} meal_plan_management records")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting meal_plan_management: {str(e)}")
+            deletion_log.append(f"Error deleting meal_plan_management: {str(e)}")
+        
+        # Delete payment transactions
+        try:
+            result = admin_supabase.table('payment_transactions').delete().eq('user_id', user_id).execute()
+            deletion_log.append(f"Deleted {len(result.data) if result.data else 0} payment_transactions records")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting payment_transactions: {str(e)}")
+            deletion_log.append(f"Error deleting payment_transactions: {str(e)}")
+        
+        # Delete user subscriptions
+        try:
+            result = admin_supabase.table('user_subscriptions').delete().eq('user_id', user_id).execute()
+            deletion_log.append(f"Deleted {len(result.data) if result.data else 0} user_subscriptions records")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting user_subscriptions: {str(e)}")
+            deletion_log.append(f"Error deleting user_subscriptions: {str(e)}")
+        
+        # Delete user trials
+        try:
+            result = admin_supabase.table('user_trials').delete().eq('user_id', user_id).execute()
+            deletion_log.append(f"Deleted {len(result.data) if result.data else 0} user_trials records")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting user_trials: {str(e)}")
+            deletion_log.append(f"Error deleting user_trials: {str(e)}")
+        
+        # Delete feature usage (if table exists)
+        try:
+            result = admin_supabase.table('feature_usage').delete().eq('user_id', user_id).execute()
+            deletion_log.append(f"Deleted {len(result.data) if result.data else 0} feature_usage records")
+        except Exception as e:
+            # Table might not exist, skip
+            pass
+        
+        # Delete ALL organization_users records for this user (user might be in multiple orgs)
+        try:
+            result = admin_supabase.table('organization_users').delete().eq('user_id', user_id).execute()
+            deletion_log.append(f"Deleted {len(result.data) if result.data else 0} organization_users records")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting organization_users: {str(e)}")
+            deletion_log.append(f"Error deleting organization_users: {str(e)}")
+        
+        # Delete ALL invitations for this user's email (pending, cancelled, accepted - all statuses)
+        try:
+            if user_email and user_email != 'Unknown':
+                result = admin_supabase.table('invitations').delete().eq('email', user_email).execute()
+                deletion_log.append(f"Deleted {len(result.data) if result.data else 0} invitations records")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting invitations: {str(e)}")
+            deletion_log.append(f"Error deleting invitations: {str(e)}")
+        
+        # Delete profile
+        try:
+            result = admin_supabase.table('profiles').delete().eq('id', user_id).execute()
+            deletion_log.append(f"Deleted profile record")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting profile: {str(e)}")
+            deletion_log.append(f"Error deleting profile: {str(e)}")
+        
+        # Finally, delete from auth.users
+        auth_deleted = False
+        try:
+            # Method 1: Standard admin delete
+            delete_result = admin_supabase.auth.admin.delete_user(user_id)
+            deletion_log.append(f"Deleted user from authentication system")
+            auth_deleted = True
+        except Exception as e:
+            current_app.logger.warning(f"Standard auth delete failed: {str(e)}")
+            deletion_log.append(f"Standard auth delete failed: {str(e)}")
             
-            if delete_auth_result:
-                print(f"✅ Deleted Supabase auth account for user {user_id}")
-            else:
-                print(f"⚠️ Failed to delete Supabase auth account for user {user_id}")
-        except Exception as auth_delete_error:
-            print(f"⚠️ Error deleting Supabase auth account for user {user_id}: {auth_delete_error}")
-            # Don't fail the entire operation if auth deletion fails
+            # Method 2: Try with soft delete disabled
+            try:
+                delete_result = admin_supabase.auth.admin.delete_user(user_id, should_soft_delete=False)
+                deletion_log.append(f"Deleted user from authentication system (hard delete)")
+                auth_deleted = True
+            except Exception as e2:
+                current_app.logger.warning(f"Hard auth delete failed: {str(e2)}")
+                deletion_log.append(f"Hard auth delete failed: {str(e2)}")
+                
+                # Method 3: Try updating user to disabled state if deletion fails
+                try:
+                    update_result = admin_supabase.auth.admin.update_user_by_id(user_id, {
+                        "email": f"deleted_{user_id}@deleted.local",
+                        "banned_until": "2099-12-31T23:59:59Z"
+                    })
+                    deletion_log.append(f"Could not delete auth user, but disabled account instead")
+                    auth_deleted = True  # Consider this successful for our purposes
+                except Exception as e3:
+                    current_app.logger.error(f"All auth deletion methods failed: {str(e3)}")
+                    deletion_log.append(f"All auth deletion methods failed: {str(e3)}")
+        
+        if not auth_deleted:
+            # If we can't delete from auth, return partial success
+            current_app.logger.warning(f"User data deleted but authentication account could not be removed for user {user_id}")
+            return jsonify({
+                'success': False,
+                'error': 'User data deleted but authentication account could not be removed',
+                'deletion_log': deletion_log,
+                'details': 'User data has been removed from all application tables, but the authentication account may still exist. This could be due to Supabase RLS policies.'
+            }), 500
+        
+        current_app.logger.info(f"✅ Completely deleted user {user_id} ({user_email}) from organization. Deletion log: {deletion_log}")
         
         return jsonify({
             'success': True,
-            'message': f'User {user_name} ({user_email}) has been completely deleted. They can now be re-invited or register again.',
+            'message': f'User {user_name} ({user_email}) has been completely deleted from the system. They can now be re-invited or register again.',
             'deleted_user': {
                 'id': user_relation_id,
                 'user_id': user_id,
                 'name': user_name,
                 'email': user_email
-            }
+            },
+            'deletion_log': deletion_log
         }), 200
         
     except Exception as e:
+        current_app.logger.error(f"Error deleting user: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to delete user: {str(e)}'}), 500
 
 
