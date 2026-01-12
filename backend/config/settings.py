@@ -28,8 +28,13 @@ class Config:
     if env_origins:
         for origin in env_origins.split(","):
             origin = origin.strip()
+            # Normalize origins: remove trailing slashes for consistency
             if origin:
+                origin = origin.rstrip('/')
                 ALLOWED_ORIGINS.append(origin)
+                # Also add version with trailing slash for compatibility
+                if origin and not origin.endswith('/'):
+                    ALLOWED_ORIGINS.append(origin + '/')
     
     # Supabase Configuration
     SUPABASE_URL = os.environ.get("SUPABASE_URL")

@@ -37,22 +37,15 @@ def init_cors(app: Flask, allowed_origins: List[str]) -> None:
         
         if 'Access-Control-Allow-Origin' not in response.headers:
             origin = request.headers.get('Origin')
-            try:
-                if origin and origin in allowed_origins:
+            if origin:
+                # Normalize origin for comparison (remove trailing slash)
+                normalized_origin = origin.rstrip('/')
+                # Check both with and without trailing slash
+                if origin in allowed_origins or normalized_origin in allowed_origins:
                     response.headers.add('Access-Control-Allow-Origin', origin)
-                else:
-                    # Use first allowed origin from env if available
-                    default_origin = allowed_origins[0] if allowed_origins else ''
-                    if default_origin:
-                        response.headers.add('Access-Control-Allow-Origin', default_origin)
-            except Exception:
-                # Only set CORS header if we have an allowed origin
-                if allowed_origins:
-                    response.headers.add('Access-Control-Allow-Origin', allowed_origins[0])
-            
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-            response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-            response.headers.add('Access-Control-Allow-Credentials', 'true')
+                    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+                    response.headers.add('Access-Control-Allow-Credentials', 'true')
         
         return response
 

@@ -114,8 +114,13 @@ def create_app():
       # Support comma-separated list in env
       for item in env_allowed.split(","):
           origin = item.strip()
+          # Normalize origins: remove trailing slashes for consistency
           if origin:
+              origin = origin.rstrip('/')
               allowed_origins.append(origin)
+              # Also add version with trailing slash for compatibility
+              if origin and not origin.endswith('/'):
+                  allowed_origins.append(origin + '/')
 
   # Remove duplicates while preserving order
   seen = set()
@@ -148,23 +153,16 @@ def create_app():
   def after_request(response):
       # Only add CORS headers if they're not already set by Flask-CORS
       if 'Access-Control-Allow-Origin' not in response.headers:
-          # Echo back allowed origin or fall back to first allowed
           origin = request.headers.get('Origin')
-          try:
-              if origin and origin in allowed_origins:
+          if origin:
+              # Normalize origin for comparison (remove trailing slash)
+              normalized_origin = origin.rstrip('/')
+              # Check both with and without trailing slash
+              if origin in allowed_origins or normalized_origin in allowed_origins:
                   response.headers.add('Access-Control-Allow-Origin', origin)
-              else:
-                  # Use first allowed origin from env, or empty if none set
-                  default_origin = allowed_origins[0] if allowed_origins else ''
-                  if default_origin:
-                      response.headers.add('Access-Control-Allow-Origin', default_origin)
-          except Exception:
-              # As a very last resort, use first allowed origin if available
-              if allowed_origins:
-                  response.headers.add('Access-Control-Allow-Origin', allowed_origins[0])
-          response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-          response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-          response.headers.add('Access-Control-Allow-Credentials', 'true')
+                  response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                  response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+                  response.headers.add('Access-Control-Allow-Credentials', 'true')
       return response
 
   # Initialize Supabase clients
