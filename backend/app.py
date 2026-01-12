@@ -107,16 +107,9 @@ def create_app():
   app = Flask(__name__)
   
   # Configure CORS to allow requests from the frontend
-  # Build allowed origins list: localhost + production domains
+  # Build allowed origins list from environment variable only
   env_allowed = os.environ.get("ALLOWED_ORIGINS", "").strip()
-  allowed_origins = [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://healthassistant.meallensai.com",
-      "https://healthassistant.meallensai.com/",
-      # Hosted frontend(s)
-      "https://meallens.vercel.app",
-  ]
+  allowed_origins = []
   if env_allowed:
       # Support comma-separated list in env
       for item in env_allowed.split(","):
@@ -161,12 +154,14 @@ def create_app():
               if origin and origin in allowed_origins:
                   response.headers.add('Access-Control-Allow-Origin', origin)
               else:
-                  # Prefer production domain as default fallback instead of localhost
-                  default_origin = 'https://healthassistant.meallensai.com' if 'https://healthassistant.meallensai.com' in allowed_origins else allowed_origins[0]
-                  response.headers.add('Access-Control-Allow-Origin', default_origin)
+                  # Use first allowed origin from env, or empty if none set
+                  default_origin = allowed_origins[0] if allowed_origins else ''
+                  if default_origin:
+                      response.headers.add('Access-Control-Allow-Origin', default_origin)
           except Exception:
-              # As a very last resort, use production domain to avoid leaking localhost in prod
-              response.headers.add('Access-Control-Allow-Origin', 'https://healthassistant.meallensai.com')
+              # As a very last resort, use first allowed origin if available
+              if allowed_origins:
+                  response.headers.add('Access-Control-Allow-Origin', allowed_origins[0])
           response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
           response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
           response.headers.add('Access-Control-Allow-Credentials', 'true')

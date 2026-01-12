@@ -10,7 +10,7 @@ const DEFAULTS: MetaConfig = {
     title: 'MealLensAI - Ingredient Recognition, Recipes & 7-Day Meal Plans ,AI Meal Plan for Chronic Sickness Conditions, Budget & Location-Based Meal Plans',
     description: 'AI ingredient recognition, step-by-step recipes, dish detection, and personalized 7-day meal plans. Includes photo/manual meal planning (breakfast, lunch, dinner, dessert), AI plans for chronic conditions, and budget/location-based plans.',
     keywords: buildKeywords(),
-    url: 'https://healthassistant.meallensai.com/',
+    url: (typeof window !== 'undefined' ? window.location.origin : '') || (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_PUBLIC_URL) || '',
     image: '/assets/images/share-image.png'
 }
 

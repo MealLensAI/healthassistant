@@ -29,7 +29,7 @@
   <meta property="og:description"
     content="AI ingredient recognition, step-by-step recipes, dish detection, and personalized 7-day meal plans. Includes photo/manual meal planning (breakfast, lunch, dinner, dessert), AI plans for chronic conditions, and budget/location-based plans." />
   <meta property="og:image" content="/assets/images/share-image.png" />
-  <meta property="og:url" content="https://healthassistant.meallensai.com/" />
+  <meta property="og:url" content="" id="og-url" />
   <meta property="og:type" content="website" />
 
   <!-- Twitter -->
@@ -39,7 +39,17 @@
   <meta name="twitter:description"
     content="AI ingredient recognition, step-by-step recipes, dish detection, and personalized 7-day meal plans. Includes photo/manual meal planning (breakfast, lunch, dinner, dessert), AI plans for chronic conditions, and budget/location-based plans." />
 
-  <link rel="canonical" href="https://healthassistant.meallensai.com/" />
+  <link rel="canonical" href="" id="canonical-url" />
+  <script>
+    // Set dynamic URLs from current location or environment variable
+    (function() {
+      const baseUrl = window.location.origin || '';
+      const ogUrlMeta = document.getElementById('og-url');
+      const canonicalLink = document.getElementById('canonical-url');
+      if (ogUrlMeta) ogUrlMeta.setAttribute('content', baseUrl + '/');
+      if (canonicalLink) canonicalLink.setAttribute('href', baseUrl + '/');
+    })();
+  </script>
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-TPT4ET0Y2Q"></script>

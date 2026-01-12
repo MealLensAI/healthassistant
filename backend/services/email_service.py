@@ -611,8 +611,8 @@ class EmailService:
                 frontend_url = frontend_url.strip().rstrip('/')
                 login_url = f"{frontend_url}/accept-invitation"
             else:
-                print("⚠️ WARNING: FRONTEND_URL not set in environment. Using production default for login URL.")
-                login_url = "https://healthassistant.meallensai.com/accept-invitation"
+                print("⚠️ WARNING: FRONTEND_URL not set in environment. Cannot generate login URL.")
+                login_url = ""
         
         try:
             msg = MIMEMultipart('alternative')
@@ -771,7 +771,8 @@ class EmailService:
             msg['From'] = f'{self.from_name} <{self.from_email}>'
             msg['To'] = admin_email
             
-            dashboard_link = dashboard_url or (os.environ.get('FRONTEND_URL', 'https://healthassistant.meallensai.com') + '/enterprise')
+            frontend_url = os.environ.get('FRONTEND_URL', '').strip().rstrip('/')
+            dashboard_link = dashboard_url or (f"{frontend_url}/enterprise" if frontend_url else '/enterprise')
             
             # Create HTML email body
             html_body = f"""

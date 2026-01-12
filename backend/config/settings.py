@@ -22,22 +22,13 @@ class Config:
     HOST = os.environ.get('FLASK_HOST', '127.0.0.1')
     PORT = int(os.environ.get('FLASK_PORT', 5000))
     
-    # CORS Configuration
-    ALLOWED_ORIGINS = [
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "https://healthassistant.meallensai.com",
-        "https://healthassistant.meallensai.com/",
-        "https://recipe-ai-harmony-2bbq.vercel.app",
-        "https://meallens.vercel.app",
-    ]
-    
-    # Add custom origins from environment
+    # CORS Configuration - Only from environment variable
+    ALLOWED_ORIGINS = []
     env_origins = os.environ.get("ALLOWED_ORIGINS", "").strip()
     if env_origins:
         for origin in env_origins.split(","):
             origin = origin.strip()
-            if origin and origin not in ALLOWED_ORIGINS:
+            if origin:
                 ALLOWED_ORIGINS.append(origin)
     
     # Supabase Configuration
@@ -57,8 +48,8 @@ class Config:
     FROM_EMAIL = os.environ.get("FROM_EMAIL")
     FROM_NAME = os.environ.get("FROM_NAME", "MeallensAI")
     
-    # Frontend Configuration
-    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+    # Frontend Configuration - Must be set in environment
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
     
     # Feature Flags
     PAYMENT_ENABLED = bool(PAYSTACK_SECRET_KEY)

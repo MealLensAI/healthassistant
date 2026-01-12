@@ -945,6 +945,9 @@ def forgot_password():
         # Build redirect URL from environment
         frontend_base = os.environ.get('FRONTEND_BASE_URL', '').strip().rstrip('/')
         if not frontend_base:
+            # Try FRONTEND_URL as fallback
+            frontend_base = os.environ.get('FRONTEND_URL', '').strip().rstrip('/')
+        if not frontend_base:
             # Try to infer from request origin for local/dev flows
             try:
                 origin = request.headers.get('Origin', '')
@@ -953,8 +956,10 @@ def forgot_password():
             except Exception:
                 frontend_base = ''
         if not frontend_base:
-            frontend_base = 'https://healthassistant.meallensai.com'
-        default_redirect = f"{frontend_base}/reset-password"
+            # Log warning if no frontend URL is configured
+            current_app.logger.warning("⚠️ FRONTEND_URL/FRONTEND_BASE_URL not set in environment. Using empty redirect URL.")
+            frontend_base = ''
+        default_redirect = f"{frontend_base}/reset-password" if frontend_base else "/reset-password"
         redirect_url = provided_redirect or os.environ.get('RESET_PASSWORD_REDIRECT_URL', default_redirect)
 
         sent = False
