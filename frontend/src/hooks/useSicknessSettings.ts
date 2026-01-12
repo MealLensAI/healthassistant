@@ -82,12 +82,15 @@ const dropCachedSettings = () => {
 };
 
 export const useSicknessSettings = () => {
-  const cacheRef = useRef<SicknessSettings | null>(readCachedSettings());
-  const initialSettings = cacheRef.current ? cacheRef.current : createEmptySettings();
+  // Don't read from cache on initialization - always fetch from backend
+  // Cache is only used for immediate display while fetching
+  const cacheRef = useRef<SicknessSettings | null>(null);
+  const initialSettings = createEmptySettings();
+  const previousUserIdRef = useRef<string | undefined>(undefined);
 
   const [settings, setSettings] = useState<SicknessSettings>(initialSettings);
   const [loading, setLoading] = useState(false);
-  const [hasExistingData, setHasExistingData] = useState(!!cacheRef.current);
+  const [hasExistingData, setHasExistingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, loading: authLoading } = useAuth();
   const isMountedRef = useRef(true);
@@ -110,7 +113,7 @@ export const useSicknessSettings = () => {
     dropCachedSettings();
   }, []);
 
-  const loadSettingsFromBackend = useCallback(async () => {
+  const loadSettingsFromBackend = useCallback(async (forceRefresh: boolean = false) => {
     if (authLoading || !isAuthenticated) {
       if (isMountedRef.current) {
         setLoading(false);
@@ -118,59 +121,127 @@ export const useSicknessSettings = () => {
       return;
     }
 
+    // Show cached data immediately if available (for better UX), but always fetch from backend
+    if (cacheRef.current && !forceRefresh) {
+      setSettings(cacheRef.current);
+      lastSavedRef.current = cacheRef.current;
+      setHasExistingData(true);
+    }
+
+    // Always fetch from backend when authenticated to ensure we have the latest data
+    // This ensures health info persists even after cache clear
     if (isMountedRef.current) {
       setLoading(true);
       setError(null);
     }
 
     try {
-      const result = await api.getUserSettings('health_profile');
-      if (!isMountedRef.current) return;
+      const result = await api.getUserSettings('health_profile') as any;
 
-      const hasData =
-        result.status === 'success' &&
-        typeof result.settings === 'object' &&
-        result.settings !== null &&
-        Object.keys(result.settings).length > 0;
-
-      if (hasData) {
-        const normalized = normalizeSettings(result.settings);
-        setSettings(normalized);
-        lastSavedRef.current = normalized;
-        setHasExistingData(true);
-        persistCache(normalized);
-        setError(null);
-        console.log('✅ Health settings loaded from backend:', normalized);
-      } else {
-        console.log('No health settings found in backend, preserving cached/default values');
-        if (!cacheRef.current) {
-          const emptySettings = createEmptySettings();
-          setSettings(emptySettings);
-          lastSavedRef.current = emptySettings;
-          setHasExistingData(false);
+      // Handle case where settings might be a string
+      let settingsToUse = result.settings;
+      if (typeof result.settings === 'string') {
+        try {
+          settingsToUse = JSON.parse(result.settings);
+        } catch (e) {
+          settingsToUse = {};
         }
-        if (!cacheRef.current) {
-          clearCache();
+      }
+
+      // If backend returned success and we have a settings object with data, use it
+      const isValidData = result.status === 'success' && 
+          settingsToUse && 
+          typeof settingsToUse === 'object' && 
+          !Array.isArray(settingsToUse) &&
+          Object.keys(settingsToUse).length > 0;
+
+      const isMounted = isMountedRef.current;
+
+      if (isValidData) {
+        // Backend has data - use it
+        const normalized = normalizeSettings(settingsToUse);
+        
+        // Always cache the data (safe even if unmounted)
+        persistCache(normalized);
+        lastSavedRef.current = normalized;
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setSettings(normalized);
+          setHasExistingData(true);
+          setError(null);
+        }
+      } else {
+        // No valid backend data - use cache if available, otherwise empty
+        if (cacheRef.current) {
+          lastSavedRef.current = cacheRef.current;
+          if (isMounted) {
+            setSettings(cacheRef.current);
+            setHasExistingData(true);
+          }
+        } else {
+          const emptySettings = createEmptySettings();
+          lastSavedRef.current = emptySettings;
+          if (isMounted) {
+            setSettings(emptySettings);
+            setHasExistingData(false);
+          }
         }
       }
     } catch (err) {
       if (isMountedRef.current) {
-        console.error('Error loading sickness settings from API:', err);
-        setError('Unable to load your health settings. Please try again.');
+        // On error, try to use cached data if available
+        if (cacheRef.current) {
+          setSettings(cacheRef.current);
+          lastSavedRef.current = cacheRef.current;
+          setHasExistingData(true);
+          setError(null);
+        } else {
+          setError('Unable to load your health settings. Please try again.');
+          setHasExistingData(false);
+        }
+        setLoading(false);
       }
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
       }
     }
-  }, [authLoading, isAuthenticated, persistCache, clearCache]);
+  }, [authLoading, isAuthenticated, persistCache]);
 
   useEffect(() => {
     // Only load settings when authenticated and not loading
+    // Always fetch from backend when authenticated to ensure data is fresh
     if (!authLoading && isAuthenticated) {
-      loadSettingsFromBackend();
+      // Load cached data for immediate display (if available) - this prevents flickering
+      const cached = readCachedSettings();
+      if (cached) {
+        cacheRef.current = cached;
+        // Only set cached data if we don't already have backend data loaded
+        // This ensures settings persist and don't reset to defaults
+        if (!hasExistingData) {
+          setSettings(cached);
+          lastSavedRef.current = cached;
+          setHasExistingData(true);
+        }
+      }
+      // Always fetch from backend to ensure we have the latest data
+      // Force refresh on authentication to ensure we get fresh data
+      loadSettingsFromBackend(true);
+    } else if (!isAuthenticated && !authLoading) {
+      // Clear cache when user logs out
+      cacheRef.current = null;
+      dropCachedSettings();
+      // Only clear settings when user logs out - don't reset if they're just not authenticated yet
+      if (hasExistingData) {
+        setSettings(createEmptySettings());
+        lastSavedRef.current = createEmptySettings();
+        setHasExistingData(false);
+        clearCache();
+      }
     }
-  }, [authLoading, isAuthenticated, loadSettingsFromBackend]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated]);
 
   // Safety mechanism: Force reset loading state after 10 seconds
   useEffect(() => {

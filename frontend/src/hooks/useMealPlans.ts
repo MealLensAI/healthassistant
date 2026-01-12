@@ -19,24 +19,28 @@ export interface MealPlan {
   breakfast_carbs?: number;
   breakfast_fat?: number;
   breakfast_benefit?: string;
+  breakfast_image?: string; // Image URL stored in DB
   lunch_name?: string;
   lunch_calories?: number;
   lunch_protein?: number;
   lunch_carbs?: number;
   lunch_fat?: number;
   lunch_benefit?: string;
+  lunch_image?: string; // Image URL stored in DB
   dinner_name?: string;
   dinner_calories?: number;
   dinner_protein?: number;
   dinner_carbs?: number;
   dinner_fat?: number;
   dinner_benefit?: string;
+  dinner_image?: string; // Image URL stored in DB
   snack_name?: string;
   snack_calories?: number;
   snack_protein?: number;
   snack_carbs?: number;
   snack_fat?: number;
   snack_benefit?: string;
+  snack_image?: string; // Image URL stored in DB
 }
 
 export interface HealthAssessment {
@@ -282,11 +286,40 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       const now = new Date();
       const weekDates = startDate ? generateWeekDates(startDate) : generateWeekDates(now);
 
+      // Fetch and attach images to meal plan before saving
+      const mealPlanWithImages = await Promise.all(mealPlan.map(async (dayPlan) => {
+        const { imageCache } = await import('@/lib/imageCache');
+        const fallbackImages = {
+          breakfast: 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
+          lunch: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
+          dinner: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=300&fit=crop',
+          snack: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop'
+        };
+
+        const updatedPlan = { ...dayPlan };
+
+        // Fetch images for each meal if not already present
+        if (dayPlan.breakfast_name && !dayPlan.breakfast_image) {
+          updatedPlan.breakfast_image = await imageCache.getImage(dayPlan.breakfast_name, fallbackImages.breakfast);
+        }
+        if (dayPlan.lunch_name && !dayPlan.lunch_image) {
+          updatedPlan.lunch_image = await imageCache.getImage(dayPlan.lunch_name, fallbackImages.lunch);
+        }
+        if (dayPlan.dinner_name && !dayPlan.dinner_image) {
+          updatedPlan.dinner_image = await imageCache.getImage(dayPlan.dinner_name, fallbackImages.dinner);
+        }
+        if (dayPlan.snack_name && !dayPlan.snack_image) {
+          updatedPlan.snack_image = await imageCache.getImage(dayPlan.snack_name, fallbackImages.snack);
+        }
+
+        return updatedPlan;
+      }));
+
       const planData = {
         name: weekDates.name,
         start_date: weekDates.startDate,
         end_date: weekDates.endDate,
-        meal_plan: mealPlan,
+        meal_plan: mealPlanWithImages, // Save meal plan with images
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
         health_assessment: healthAssessment,

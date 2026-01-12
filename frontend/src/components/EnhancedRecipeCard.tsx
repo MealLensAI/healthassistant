@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Flame } from 'lucide-react';
+import { imageCache } from '@/lib/imageCache';
 
 interface EnhancedRecipeCardProps {
     mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -11,6 +12,7 @@ interface EnhancedRecipeCardProps {
     fat?: number;
     benefit?: string;
     onClick: () => void;
+    image?: string; // Add image prop for stored images
 }
 
 const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
@@ -22,26 +24,25 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
     carbs,
     fat,
     benefit,
-    onClick
+    onClick,
+    image
 }) => {
     const [imageLoading, setImageLoading] = useState(true);
     const [imageError, setImageError] = useState(false);
     const [foodImage, setFoodImage] = useState<string>('');
 
     const fetchFoodImage = async (foodName: string) => {
+        // If image is provided (stored in DB), use it directly
+        if (image) {
+            setFoodImage(image);
+            setImageLoading(false);
+            return;
+        }
+
         try {
-            const response = await fetch('https://get-images-qa23.onrender.com/image', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ q: foodName }),
-            });
-            if (!response.ok) throw new Error('HTTP error');
-            const data = await response.json();
-            if (data.image_url && !data.error) {
-                setFoodImage(data.image_url);
-            } else {
-                setFoodImage(getFallbackImage());
-            }
+            const fallback = getFallbackImage();
+            const cachedImage = await imageCache.getImage(foodName, fallback);
+            setFoodImage(cachedImage);
         } catch (error) {
             setFoodImage(getFallbackImage());
         } finally {
@@ -63,7 +64,7 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
         setImageLoading(true);
         setImageError(false);
         fetchFoodImage(name);
-    }, [name]);
+    }, [name, image]);
 
     const handleImageError = () => {
         if (!imageError) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { imageCache } from '@/lib/imageCache';
 
 interface RecipeCardProps {
   title: string;
@@ -23,18 +24,9 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, mealType, onClick
     }
 
     try {
-      const response = await fetch('https://get-images-qa23.onrender.com/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q: foodName }),
-      });
-      if (!response.ok) throw new Error('HTTP error');
-      const data = await response.json();
-      if (data.image_url && !data.error) {
-        setFoodImage(data.image_url);
-      } else {
-        setFoodImage(getFallbackImage());
-      }
+      const fallback = getFallbackImage();
+      const cachedImage = await imageCache.getImage(foodName, fallback);
+      setFoodImage(cachedImage);
     } catch (error) {
       setFoodImage(getFallbackImage());
     } finally {
