@@ -160,7 +160,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     if (!isAuthenticated || authLoading) {
       console.log('⏸️ useMealPlans: Skipping fetch (not authenticated or auth loading)');
       // Don't clear cached data if auth is still loading
-      if (!isAuthenticated) {
+      if (!isAuthenticated && !authLoading) {
         setSavedPlans([]);
         setCurrentPlan(null);
         clearCachedPlans(userId);
@@ -171,23 +171,48 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       return;
     }
 
+    // Additional check: ensure we have a valid token before fetching
+    const token = safeGetItem('access_token');
+    if (!token) {
+      console.log('⏸️ useMealPlans: Skipping fetch (no access token)');
+      setInitialized(true);
+      setLoading(false);
+      return;
+    }
+
     const fetchPlans = async () => {
       setLoading(true);
       setError(null);
       // Don't set initialized to false here - keep showing cached data
       try {
         console.log('🔍 useMealPlans: Fetching meal plans');
-        const token = safeGetItem('access_token');
         const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            'Authorization': `Bearer ${token}`
           },
           credentials: 'include'
         });
 
         if (!response.ok) {
+          // Don't show error for 401 - it's expected when not authenticated
+          if (response.status === 401) {
+            console.log('⏸️ useMealPlans: 401 response - user not authenticated');
+            setSavedPlans([]);
+            setCurrentPlan(null);
+            setLoading(false);
+            setInitialized(true);
+            return;
+          }
+          // For 500 errors, try to get more details and don't throw immediately
+          if (response.status === 500) {
+            console.warn('⚠️ useMealPlans: Server error (500), will retry on next auth change');
+            // Don't clear cached data on server error
+            setLoading(false);
+            setInitialized(true);
+            return;
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -259,7 +284,11 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       } catch (error) {
         console.error('Error fetching meal plans:', error);
         // Don't clear cached data on error - keep showing it
-        setError(error instanceof Error ? error.message : 'Failed to load meal plans');
+        // Only set error for non-auth related issues
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load meal plans';
+        if (!errorMessage.includes('401')) {
+          setError(errorMessage);
+        }
       } finally {
         setLoading(false);
         setInitialized(true);
@@ -617,6 +646,15 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       });
 
       if (!response.ok) {
+        // Don't show error for 401 - it's expected when not authenticated
+        if (response.status === 401) {
+          console.log('⏸️ refreshMealPlans: 401 response - user not authenticated');
+          setSavedPlans([]);
+          setCurrentPlan(null);
+          setLoading(false);
+          setInitialized(true);
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -657,9 +695,13 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       }
     } catch (error) {
       console.error('Error refreshing meal plans:', error);
-      setSavedPlans([]);
-      setCurrentPlan(null);
-      setError(error instanceof Error ? error.message : 'Failed to refresh meal plans');
+      // Don't clear data or show error for auth-related issues
+      const errorMessage = error instanceof Error ? error.message : 'Failed to refresh meal plans';
+      if (!errorMessage.includes('401')) {
+        setSavedPlans([]);
+        setCurrentPlan(null);
+        setError(errorMessage);
+      }
     }
     setLoading(false);
     setInitialized(true);

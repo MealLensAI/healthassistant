@@ -1,6 +1,7 @@
 """
 Enterprise Management Routes
-Handles organization/enterprise registration, user invitations, and management
+Handles organization/enterprise registration, user invitations, and management.
+Optimized with caching and connection pooling for production performance.
 """
 
 from flask import Blueprint, request, jsonify, current_app
@@ -9,41 +10,81 @@ from typing import Optional
 import uuid
 import secrets
 import os
+import logging
 from datetime import datetime, timedelta, timezone
 from services.email_service import email_service
 from supabase import Client
 
+# Import optimized utilities
+try:
+    from utils.enterprise_utils import (
+        get_supabase_client as get_optimized_client,
+        get_admin_client,
+        get_frontend_url as get_cached_frontend_url,
+        check_user_is_org_admin as check_admin_cached,
+        get_cached_user_details,
+        get_cached_enterprise,
+        batch_get_user_details,
+        format_meal_plan_response,
+        check_user_exists_by_email as check_user_exists_optimized,
+        check_user_can_create_organizations as check_can_create_optimized
+    )
+    USE_OPTIMIZED = True
+except ImportError:
+    USE_OPTIMIZED = False
+
+logger = logging.getLogger(__name__)
+
 def get_frontend_url():
     """Get the frontend URL from FRONTEND_URL environment variable only"""
-    # Ensure .env is loaded (in case function is called before app initialization)
+    if USE_OPTIMIZED:
+        return get_cached_frontend_url()
+    
+    # Fallback implementation
     try:
         from dotenv import load_dotenv
         env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
         load_dotenv(env_path)
     except:
-        pass  # If dotenv fails, assume env vars are already loaded
+        pass
     
-    # Only use FRONTEND_URL from environment variable
     frontend_url = os.environ.get('FRONTEND_URL')
     if frontend_url:
         frontend_url = frontend_url.strip()
         if frontend_url:
-            print(f"🔍 Using FRONTEND_URL from env: {frontend_url}")
             return frontend_url.rstrip('/')
     
-    # If FRONTEND_URL is not set, log warning and return empty string
-    print(f"⚠️ WARNING: FRONTEND_URL not set in environment.")
-    print(f"⚠️ Please set FRONTEND_URL in backend/.env file")
+    logger.warning("FRONTEND_URL not set in environment")
     return ''
 
 enterprise_bp = Blueprint('enterprise', __name__)
 
+
+# Register request lifecycle hooks for caching
+@enterprise_bp.before_request
+def init_enterprise_cache():
+    """Initialize request-scoped cache at the start of each enterprise request."""
+    if USE_OPTIMIZED:
+        from utils.enterprise_utils import init_request_cache
+        init_request_cache()
+
+
+@enterprise_bp.after_request
+def cleanup_enterprise_cache(response):
+    """Cleanup request-scoped cache at the end of each enterprise request."""
+    if USE_OPTIMIZED:
+        from utils.enterprise_utils import cleanup_request_cache
+        cleanup_request_cache(response)
+    return response
+
 def get_supabase_client(use_admin: bool = False) -> Client:
     """Helper function to get the Supabase client from the app context."""
+    if USE_OPTIMIZED:
+        return get_optimized_client(use_admin)
+    
+    # Fallback implementation
     if use_admin:
-        # Use admin client that bypasses RLS
         from supabase import create_client
-        import os
         return create_client(
             os.getenv('SUPABASE_URL'),
             os.getenv('SUPABASE_SERVICE_ROLE_KEY')
@@ -54,7 +95,7 @@ def get_supabase_client(use_admin: bool = False) -> Client:
     raise Exception("Supabase service not available")
 
 def require_auth(f):
-    """Decorator to require authentication"""
+    """Decorator to require authentication - uses admin client for reliable token verification"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
@@ -63,93 +104,93 @@ def require_auth(f):
         
         token = auth_header.split(' ')[1]
         try:
-            supabase = get_supabase_client()
+            # IMPORTANT: Use admin client for token verification to bypass RLS
+            # This ensures token verification works regardless of RLS policies
+            supabase = get_supabase_client(use_admin=True)
             user = supabase.auth.get_user(token)
-            if not user:
+            if not user or not user.user:
                 return jsonify({'error': 'Invalid token'}), 401
             request.user_id = user.user.id
             request.user_email = user.user.email
             request.user_metadata = getattr(user.user, 'user_metadata', {}) or {}
         except Exception as e:
+            logger.error(f"Authentication failed: {str(e)}")
             return jsonify({'error': f'Authentication failed: {str(e)}'}), 401
         
         return f(*args, **kwargs)
     return decorated_function
 
-def check_user_is_org_admin(user_id: str, enterprise_id: str, supabase: Client) -> tuple[bool, str]:
+def check_user_is_org_admin(user_id: str, enterprise_id: str, supabase: Client = None) -> tuple[bool, str]:
     """
     Check if a user is an admin or owner of an organization.
+    Uses cached version when available for better performance.
     
     CRITICAL: Owner is identified by enterprises.created_by and is NOT in organization_users table.
     
     Returns:
         tuple: (is_admin, reason)
     """
+    # Use optimized cached version if available
+    if USE_OPTIMIZED:
+        return check_admin_cached(user_id, enterprise_id, supabase)
+    
+    # Fallback to original implementation
+    if supabase is None:
+        supabase = get_supabase_client(use_admin=True)
+    
     try:
-        current_app.logger.info(f"[PERMISSION] Checking permissions for user {user_id} on enterprise {enterprise_id}")
-        current_app.logger.info(f"[PERMISSION] Using admin client: {supabase is not None}")
+        logger.info(f"[PERMISSION] Checking permissions for user {user_id} on enterprise {enterprise_id}")
         
         # FIRST: Check if enterprise exists
         enterprise_result = supabase.table('enterprises').select('id, created_by').eq('id', enterprise_id).execute()
         
-        current_app.logger.info(f"[PERMISSION] Enterprise query result: {enterprise_result.data}")
-        
         if not enterprise_result.data:
-            current_app.logger.error(f"[PERMISSION] Enterprise {enterprise_id} not found in database")
-            # Try to list all enterprises to debug
-            try:
-                all_enterprises = supabase.table('enterprises').select('id, name, created_by').limit(5).execute()
-                current_app.logger.info(f"[PERMISSION] Sample enterprises in DB: {all_enterprises.data}")
-            except Exception as debug_error:
-                current_app.logger.error(f"[PERMISSION] Could not list enterprises: {debug_error}")
+            logger.error(f"[PERMISSION] Enterprise {enterprise_id} not found in database")
             return False, "Organization not found"
         
         enterprise = enterprise_result.data[0]
         
         # SECOND: Check if user is the owner (created_by)
-        # Owner has FULL access and is NOT in organization_users table
         if enterprise['created_by'] == user_id:
-            current_app.logger.info(f"[PERMISSION] ✅ User {user_id} is the owner of enterprise {enterprise_id}")
+            logger.info(f"[PERMISSION] ✅ User {user_id} is the owner of enterprise {enterprise_id}")
             return True, "owner"
         
         # THIRD: Fallback - Check if user is an admin member in organization_users table
-        current_app.logger.info(f"[PERMISSION] User is not owner, checking organization_users table")
         membership_result = supabase.table('organization_users').select('role').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
         
         if not membership_result.data:
-            current_app.logger.warning(f"[PERMISSION] ❌ User {user_id} is not a member of enterprise {enterprise_id}")
+            logger.warning(f"[PERMISSION] ❌ User {user_id} is not a member of enterprise {enterprise_id}")
             return False, "User is not a member of this organization"
         
         role = membership_result.data[0]['role']
-        current_app.logger.info(f"[PERMISSION] User has role: {role}")
         
         # Only allow admin role from organization_users (not regular members)
         if role == 'admin':
-            current_app.logger.info(f"[PERMISSION] ✅ User has admin role")
+            logger.info(f"[PERMISSION] ✅ User has admin role")
             return True, f"admin"
         
-        current_app.logger.warning(f"[PERMISSION] ❌ User role '{role}' does not have permission")
+        logger.warning(f"[PERMISSION] ❌ User role '{role}' does not have permission")
         return False, f"User role '{role}' does not have permission to manage users"
         
     except Exception as e:
-        current_app.logger.error(f"[PERMISSION] ❌ Exception: {str(e)}", exc_info=True)
+        logger.error(f"[PERMISSION] ❌ Exception: {str(e)}", exc_info=True)
         return False, f"Error checking user permissions: {str(e)}"
 
 
 def check_user_exists_by_email(supabase: Client, email: str) -> tuple[bool, Optional[str]]:
     """
     Check if a user with the given email already exists in Supabase.
-    
-    Uses multiple methods to check:
-    1. Check profiles table (fastest)
-    2. Try admin.get_user_by_email (if available)
-    3. Fallback to paginated list_users
+    Uses optimized version when available.
     
     Returns:
         tuple: (user_exists, user_id_if_found)
     """
+    # Use optimized version if available
+    if USE_OPTIMIZED:
+        return check_user_exists_optimized(email, supabase)
+    
     normalized_email = email.lower().strip()
-    current_app.logger.info(f"[USER_CHECK] Checking if user exists with email: {normalized_email}")
+    logger.info(f"[USER_CHECK] Checking if user exists with email: {normalized_email}")
     
     # Method 1: Check profiles table (fastest and most reliable)
     admin_client = None
@@ -159,10 +200,10 @@ def check_user_exists_by_email(supabase: Client, email: str) -> tuple[bool, Opti
             profile_check = admin_client.table('profiles').select('id, email').ilike('email', normalized_email).limit(1).execute()
             if profile_check.data and len(profile_check.data) > 0:
                 user_id = profile_check.data[0].get('id')
-                current_app.logger.info(f"[USER_CHECK] ✅ User found in profiles table: {user_id}")
+                logger.info(f"[USER_CHECK] ✅ User found in profiles table: {user_id}")
                 return True, user_id
     except Exception as profiles_err:
-        current_app.logger.warning(f"[USER_CHECK] Profiles check failed: {str(profiles_err)}")
+        logger.warning(f"[USER_CHECK] Profiles check failed: {str(profiles_err)}")
     
     # Method 2: Try admin.get_user_by_email (if available)
     try:
@@ -576,34 +617,55 @@ def get_enterprise_users(enterprise_id):
             if inv.get('accepted_by'):
                 accepted_invitations_by_user_id[inv['accepted_by']] = inv
         
-        # Format response with user details from auth
+        # Get user details - use batch fetching if optimized utilities available
+        user_ids = [org_user['user_id'] for org_user in result.data]
+        
+        if USE_OPTIMIZED and user_ids:
+            # Batch fetch all user details at once (much faster)
+            user_details_map = batch_get_user_details(user_ids, supabase)
+        else:
+            # Fallback to individual fetches
+            user_details_map = {}
+            for user_id in user_ids:
+                try:
+                    user_details = supabase.auth.admin.get_user_by_id(user_id)
+                    if user_details and user_details.user:
+                        user_metadata = user_details.user.user_metadata or {}
+                        user_details_map[user_id] = {
+                            'id': user_id,
+                            'email': user_details.user.email,
+                            'first_name': user_metadata.get('first_name', ''),
+                            'last_name': user_metadata.get('last_name', ''),
+                            'name': f"{user_metadata.get('first_name', '')} {user_metadata.get('last_name', '')}".strip() or 'Unknown'
+                        }
+                except:
+                    user_details_map[user_id] = {
+                        'id': user_id,
+                        'email': 'Unknown',
+                        'first_name': '',
+                        'last_name': '',
+                        'name': 'Unknown'
+                    }
+        
+        # Format response with user details
         users = []
         for org_user in result.data:
-            # Get user details from auth
-            try:
-                user_details = supabase.auth.admin.get_user_by_id(org_user['user_id'])
-                if user_details and user_details.user:
-                    user_metadata = user_details.user.user_metadata or {}
-                    first_name = user_metadata.get('first_name', '')
-                    last_name = user_metadata.get('last_name', '')
-                    email = user_details.user.email
-                else:
-                    first_name = last_name = email = 'Unknown'
-            except:
-                first_name = last_name = email = 'Unknown'
+            user_id = org_user['user_id']
+            user_info = user_details_map.get(user_id, {})
+            email = user_info.get('email', 'Unknown')
             
             # Find the invitation this user accepted (check by user_id first, then email)
             accepted_invitation = None
-            if org_user['user_id'] in accepted_invitations_by_user_id:
-                accepted_invitation = accepted_invitations_by_user_id[org_user['user_id']]
+            if user_id in accepted_invitations_by_user_id:
+                accepted_invitation = accepted_invitations_by_user_id[user_id]
             elif email in accepted_invitations_by_email:
                 accepted_invitation = accepted_invitations_by_email[email]
             
             user_data = {
                 'id': org_user['id'],
-                'user_id': org_user['user_id'],
-                'first_name': first_name,
-                'last_name': last_name,
+                'user_id': user_id,
+                'first_name': user_info.get('first_name', ''),
+                'last_name': user_info.get('last_name', ''),
                 'email': email,
                 'role': org_user['role'],
                 'status': org_user.get('status', 'active'),
@@ -627,7 +689,7 @@ def get_enterprise_users(enterprise_id):
         }), 200
         
     except Exception as e:
-        current_app.logger.error(f'Failed to fetch enterprise users: {str(e)}')
+        logger.error(f'Failed to fetch enterprise users: {str(e)}')
         return jsonify({
             'success': False,
             'error': f'Failed to fetch users: {str(e)}'
@@ -2300,19 +2362,22 @@ def get_enterprise_statistics(enterprise_id):
         enterprise = enterprise_result.data[0]
         owner_id = enterprise['created_by']
         
-        # Get owner information
-        owner_info = {'id': owner_id, 'email': 'Unknown', 'name': 'Unknown'}
-        try:
-            owner_details = supabase.auth.admin.get_user_by_id(owner_id)
-            if owner_details and owner_details.user:
-                owner_metadata = owner_details.user.user_metadata or {}
-                owner_info = {
-                    'id': owner_id,
-                    'email': owner_details.user.email,
-                    'name': f"{owner_metadata.get('first_name', '')} {owner_metadata.get('last_name', '')}".strip() or 'Owner'
-                }
-        except Exception as e:
-            current_app.logger.warning(f'Could not fetch owner details: {str(e)}')
+        # Get owner information - use cached version if available
+        if USE_OPTIMIZED:
+            owner_info = get_cached_user_details(owner_id, supabase)
+        else:
+            owner_info = {'id': owner_id, 'email': 'Unknown', 'name': 'Unknown'}
+            try:
+                owner_details = supabase.auth.admin.get_user_by_id(owner_id)
+                if owner_details and owner_details.user:
+                    owner_metadata = owner_details.user.user_metadata or {}
+                    owner_info = {
+                        'id': owner_id,
+                        'email': owner_details.user.email,
+                        'name': f"{owner_metadata.get('first_name', '')} {owner_metadata.get('last_name', '')}".strip() or 'Owner'
+                    }
+            except Exception as e:
+                logger.warning(f'Could not fetch owner details: {str(e)}')
         
         # Get all users (excludes owner)
         users_result = supabase.table('organization_users').select('status').eq('enterprise_id', enterprise_id).execute()
@@ -2345,7 +2410,7 @@ def get_enterprise_statistics(enterprise_id):
         }), 200
         
     except Exception as e:
-        current_app.logger.error(f'Failed to fetch enterprise statistics: {str(e)}')
+        logger.error(f'Failed to fetch enterprise statistics: {str(e)}')
         return jsonify({
             'success': False,
             'error': f'Failed to fetch statistics: {str(e)}'

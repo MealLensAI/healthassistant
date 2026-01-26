@@ -132,7 +132,8 @@ const Index = () => {
     error: mealPlansError
   } = useMealPlans(sicknessSettings.hasSickness); // Filter based on current health settings
   useEffect(() => {
-    if (mealPlansError) {
+    // Only show error toast for actual errors, not auth-related issues
+    if (mealPlansError && !mealPlansError.includes('401') && !mealPlansError.includes('Authentication')) {
       toast({
         title: 'Meal plans unavailable',
         description: mealPlansError,

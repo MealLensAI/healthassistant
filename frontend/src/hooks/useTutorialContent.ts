@@ -105,14 +105,28 @@ export const useTutorialContent = () => {
         console.error('Full response:', resData);
       }
 
-      // Flatten and parse YouTube resources (same as HTML code)
-      const ytResults = (resData.YoutubeSearch || []).flat().map((item: any) => ({
-        title: item.title,
-        thumbnail: item.thumbnail || (getYouTubeVideoId(item.link) ? `https://img.youtube.com/vi/${getYouTubeVideoId(item.link)}/maxresdefault.jpg` : ''),
-        url: item.link,
-        videoId: getYouTubeVideoId(item.link),
-        channel: item.channel || '',
-      }));
+      // Flatten and parse YouTube resources - use hqdefault for reliability
+      const ytResults = (resData.YoutubeSearch || []).flat().map((item: any) => {
+        const videoId = getYouTubeVideoId(item.link);
+        // Only use item.thumbnail if it's a valid non-empty URL
+        const hasValidThumbnail = item.thumbnail && 
+          typeof item.thumbnail === 'string' && 
+          item.thumbnail.trim() !== '' && 
+          item.thumbnail.startsWith('http');
+        
+        // Always generate YouTube thumbnail from video ID for reliability
+        const thumbnail = videoId 
+          ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+          : (hasValidThumbnail ? item.thumbnail : 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop');
+        
+        return {
+          title: item.title || 'Video Tutorial',
+          thumbnail,
+          url: item.link,
+          videoId,
+          channel: item.channel || '',
+        };
+      });
       setYoutubeVideos(ytResults);
 
       // Flatten and parse Google resources (same as HTML code)

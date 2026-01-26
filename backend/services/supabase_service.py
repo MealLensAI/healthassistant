@@ -558,19 +558,27 @@ class SupabaseService:
             print(f"[DEBUG] Fetching meal plans for user: {user_id}")
             
             # Query the meal_plan_management table
-            # Only return APPROVED plans (is_approved = TRUE)
-            # Plans created by admin that are not approved yet won't show to user
-            result = self.supabase.table('meal_plan_management').select('*').eq('user_id', user_id).eq('is_approved', True).order('updated_at', desc=True).execute()
+            # First try without is_approved filter to ensure basic query works
+            # Then filter in Python if needed (more robust if column doesn't exist)
+            result = self.supabase.table('meal_plan_management').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
             
-            print(f"[DEBUG] Query result: {result.data}")
+            print(f"[DEBUG] Query result count: {len(result.data) if result.data else 0}")
             
             if result.data is not None:
-                # Return the list of meal plans
-                return result.data, None
+                # Filter for approved plans in Python (handles missing column gracefully)
+                # If is_approved field doesn't exist, include the plan (backward compatibility)
+                filtered_plans = [
+                    plan for plan in result.data 
+                    if plan.get('is_approved', True) is True or plan.get('is_approved') is None
+                ]
+                print(f"[DEBUG] Filtered plans count: {len(filtered_plans)}")
+                return filtered_plans, None
             else:
                 return [], None
         except Exception as e:
             print(f"[ERROR] Exception in get_meal_plans: {e}")
+            import traceback
+            traceback.print_exc()
             return None, str(e)
 
     def save_session(self, user_id: str, session_id: str, session_data: dict, created_at: str) -> tuple[bool, str | None]:

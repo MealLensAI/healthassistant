@@ -3,11 +3,15 @@ services:
     name: meallensai-backend
     env: python
     region: oregon
+    plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 app:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --worker-class gthread --timeout 120 --keep-alive 5 --max-requests 1000 --max-requests-jitter 50 app:app
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11
+        value: "3.11"
+      - key: FLASK_ENV
+        value: production
       - key: PORT
-        value: 5000
-
+        value: "5001"
+    autoDeploy: true

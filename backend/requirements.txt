@@ -1,8 +1,32 @@
-flask-cors
-flask
-supabase
-marshmallow
-dotenv
-requests
-gunicorn
-pytz
+# Flask and extensions
+flask>=3.0.0
+flask-cors>=4.0.0
+werkzeug>=3.0.0
+
+# Supabase
+supabase>=2.0.0
+
+# Data validation
+marshmallow>=3.20.0
+
+# Environment and configuration
+python-dotenv>=1.0.0
+
+# HTTP client
+requests>=2.31.0
+httpx>=0.25.0
+
+# Production WSGI server
+gunicorn>=21.0.0
+
+# Timezone handling
+pytz>=2024.1
+
+# Email support (optional)
+secure-smtplib>=0.1.1
+
+# Payment processing (optional)
+# paystack>=1.5.0
+
+# Performance and caching
+cachetools>=5.3.0

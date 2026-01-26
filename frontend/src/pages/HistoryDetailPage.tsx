@@ -38,6 +38,27 @@ const getCachedHistory = (userId?: string): any[] | null => {
   }
 };
 
+/**
+ * Normalize resources from API/DB.
+ * Meal instructions work because they fetch live from /resources; History uses stored DB data.
+ * DB may return resources as string (JSON) or object (e.g. Supabase JSONB). We handle both.
+ */
+const normalizeResources = (raw: any): { YoutubeSearch: any[]; GoogleSearch: any[] } | null => {
+  if (raw == null) return null;
+  if (typeof raw === 'object' && !Array.isArray(raw) && raw !== null) {
+    const yt = raw.YoutubeSearch ?? raw.youtube ?? raw.YouTube ?? [];
+    const goog = raw.GoogleSearch ?? raw.google ?? raw.Google ?? [];
+    return { YoutubeSearch: Array.isArray(yt) ? yt : [], GoogleSearch: Array.isArray(goog) ? goog : [] };
+  }
+  if (typeof raw !== 'string' || !raw.trim() || raw.trim() === '{}') return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return normalizeResources(parsed);
+  } catch {
+    return null;
+  }
+};
+
 const HistoryDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -60,24 +81,12 @@ const HistoryDetailPage = () => {
   const { isAuthenticated, loading: authLoading, user } = useAuth()
   const { api } = useAPI()
 
-  // Parse resources from cached item
+  // Parse resources from cached item (handles both string and object from API/DB)
   useEffect(() => {
-    if (cachedItem && historyDetail) {
-      try {
-        let resourcesToParse = null;
-        if (historyDetail.resources_link && typeof historyDetail.resources_link === 'string' && historyDetail.resources_link.trim() !== '{}' && historyDetail.resources_link.trim() !== '') {
-          resourcesToParse = historyDetail.resources_link;
-        } else if (historyDetail.resources && typeof historyDetail.resources === 'string' && historyDetail.resources.trim() !== '{}' && historyDetail.resources.trim() !== '') {
-          resourcesToParse = historyDetail.resources;
-        }
-        if (resourcesToParse) {
-          const parsed = JSON.parse(resourcesToParse);
-          setResources(parsed);
-        }
-      } catch (e) {
-        console.error("[HistoryDetail] Error parsing resources from cache:", e);
-      }
-    }
+    if (!cachedItem || !historyDetail) return;
+    const raw = historyDetail.resources_link ?? historyDetail.resources;
+    const parsed = normalizeResources(raw);
+    if (parsed) setResources(parsed);
   }, [cachedItem, historyDetail])
 
   useEffect(() => {
@@ -117,20 +126,8 @@ const HistoryDetailPage = () => {
               resources_link: raw.resources_link || raw.resources || undefined
             }
             setHistoryDetail(detail)
-            
-            try {
-              let resourcesToParse = null;
-              if (detail.resources_link && typeof detail.resources_link === 'string' && detail.resources_link.trim() !== '{}' && detail.resources_link.trim() !== '') {
-                resourcesToParse = detail.resources_link;
-              } else if (detail.resources && typeof detail.resources === 'string' && detail.resources.trim() !== '{}' && detail.resources.trim() !== '') {
-                resourcesToParse = detail.resources;
-              }
-              if (resourcesToParse) {
-                setResources(JSON.parse(resourcesToParse));
-              }
-            } catch (e) {
-              console.error("[HistoryDetail] Error parsing resources:", e);
-            }
+            const parsed = normalizeResources(raw.resources_link ?? raw.resources)
+            if (parsed) setResources(parsed)
           } else {
             setError("History entry not found")
           }
@@ -170,16 +167,8 @@ const HistoryDetailPage = () => {
               resources_link: raw.resources_link || raw.resources || undefined
             }
             setHistoryDetail(detail)
-            
-            try {
-              if (detail.resources_link && typeof detail.resources_link === 'string' && detail.resources_link.trim() !== '{}' && detail.resources_link.trim() !== '') {
-                setResources(JSON.parse(detail.resources_link))
-              } else if (detail.resources && typeof detail.resources === 'string' && detail.resources.trim() !== '{}' && detail.resources.trim() !== '') {
-                setResources(JSON.parse(detail.resources))
-              }
-            } catch (e) {
-              // Ignore
-            }
+            const parsed = normalizeResources(raw.resources_link ?? raw.resources)
+            if (parsed) setResources(parsed)
           }
         }
       } catch (err) {
@@ -275,17 +264,19 @@ const HistoryDetailPage = () => {
   const youtubeVideos = useMemo(() => {
     if (!resources?.YoutubeSearch) return []
     
-    return (resources.YoutubeSearch as any[]).flat().map((item: any, idx: number) => {
-      const videoId = getYouTubeVideoId(item.link || item.url)
-      // Always use hqdefault for YouTube thumbnails - it's more reliable and prevents flickering
-      let thumbnail = ''
-      if (videoId) {
-        thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-      } else if (item.thumbnail) {
-        thumbnail = item.thumbnail
-      } else {
-        thumbnail = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop'
-      }
+    // Flatten the array in case it's nested and filter out invalid entries
+    const flatVideos = (resources.YoutubeSearch as any[]).flat().filter((item: any) => item && (item.link || item.url || item.videoId))
+    
+    return flatVideos.map((item: any, idx: number) => {
+      // Try to get video ID from multiple sources
+      const videoId = item.videoId || getYouTubeVideoId(item.link || item.url || '')
+      
+      // Always generate YouTube thumbnail from video ID for reliability
+      // This ensures we always get a working thumbnail
+      const thumbnail = videoId 
+        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        : 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop'
+      
       return {
         id: `video-${idx}-${videoId || item.link || idx}`,
         title: item.title || 'Untitled Video',
@@ -301,9 +292,12 @@ const HistoryDetailPage = () => {
   const webResources = useMemo(() => {
     if (!resources?.GoogleSearch) return []
     
-    return (resources.GoogleSearch as any[]).flat().map((item: any, idx: number) => {
-      // Ensure we have a valid image URL
-      let imageUrl = item.image || item.thumbnail || ''
+    // Flatten the array in case it's nested and filter out invalid entries
+    const flatResources = (resources.GoogleSearch as any[]).flat().filter((item: any) => item && (item.link || item.url || item.title))
+    
+    return flatResources.map((item: any, idx: number) => {
+      // Ensure we have a valid image URL - check multiple possible fields
+      let imageUrl = item.image || item.thumbnail || item.pagemap?.cse_image?.[0]?.src || ''
       if (!imageUrl || imageUrl.trim() === '') {
         imageUrl = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop'
       }
@@ -320,20 +314,30 @@ const HistoryDetailPage = () => {
   // Stable image error handler to prevent flickering
   const handleVideoImageError = useCallback((e: React.SyntheticEvent<HTMLImageElement>, videoId: string | null) => {
     const target = e.target as HTMLImageElement;
-    // Only try fallback once to prevent infinite loops
-    if (!target.dataset.fallbackAttempted) {
-      target.dataset.fallbackAttempted = 'true';
-      if (videoId) {
-        // Try mqdefault as fallback
-        target.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-      } else {
-        // Use default fallback image
-        target.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
-      }
-    } else {
-      // Already tried fallback, use default image
-      target.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
+    const currentSrc = target.src;
+    
+    // Prevent infinite error loops
+    if (target.dataset.errorHandled === 'true') {
+      return;
     }
+    
+    // Fallback chain for YouTube thumbnails
+    if (videoId && currentSrc.includes('youtube.com')) {
+      if (currentSrc.includes('maxresdefault')) {
+        target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        return;
+      } else if (currentSrc.includes('hqdefault')) {
+        target.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+        return;
+      } else if (currentSrc.includes('mqdefault')) {
+        target.src = `https://img.youtube.com/vi/${videoId}/sddefault.jpg`;
+        return;
+      }
+    }
+    
+    // Final fallback - mark as handled to prevent loops
+    target.dataset.errorHandled = 'true';
+    target.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
   }, [])
 
   // Stable image load handler

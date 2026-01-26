@@ -37,6 +37,31 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const target = e.target as HTMLImageElement;
+    const currentSrc = target.src;
+    
+    // Prevent infinite error loops
+    if (target.dataset.errorHandled === 'true') {
+      return;
+    }
+    
+    // Check if this is a YouTube thumbnail and try fallback resolutions
+    const ytMatch = currentSrc.match(/img\.youtube\.com\/vi\/([^/]+)\//);
+    if (ytMatch) {
+      const videoId = ytMatch[1];
+      if (currentSrc.includes('maxresdefault')) {
+        target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        return;
+      } else if (currentSrc.includes('hqdefault')) {
+        target.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+        return;
+      } else if (currentSrc.includes('mqdefault')) {
+        target.src = `https://img.youtube.com/vi/${videoId}/sddefault.jpg`;
+        return;
+      }
+    }
+    
+    // Final fallback - mark as handled to prevent loops
+    target.dataset.errorHandled = 'true';
     target.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
   };
 

@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, List, Upload, Utensils, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, User, Check, X, Trash2, Eye, RefreshCw, Clock, Heart, Shield, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Camera, List, Upload, Utensils, Plus, Calendar, User, Check, X, Trash2, Eye, RefreshCw, Clock, Heart, Shield } from 'lucide-react';
 import RecipeCard from '@/components/RecipeCard';
 import EnhancedRecipeCard from '@/components/EnhancedRecipeCard';
-import LoadingSpinner from '@/components/LoadingSpinner';
 import CookingTutorialModal from '@/components/CookingTutorialModal';
-import MealPlanSkeleton from '@/components/MealPlanSkeleton';
 import { useToast } from '@/hooks/use-toast';
 import { APP_CONFIG } from '@/lib/config';
 import { api } from '@/lib/api';
@@ -687,12 +685,56 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         }
       }
 
+      // Pre-fetch images for the meal plan before saving (for faster loading later)
+      const { imageCache } = await import('@/lib/imageCache');
+      const fallbackImages = {
+        breakfast: 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
+        lunch: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
+        dinner: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=300&fit=crop',
+        snack: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop'
+      };
+
+      const mealPlanWithImages = await Promise.all(mealPlanData.map(async (dayPlan: any) => {
+        const updatedPlan = { ...dayPlan };
+        
+        // Fetch images for each meal in parallel
+        const imagePromises: Promise<void>[] = [];
+        
+        if (dayPlan.breakfast_name && !dayPlan.breakfast_image) {
+          imagePromises.push(
+            imageCache.getImage(dayPlan.breakfast_name, fallbackImages.breakfast)
+              .then(url => { updatedPlan.breakfast_image = url; })
+          );
+        }
+        if (dayPlan.lunch_name && !dayPlan.lunch_image) {
+          imagePromises.push(
+            imageCache.getImage(dayPlan.lunch_name, fallbackImages.lunch)
+              .then(url => { updatedPlan.lunch_image = url; })
+          );
+        }
+        if (dayPlan.dinner_name && !dayPlan.dinner_image) {
+          imagePromises.push(
+            imageCache.getImage(dayPlan.dinner_name, fallbackImages.dinner)
+              .then(url => { updatedPlan.dinner_image = url; })
+          );
+        }
+        if (dayPlan.snack_name && !dayPlan.snack_image) {
+          imagePromises.push(
+            imageCache.getImage(dayPlan.snack_name, fallbackImages.snack)
+              .then(url => { updatedPlan.snack_image = url; })
+          );
+        }
+        
+        await Promise.all(imagePromises);
+        return updatedPlan;
+      }));
+
       // Save the meal plan for the user via enterprise API
       const planData = {
         name: weekDates.name,
         start_date: weekDates.startDate,
         end_date: weekDates.endDate,
-        meal_plan: mealPlanData,
+        meal_plan: mealPlanWithImages,
         has_sickness: hasSickness,
         sickness_type: sicknessType,
         health_assessment: healthAssessment,
@@ -782,6 +824,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
 
     const hasSickness = currentPlan.has_sickness;
 
+    // Include images from the stored meal plan data for faster loading
     const recipes = [
       {
         title: extractFoodName(dayPlan.breakfast),
@@ -795,7 +838,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         protein: hasSickness ? dayPlan.breakfast_protein : undefined,
         carbs: hasSickness ? dayPlan.breakfast_carbs : undefined,
         fat: hasSickness ? dayPlan.breakfast_fat : undefined,
-        benefit: hasSickness ? dayPlan.breakfast_benefit : undefined
+        benefit: hasSickness ? dayPlan.breakfast_benefit : undefined,
+        image: (dayPlan as any).breakfast_image // Use stored image if available
       },
       {
         title: extractFoodName(dayPlan.lunch),
@@ -809,7 +853,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         protein: hasSickness ? dayPlan.lunch_protein : undefined,
         carbs: hasSickness ? dayPlan.lunch_carbs : undefined,
         fat: hasSickness ? dayPlan.lunch_fat : undefined,
-        benefit: hasSickness ? dayPlan.lunch_benefit : undefined
+        benefit: hasSickness ? dayPlan.lunch_benefit : undefined,
+        image: (dayPlan as any).lunch_image // Use stored image if available
       },
       {
         title: extractFoodName(dayPlan.dinner),
@@ -823,7 +868,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         protein: hasSickness ? dayPlan.dinner_protein : undefined,
         carbs: hasSickness ? dayPlan.dinner_carbs : undefined,
         fat: hasSickness ? dayPlan.dinner_fat : undefined,
-        benefit: hasSickness ? dayPlan.dinner_benefit : undefined
+        benefit: hasSickness ? dayPlan.dinner_benefit : undefined,
+        image: (dayPlan as any).dinner_image // Use stored image if available
       },
     ];
 
@@ -840,7 +886,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         protein: hasSickness ? dayPlan.snack_protein : undefined,
         carbs: hasSickness ? dayPlan.snack_carbs : undefined,
         fat: hasSickness ? dayPlan.snack_fat : undefined,
-        benefit: hasSickness ? dayPlan.snack_benefit : undefined
+        benefit: hasSickness ? dayPlan.snack_benefit : undefined,
+        image: (dayPlan as any).snack_image // Use stored image if available
       });
     }
 
@@ -1269,6 +1316,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                           carbs={recipe.carbs}
                           fat={recipe.fat}
                           benefit={recipe.benefit}
+                          image={recipe.image}
                           onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
                         />
                       );
@@ -1281,6 +1329,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                         time={recipe.time}
                         rating={recipe.rating}
                         mealType={recipe.type as any}
+                        image={recipe.image}
                         onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
                       />
                     );

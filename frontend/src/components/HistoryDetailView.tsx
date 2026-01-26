@@ -38,6 +38,31 @@ const HistoryDetailView: React.FC<HistoryDetailViewProps> = ({
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const target = e.target as HTMLImageElement;
+    const currentSrc = target.src;
+    
+    // Prevent infinite error loops
+    if (target.dataset.errorHandled === 'true') {
+      return;
+    }
+    
+    // Check if this is a YouTube thumbnail and try fallback resolutions
+    const ytMatch = currentSrc.match(/img\.youtube\.com\/vi\/([^/]+)\//);
+    if (ytMatch) {
+      const videoId = ytMatch[1];
+      if (currentSrc.includes('maxresdefault')) {
+        target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        return;
+      } else if (currentSrc.includes('hqdefault')) {
+        target.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+        return;
+      } else if (currentSrc.includes('mqdefault')) {
+        target.src = `https://img.youtube.com/vi/${videoId}/sddefault.jpg`;
+        return;
+      }
+    }
+    
+    // Final fallback - mark as handled to prevent loops
+    target.dataset.errorHandled = 'true';
     target.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
   };
 
@@ -63,7 +88,12 @@ const HistoryDetailView: React.FC<HistoryDetailViewProps> = ({
     return parsedResources.YoutubeSearch.flat().map((video: any) => {
       const videoData = Array.isArray(video) ? video[0] : video;
       const videoId = videoData?.videoId || videoData?.id || (videoData?.link ? getYouTubeVideoId(videoData.link) : null);
-      const thumbnail = videoData?.thumbnail || (videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop');
+      
+      // Always generate YouTube thumbnail from video ID for reliability
+      const thumbnail = videoId 
+        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        : 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
+      
       const title = videoData?.title || videoData?.snippet?.title || 'Video Tutorial';
       
       return { videoId, thumbnail, title, link: videoData?.link || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : '') };
