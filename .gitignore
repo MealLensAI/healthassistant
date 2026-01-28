@@ -1,3 +1,6 @@
 .venv
 .vite
 .ideabackend/.DS_Store
+.backend/.DS_Store
+.backend/__pycache__/
+.idea/
