@@ -4,6 +4,7 @@ FROM python:3.10-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PORT=5001
 WORKDIR /app
 
 # Copy the requirements file into the container
@@ -21,5 +22,6 @@ EXPOSE 5001
 # Set the environment variable for Flask to run in production mode
 ENV FLASK_ENV=production
 
-# Start the Flask application
-CMD ["flask", "run", "--host", "0.0.0.0", "--port=5001"]
+# Start the application with gunicorn (production-grade WSGI server)
+# Matches Procfile/render.yaml: module `app`, WSGI object `app`
+CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--workers", "4", "--threads", "2", "--timeout", "120", "app:app"]
