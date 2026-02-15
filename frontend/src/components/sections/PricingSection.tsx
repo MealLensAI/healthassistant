@@ -108,11 +108,10 @@ const PricingSection = () => {
             return (
               <div
                 key={card.id}
-                className={`relative rounded-xl border bg-card p-6 sm:p-8 flex flex-col ${
-                  card.highlight
+                className={`relative rounded-xl border bg-card p-6 sm:p-8 flex flex-col ${card.highlight
                     ? "border-primary shadow-lg ring-2 ring-primary/20"
                     : "border-border"
-                }`}
+                  }`}
               >
                 {card.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-sm font-medium">
@@ -139,7 +138,7 @@ const PricingSection = () => {
                 <Button
                   variant={card.highlight ? "default" : "outline"}
                   className="w-full"
-                  onClick={() => navigate(card.id === "trial" ? "/signup" : "/payment")}
+                  onClick={() => navigate("/signup")}
                 >
                   {card.cta}
                 </Button>
