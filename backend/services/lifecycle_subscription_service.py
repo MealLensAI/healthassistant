@@ -68,7 +68,7 @@ class LifecycleSubscriptionService:
                 'error': str(e)
             }
     
-    def initialize_user_trial(self, user_id: str, duration_hours: int = 48) -> Dict[str, Any]:
+    def initialize_user_trial(self, user_id: str, duration_hours: int = 168) -> Dict[str, Any]:
         """
         Initialize trial for a new user
         """

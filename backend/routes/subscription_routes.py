@@ -118,7 +118,7 @@ def create_user_trial():
     try:
         data = request.get_json()
         user_id = data.get('user_id')
-        duration_days = data.get('duration_days', 30)
+        duration_days = data.get('duration_days', 7)
         
         if not user_id:
             return jsonify({

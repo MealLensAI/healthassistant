@@ -65,7 +65,7 @@ def initialize_trial():
             }), 500
         
         data = request.get_json() or {}
-        duration_hours = data.get('duration_hours', 48)  # Default 48 hours
+        duration_hours = data.get('duration_hours', 168)  # Default 168 hours (7 days)
         
         # Check if test mode is enabled
         test_mode = data.get('test_mode', False)

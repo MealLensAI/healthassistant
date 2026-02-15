@@ -1623,15 +1623,15 @@ def create_user():
             else:
                 current_app.logger.info(f"[CREATE_USER] Membership verified: {verify_result.data[0]}")
 
-        # Create a trial for the new user (30 days for enterprise users)
+        # Create a trial for the new user (7 days for enterprise users)
         try:
             trial_result = admin_supabase.rpc('create_user_trial', {
                 'p_user_id': user_id,
-                'p_duration_days': 30  # 30 days trial for enterprise users
+                'p_duration_days': 7  # 7 days trial for enterprise users
             }).execute()
             
             if trial_result.data and trial_result.data.get('success'):
-                print(f"✅ Created 30-day trial for user {user_id}")
+                print(f"✅ Created 7-day trial for user {user_id}")
             else:
                 print(f"⚠️ Failed to create trial for user {user_id}: {trial_result.data}")
         except Exception as trial_error:

@@ -43,7 +43,7 @@ export const APP_CONFIG = {
                 health_meal_generations: 5
             },
             is_active: true,
-            duration_days: 2,
+            duration_days: 7,
             billing_cycle: 'weekly'
         },
         {

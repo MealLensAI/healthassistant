@@ -253,7 +253,7 @@ class SubscriptionService:
                 'error': str(e)
             }
     
-    def create_user_trial(self, user_id: str, duration_days: int = 30) -> Dict[str, Any]:
+    def create_user_trial(self, user_id: str, duration_days: int = 7) -> Dict[str, Any]:
         """
         Create a trial for a new user
         """

@@ -732,7 +732,7 @@ def register_user():
         def create_trial_async():
             try:
                 subscription_service = SubscriptionService()
-                trial_result = subscription_service.create_user_trial(user_id=user_id, duration_days=30)
+                trial_result = subscription_service.create_user_trial(user_id=user_id, duration_days=7)
                 if not trial_result.get('success'):
                     current_app.logger.warning(f"Failed to create trial for user {user_id}: {trial_result.get('error')}")
                 else:
