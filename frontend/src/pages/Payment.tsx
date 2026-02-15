@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useTrial } from '@/hooks/useTrial';
-import { Clock, Camera, Utensils, Heart, Calendar, ChevronDown } from 'lucide-react';
+import { Clock, Utensils, Heart, Calendar, ChevronDown } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
 // import { TrialService } from '@/lib/trialService'; // No longer needed
 import { safeGetItem, useAuth } from '@/lib/utils';
@@ -56,44 +56,43 @@ const FEATURES = [
 
 ];
 
-// Pricing plans (USD). DurationMinutes controls subscription minutes after payment.
-// 🧪 TEST MODE: All plans use 1 minute for quick testing
+// Pricing plans (USD) — aligned with landing page (PricingSection).
 const MONTHLY_PLANS = [
   {
-    label: '$2.5 Weekly',
-    price: 2.5,              // USD price
-    duration: '1 week',
-    durationMinutes: 10080,    // 1 minute for testing
-    paystackAmount: 2.5,     // USD amount for Paystack
+    label: '$1.25 Weekly',
+    price: 1.25,
+    duration: 'per week',
+    durationMinutes: 10080,
+    paystackAmount: 1.25,
     highlight: false,
-    icon: <Camera className="h-8 w-8 text-blue-500" />,
+    icon: <Clock className="h-8 w-8 text-blue-500" />,
   },
   {
-    label: '$5 Per 2 Weeks',
-    price: 5,              // USD price
-    duration: '2 weeks',
-    durationMinutes: 20160,  // 1 minute for testing
-    paystackAmount: 5,     // USD amount for Paystack
+    label: '$2.50 Two Weeks',
+    price: 2.5,
+    duration: 'per 2 weeks',
+    durationMinutes: 20160,
+    paystackAmount: 2.5,
     highlight: false,
     icon: <Utensils className="h-8 w-8 text-green-500" />,
   },
   {
-    label: '$10 Per Month',
-    price: 10,             // USD price
-    duration: '1 month',
-    durationMinutes: 43200,  // 1 minute for testing
-    paystackAmount: 10,    // USD amount for Paystack
-    highlight: true,       // Most popular
+    label: '$5 Monthly',
+    price: 5,
+    duration: 'per month',
+    durationMinutes: 43200,
+    paystackAmount: 5,
+    highlight: true,
     icon: <Heart className="h-8 w-8 text-red-500" />,
   },
 ];
 
 const YEARLY_PLAN = {
-  label: '$100/year',
-  price: 100,              // USD price
-  duration: '1 year',
-  durationMinutes: 525600,    // 1 minute for testing
-  paystackAmount: 100,     // USD amount for Paystack
+  label: '$50/year',
+  price: 50,
+  duration: 'per year',
+  durationMinutes: 525600,
+  paystackAmount: 50,
   highlight: false,
   icon: <Calendar className="h-8 w-8 text-purple-500" />,
 };
@@ -800,7 +799,7 @@ const Payment: React.FC = () => {
 
         {billing === 'yearly' && (
           <div className="text-blue-500 text-sm font-medium bg-yellow-50 px-4 py-2 rounded-full inline-block">
-            Save 20% with annual billing!
+            Save with annual billing!
           </div>
         )}
       </div>

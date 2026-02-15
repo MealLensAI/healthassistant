@@ -50,9 +50,9 @@ export const APP_CONFIG = {
             id: 'weekly',
             name: 'weekly',
             display_name: 'Weekly Plan',
-            price_weekly: 2.50,
-            price_two_weeks: 5.00,
-            price_monthly: 10.00,
+            price_weekly: 1.25,
+            price_two_weeks: 2.50,
+            price_monthly: 5.00,
             currency: 'USD',
             features: [
                 'Smart Ingredient Recognition',
@@ -75,9 +75,9 @@ export const APP_CONFIG = {
             id: 'two_weeks',
             name: 'two_weeks',
             display_name: 'Two Weeks Plan',
-            price_weekly: 2.50,
-            price_two_weeks: 5.00,
-            price_monthly: 10.00,
+            price_weekly: 1.25,
+            price_two_weeks: 2.50,
+            price_monthly: 5.00,
             currency: 'USD',
             features: [
                 'Smart Ingredient Recognition',
@@ -100,9 +100,9 @@ export const APP_CONFIG = {
             id: 'monthly',
             name: 'monthly',
             display_name: 'Monthly Plan',
-            price_weekly: 2.50,
-            price_two_weeks: 5.00,
-            price_monthly: 10.00,
+            price_weekly: 1.25,
+            price_two_weeks: 2.50,
+            price_monthly: 5.00,
             currency: 'USD',
             features: [
                 'Smart Ingredient Recognition',
@@ -127,10 +127,10 @@ export const APP_CONFIG = {
             id: 'yearly',
             name: 'yearly',
             display_name: 'Yearly Plan',
-            price_weekly: 2.50,
-            price_two_weeks: 5.00,
-            price_monthly: 10.00,
-            price_yearly: 100.00,
+            price_weekly: 1.25,
+            price_two_weeks: 2.50,
+            price_monthly: 5.00,
+            price_yearly: 50.00,
             currency: 'USD',
             features: [
                 'Smart Ingredient Recognition',
@@ -335,7 +335,7 @@ export const getPlanPrice = (planName: string, billingCycle: string): number => 
         case 'monthly':
             return plan.price_monthly;
         case 'yearly':
-            return plan.price_yearly || 100.00;
+            return plan.price_yearly || 50.00;
         default:
             return plan.price_monthly;
     }

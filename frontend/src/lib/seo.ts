@@ -7,17 +7,21 @@ type MetaConfig = {
 }
 
 const DEFAULTS: MetaConfig = {
-    title: 'MealLensAI - Ingredient Recognition, Recipes & 7-Day Meal Plans ,AI Meal Plan for Chronic Sickness Conditions, Budget & Location-Based Meal Plans',
-    description: 'AI ingredient recognition, step-by-step recipes, dish detection, and personalized 7-day meal plans. Includes photo/manual meal planning (breakfast, lunch, dinner, dessert), AI plans for chronic conditions, and budget/location-based plans.',
+    title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $5/month',
+    description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. 7-day free trial, then $5/month. Budget & location-based plans. One subscription unlocks Cooking + Health.',
     keywords: buildKeywords(),
     url: (typeof window !== 'undefined' ? window.location.origin : '') || (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_PUBLIC_URL) || '',
     image: '/assets/images/share-image.png'
 }
 
 export const ROUTE_SEO: Record<string, Partial<MetaConfig>> = {
+    '/': {
+        title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $5/month',
+        description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. 7-day free trial, then $5/month. Budget & location-based plans. One subscription unlocks Cooking + Health.',
+    },
     '/landing': {
-        title: 'MealLensAI - Ingredient Recognition, Recipes & 7-Day Meal Plans,AI Meal Plan for Chronic Sickness Conditions, Budget & Location-Based Meal Plans',
-        description: 'Snap or upload ingredients for instant identification, get step-by-step recipes, detect dishes from photos, and generate personalized 7-day plans incl. breakfast/lunch/dinner/dessert, chronic-condition options, and budget/location-based planning.',
+        title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $5/month',
+        description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. 7-day free trial, then $5/month. Budget & location-based plans. One subscription unlocks Cooking + Health.',
     },
     '/login': {
         title: 'Login - MealLensAI',
@@ -44,8 +48,8 @@ export const ROUTE_SEO: Record<string, Partial<MetaConfig>> = {
         description: 'Review your detected ingredients and saved recipes.'
     },
     '/payment': {
-        title: 'Subscription - MealLensAI',
-        description: 'Start free trial and manage your MealLensAI subscription.'
+        title: 'Subscribe – MealLensAI | $5/month Plan',
+        description: 'Start your 7-day free trial. Then $5/month for full access to AI recipes, meal plans, and chronic-condition meal planning. Cancel anytime.'
     },
     '/profile': {
         title: 'Profile - MealLensAI',
@@ -123,6 +127,7 @@ function setCanonical(href: string) {
 function ensureJsonLd() {
     try {
         const origin = typeof window !== 'undefined' ? (window.location?.origin || DEFAULTS.url) : DEFAULTS.url
+        const baseUrl = (origin || '').replace(/\/$/, '')
 
         // Organization
         const orgId = 'ld-org'
@@ -134,16 +139,15 @@ function ensureJsonLd() {
                 '@context': 'https://schema.org',
                 '@type': 'Organization',
                 name: 'MealLensAI',
-                url: origin,
-                logo: origin + '/favicon.ico',
-                sameAs: [
-                    'https://x.com/MealLensAI'
-                ]
+                url: baseUrl,
+                logo: baseUrl + '/assets/images/logo.svg',
+                description: 'AI-powered recipe finder and meal planning for chronic conditions. $5/month after free trial.',
+                sameAs: ['https://x.com/MealLensAI']
             })
             document.head.appendChild(script)
         }
 
-        // Website + SearchAction
+        // WebSite + SearchAction
         const siteId = 'ld-website'
         if (!document.getElementById(siteId)) {
             const script = document.createElement('script')
@@ -153,11 +157,38 @@ function ensureJsonLd() {
                 '@context': 'https://schema.org',
                 '@type': 'WebSite',
                 name: 'MealLensAI',
-                url: origin,
+                url: baseUrl,
+                description: 'Snap ingredients, get recipes. AI meal plans for diabetes, hypertension, PCOS and more. 7-day free trial, then $5/month.',
                 potentialAction: {
                     '@type': 'SearchAction',
-                    target: origin + '/search?q={search_term_string}',
+                    target: baseUrl + '/search?q={search_term_string}',
                     'query-input': 'required name=search_term_string'
+                }
+            })
+            document.head.appendChild(script)
+        }
+
+        // SoftwareApplication with pricing (for rich results)
+        const appId = 'ld-softwareapp'
+        if (!document.getElementById(appId)) {
+            const script = document.createElement('script')
+            script.type = 'application/ld+json'
+            script.id = appId
+            script.text = JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'SoftwareApplication',
+                name: 'MealLensAI',
+                applicationCategory: 'HealthApplication',
+                operatingSystem: 'Web',
+                url: baseUrl,
+                description: 'AI ingredient recognition, step-by-step recipes, and personalized 7-day meal plans for chronic conditions. Budget and location-based plans. 7-day free trial, then $5/month.',
+                offers: {
+                    '@type': 'Offer',
+                    price: '5',
+                    priceCurrency: 'USD',
+                    priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+                    availability: 'https://schema.org/InStock',
+                    url: baseUrl + '/payment'
                 }
             })
             document.head.appendChild(script)
