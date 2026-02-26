@@ -6,9 +6,12 @@ import os
 import smtplib
 import ssl
 import time
+import uuid
+import json
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
+from datetime import datetime
 
 class EmailService:
     """Service for sending emails"""
@@ -25,6 +28,7 @@ class EmailService:
         self._load_config()
         self.last_error_message: Optional[str] = None
         self.last_error_port: Optional[int] = None
+        self._notification_client = None
     
     def _load_config(self):
         """Load email configuration from environment variables"""
@@ -108,6 +112,101 @@ class EmailService:
             return f'https://{url}'
         return url
 
+    def _get_notification_client(self):
+        """Create/reuse Supabase admin client for in-app notification logging."""
+        if self._notification_client is not None:
+            return self._notification_client
+        try:
+            from supabase import create_client
+            supabase_url = os.environ.get('SUPABASE_URL')
+            service_role_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+            if not supabase_url or not service_role_key:
+                return None
+            self._notification_client = create_client(supabase_url, service_role_key)
+            return self._notification_client
+        except Exception as exc:
+            print(f"[EmailService] Failed to initialize notification client: {exc}")
+            return None
+
+    def _log_email_notification(self, to_email: str, subject: str) -> None:
+        """Persist an in-app notification for users whose email exists in profiles."""
+        try:
+            client = self._get_notification_client()
+            if client is None:
+                return
+
+            profile_result = (
+                client.table('profiles')
+                .select('id')
+                .eq('email', to_email)
+                .limit(1)
+                .execute()
+            )
+            if not profile_result.data:
+                return
+
+            user_id = profile_result.data[0].get('id')
+            if not user_id:
+                return
+
+            settings_result = (
+                client.table('user_settings')
+                .select('id,settings_data')
+                .eq('user_id', user_id)
+                .eq('settings_type', 'in_app_notifications')
+                .limit(1)
+                .execute()
+            )
+
+            items = []
+            existing_id = None
+            if settings_result.data:
+                existing = settings_result.data[0]
+                existing_id = existing.get('id')
+                settings_data = existing.get('settings_data') or {}
+                if isinstance(settings_data, str):
+                    try:
+                        settings_data = json.loads(settings_data)
+                    except Exception:
+                        settings_data = {}
+                if isinstance(settings_data, list):
+                    items = settings_data
+                elif isinstance(settings_data, dict):
+                    items = settings_data.get('items', [])
+
+            new_item = {
+                'id': str(uuid.uuid4()),
+                'type': 'email',
+                'title': 'New Email Notification',
+                'message': subject or 'A new email was sent to your account.',
+                'created_at': datetime.utcnow().isoformat() + 'Z',
+                'read': False
+            }
+            updated_items = [new_item] + [i for i in items if isinstance(i, dict)]
+            updated_items = updated_items[:50]
+            unread_count = sum(1 for item in updated_items if not item.get('read', False))
+            payload = {
+                'items': updated_items,
+                'unread_count': unread_count
+            }
+
+            now_iso = datetime.utcnow().isoformat() + 'Z'
+            if existing_id:
+                client.table('user_settings').update({
+                    'settings_data': payload,
+                    'updated_at': now_iso
+                }).eq('id', existing_id).execute()
+            else:
+                client.table('user_settings').insert({
+                    'user_id': user_id,
+                    'settings_type': 'in_app_notifications',
+                    'settings_data': payload,
+                    'created_at': now_iso,
+                    'updated_at': now_iso
+                }).execute()
+        except Exception as exc:
+            print(f"[EmailService] Failed to persist in-app notification for {to_email}: {exc}")
+
     def _send_email_message(self, msg: MIMEMultipart, to_email: str) -> bool:
         """
         Send an email message with retry and timeout safeguards.
@@ -173,6 +272,10 @@ class EmailService:
                             server.send_message(msg)
 
                     print(f"[EmailService] ✅ Email sent to {to_email} via port {port} (attempt {attempt})")
+                    try:
+                        self._log_email_notification(to_email, msg.get('Subject', 'New email'))
+                    except Exception as notify_error:
+                        print(f"[EmailService] Notification logging skipped: {notify_error}")
                     self.last_error_message = None
                     self.last_error_port = None
                     return True

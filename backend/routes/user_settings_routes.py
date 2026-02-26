@@ -4,6 +4,39 @@ import json
 
 user_settings_bp = Blueprint('user_settings', __name__)
 
+
+def _normalize_notifications(settings_record):
+    raw_settings = settings_record.get('settings_data', {}) if settings_record else {}
+    if isinstance(raw_settings, str):
+        try:
+            raw_settings = json.loads(raw_settings)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            raw_settings = {}
+
+    if isinstance(raw_settings, list):
+        items = raw_settings
+    else:
+        items = raw_settings.get('items', []) if isinstance(raw_settings, dict) else []
+
+    normalized_items = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        normalized_items.append({
+            'id': item.get('id'),
+            'type': item.get('type', 'email'),
+            'title': item.get('title', 'Notification'),
+            'message': item.get('message', ''),
+            'created_at': item.get('created_at'),
+            'read': bool(item.get('read', False))
+        })
+
+    unread_count = sum(1 for item in normalized_items if not item.get('read'))
+    return {
+        'items': normalized_items,
+        'unread_count': unread_count
+    }
+
 @user_settings_bp.route('/settings', methods=['POST'])
 def save_user_settings():
     """
@@ -204,4 +237,65 @@ def delete_user_settings_history(record_id):
             
     except Exception as e:
         current_app.logger.error(f"Unexpected error in delete_user_settings_history: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+
+@user_settings_bp.route('/notifications', methods=['GET'])
+def get_notifications():
+    """Retrieve in-app notifications for the authenticated user."""
+    try:
+        user_id, error = get_user_id_from_token()
+        if error:
+            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
+
+        supabase_service = current_app.supabase_service
+        settings_data, fetch_error = supabase_service.get_user_settings(user_id, 'in_app_notifications')
+        if fetch_error:
+            log_error(f"Failed to get notifications for user {user_id}", Exception(fetch_error))
+            return jsonify({'status': 'error', 'message': f'Failed to load notifications: {fetch_error}'}), 500
+
+        normalized = _normalize_notifications(settings_data)
+        return jsonify({
+            'status': 'success',
+            'notifications': normalized.get('items', []),
+            'unread_count': normalized.get('unread_count', 0)
+        }), 200
+    except Exception as e:
+        log_error("Unexpected error in get_notifications", e)
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+
+@user_settings_bp.route('/notifications/read-all', methods=['POST'])
+def mark_notifications_read():
+    """Mark all notifications as read for the authenticated user."""
+    try:
+        user_id, error = get_user_id_from_token()
+        if error:
+            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
+
+        supabase_service = current_app.supabase_service
+        settings_data, fetch_error = supabase_service.get_user_settings(user_id, 'in_app_notifications')
+        if fetch_error:
+            log_error(f"Failed to load notifications for user {user_id}", Exception(fetch_error))
+            return jsonify({'status': 'error', 'message': f'Failed to load notifications: {fetch_error}'}), 500
+
+        normalized = _normalize_notifications(settings_data)
+        marked_items = []
+        for item in normalized.get('items', []):
+            updated = dict(item)
+            updated['read'] = True
+            marked_items.append(updated)
+
+        payload = {
+            'items': marked_items,
+            'unread_count': 0
+        }
+        success, save_error = supabase_service.save_user_settings(user_id, 'in_app_notifications', payload)
+        if not success:
+            log_error(f"Failed to mark notifications read for user {user_id}", Exception(save_error or 'Unknown error'))
+            return jsonify({'status': 'error', 'message': f'Failed to update notifications: {save_error}'}), 500
+
+        return jsonify({'status': 'success', 'message': 'All notifications marked as read'}), 200
+    except Exception as e:
+        log_error("Unexpected error in mark_notifications_read", e)
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500

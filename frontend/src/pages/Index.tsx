@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, X, Sparkles } from 'lucide-react';
+import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, X, Sparkles, MessageCircle } from 'lucide-react';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import EnhancedRecipeCard from '../components/EnhancedRecipeCard';
@@ -967,6 +967,12 @@ const Index = () => {
     []
   );
 
+  const whatsappNumber = '254748703778';
+  const whatsappMessage = encodeURIComponent(
+    'Hello Daniel, I am reaching out from MealLensAI for consultation, doctor follow-up, or feedback.'
+  );
+  const whatsappLink = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
+
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header - aligned with sidebar logo height (123px) - responsive */}
@@ -1039,6 +1045,37 @@ const Index = () => {
           </div>
         </div>
       )}
+
+      {/* WhatsApp Support Notification */}
+      <div className="mx-4 sm:mx-6 md:mx-8 mt-4">
+        <a
+          href={whatsappLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group block rounded-2xl border border-green-200 bg-gradient-to-r from-green-50 via-white to-green-50 p-4 sm:p-5 shadow-sm hover:shadow-md animate-notice-zoom"
+          aria-label="Reach out on WhatsApp"
+        >
+          <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+            <div className="relative flex-shrink-0">
+              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-green-500 flex items-center justify-center text-white shadow-md">
+                <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+              </div>
+              <span className="absolute -right-1 -top-1 inline-flex h-3 w-3 rounded-full bg-green-500 animate-ping" />
+            </div>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="text-[11px] sm:text-xs font-bold tracking-[0.12em] uppercase text-green-700">
+                WhatsApp Support
+              </p>
+              <p className="text-sm sm:text-base font-semibold text-gray-900">
+                Need consultation, personal doctor follow-up, or want to share feedback?
+              </p>
+              <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
+                Message us now on WhatsApp: +254 748 703 778
+              </p>
+            </div>
+          </div>
+        </a>
+      </div>
 
       {/* Main Content Area - responsive padding */}
       <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6">

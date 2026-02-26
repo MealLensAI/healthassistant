@@ -62,6 +62,15 @@ export interface SaveSettingsResponse extends APIResponse {
   updated_at?: string
 }
 
+export interface InAppNotification {
+  id: string
+  type: string
+  title: string
+  message: string
+  created_at: string
+  read: boolean
+}
+
 // Request options type
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
@@ -429,6 +438,14 @@ class APIService {
 
   async getUserSettingsHistory(settingsType: string = 'health_profile', limit: number = 50): Promise<APIResponse> {
     return this.get(`/settings/history?settings_type=${settingsType}&limit=${limit}`)
+  }
+
+  async getNotifications(): Promise<APIResponse<{ notifications: InAppNotification[]; unread_count: number }>> {
+    return this.get('/notifications')
+  }
+
+  async markAllNotificationsRead(): Promise<APIResponse> {
+    return this.post('/notifications/read-all', {})
   }
 
   async deleteSettingsHistory(recordId: string): Promise<APIResponse> {

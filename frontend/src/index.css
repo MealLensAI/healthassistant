@@ -197,3 +197,19 @@
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
 }
+
+@keyframes notice-zoom {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-notice-zoom {
+  animation: notice-zoom 1.8s ease-in-out infinite;
+}
