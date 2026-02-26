@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Flame } from 'lucide-react';
+import { Flame, Check, ChefHat, Loader2 } from 'lucide-react';
 import { imageCache } from '@/lib/imageCache';
+import confetti from 'canvas-confetti';
+import Swal from 'sweetalert2';
 
 interface EnhancedRecipeCardProps {
     mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -12,7 +14,12 @@ interface EnhancedRecipeCardProps {
     fat?: number;
     benefit?: string;
     onClick: () => void;
-    image?: string; // Add image prop for stored images
+    image?: string;
+    mealPlanId?: string | null;
+    day?: string;
+    isCooked?: boolean;
+    onMarkCooked?: () => Promise<void>;
+    onUnmarkCooked?: () => Promise<void>;
 }
 
 const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
@@ -25,11 +32,17 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
     fat,
     benefit,
     onClick,
-    image
+    image,
+    mealPlanId,
+    day,
+    isCooked = false,
+    onMarkCooked,
+    onUnmarkCooked,
 }) => {
     const [imageLoading, setImageLoading] = useState(true);
     const [imageError, setImageError] = useState(false);
     const [foodImage, setFoodImage] = useState<string>('');
+    const [cookingLoading, setCookingLoading] = useState(false);
 
     const fetchFoodImage = async (foodName: string) => {
         // If image is provided (stored in DB), use it directly
@@ -88,12 +101,90 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
 
     const badge = getMealTypeBadge();
     const hasNutritionData = calories !== undefined && protein !== undefined;
+    const showTrackingButton = mealPlanId && day && (onMarkCooked || onUnmarkCooked);
+
+    const [triggerPop, setTriggerPop] = useState(false);
+
+    useEffect(() => {
+        if (isCooked) {
+            setTriggerPop(true);
+            const timer = setTimeout(() => setTriggerPop(false), 300);
+            return () => clearTimeout(timer);
+        }
+    }, [isCooked]);
+
+    const sendCookedEmail = async () => {
+        try {
+            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+            if (!token) return;
+
+            await fetch(`${API_BASE_URL}/meal_tracking/send_cooked_email`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    meal_plan_id: mealPlanId,
+                    day: day,
+                    meal_type: mealType,
+                    meal_name: name,
+                }),
+            });
+        } catch (err) {
+            console.error('Failed to send cooked email:', err);
+        }
+    };
+
+    const handleCookToggle = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (cookingLoading || isCooked) return;
+        
+        setCookingLoading(true);
+        try {
+            if (onMarkCooked) {
+                await onMarkCooked();
+                
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+
+                Swal.fire({
+                    title: 'Congratulations!',
+                    text: `You cooked ${name}!`,
+                    icon: 'success',
+                    confirmButtonText: 'Awesome!',
+                    confirmButtonColor: '#4CAF50',
+                    timer: 3000,
+                    timerProgressBar: true
+                });
+
+                sendCookedEmail();
+            }
+        } finally {
+            setCookingLoading(false);
+        }
+    };
 
     return (
         <div
-            className="bg-white rounded-2xl overflow-hidden cursor-pointer group border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300"
+            className={`bg-white rounded-2xl overflow-hidden cursor-pointer group border shadow-sm hover:shadow-xl transition-all duration-300 ${
+                isCooked ? 'border-green-300 ring-2 ring-green-100' : 'border-gray-100'
+            }`}
             onClick={onClick}
         >
+            <style>{`
+                @keyframes heartbeat {
+                    0%, 100% { transform: scale(1); }
+                    50% { transform: scale(1.1); }
+                }
+                .animate-heartbeat {
+                    animation: heartbeat 2s infinite ease-in-out;
+                }
+            `}</style>
             <div className="relative h-36 sm:h-40 md:h-44">
                 {imageLoading ? (
                     <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse" />
@@ -109,10 +200,40 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                             {badge.text}
                         </div>
                         {hasNutritionData && calories && (
-                            <div className="absolute bottom-3 right-3 bg-green-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-md flex items-center gap-1">
+                            <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1.5 rounded-md flex items-center gap-1">
                                 <Flame className="h-3 w-3" />
                                 {calories}kcal
                             </div>
+                        )}
+
+                        {/* Floating Action Button for Cooking */}
+                        {showTrackingButton && (
+                            <button
+                                onClick={handleCookToggle}
+                                disabled={cookingLoading || isCooked}
+                                className={`absolute bottom-3 right-3 shadow-xl flex items-center justify-center gap-1.5 px-4 py-2 rounded-full font-bold text-sm transition-all duration-300 z-10 ${
+                                    triggerPop 
+                                        ? 'scale-125 bg-green-500 text-white ring-4 ring-green-200' 
+                                        : isCooked 
+                                            ? 'bg-green-500 text-white ring-2 ring-white cursor-default' 
+                                            : 'animate-heartbeat hover:animate-none hover:scale-110 bg-white text-gray-800 hover:text-green-600 ring-2 ring-green-100'
+                                } ${cookingLoading ? 'opacity-70 cursor-wait' : ''}`}
+                                title={isCooked ? 'You already cooked this meal!' : 'Mark as cooked'}
+                            >
+                                {cookingLoading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : isCooked ? (
+                                    <>
+                                        <Check className="w-4 h-4" />
+                                        <span>Cooked</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ChefHat className="w-4 h-4" />
+                                        <span>Cook</span>
+                                    </>
+                                )}
+                            </button>
                         )}
                     </>
                 )}
@@ -153,9 +274,9 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
 
                 <button
                     onClick={(e) => { e.stopPropagation(); onClick(); }}
-                    className="w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-200"
+                    className="text-xs font-medium text-blue-500 hover:text-blue-600 hover:underline transition-colors"
                 >
-                    View Meal Details
+                    View Recipe Details
                 </button>
             </div>
         </div>

@@ -1121,6 +1121,218 @@ class SupabaseService:
         except Exception as e:
             return False, str(e)
 
+    # ── Meal Tracking (stored in user_settings table) ──────────────────
+
+    _TRACKING_SETTINGS_TYPE = 'meal_tracking'
+
+    def _get_tracking_data(self, user_id: str) -> dict:
+        """Load the full tracking dict from user_settings."""
+        try:
+            result = (
+                self.supabase.table('user_settings')
+                .select('settings_data')
+                .eq('user_id', user_id)
+                .eq('settings_type', self._TRACKING_SETTINGS_TYPE)
+                .limit(1)
+                .execute()
+            )
+            if result.data:
+                raw = result.data[0].get('settings_data', {})
+                if isinstance(raw, str):
+                    return json.loads(raw)
+                return raw if isinstance(raw, dict) else {}
+        except Exception as e:
+            print(f"[TRACKING] Error loading tracking data: {e}")
+        return {}
+
+    def _save_tracking_data(self, user_id: str, data: dict) -> None:
+        """Persist the full tracking dict into user_settings via upsert."""
+        now = datetime.utcnow().isoformat() + 'Z'
+        payload = {
+            'user_id': user_id,
+            'settings_type': self._TRACKING_SETTINGS_TYPE,
+            'settings_data': json.dumps(data),
+            'updated_at': now,
+        }
+        try:
+            existing = (
+                self.supabase.table('user_settings')
+                .select('id')
+                .eq('user_id', user_id)
+                .eq('settings_type', self._TRACKING_SETTINGS_TYPE)
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                self.supabase.table('user_settings').update({
+                    'settings_data': json.dumps(data),
+                    'updated_at': now,
+                }).eq('id', existing.data[0]['id']).execute()
+            else:
+                payload['created_at'] = now
+                self.supabase.table('user_settings').insert(payload).execute()
+        except Exception as e:
+            print(f"[TRACKING] Error saving tracking data: {e}")
+            raise
+
+    def mark_meal_cooked(self, user_id: str, meal_plan_id: str, day: str, meal_type: str) -> tuple[dict | None, str | None]:
+        """Mark a meal as cooked. Persists in user_settings."""
+        try:
+            now = datetime.utcnow().isoformat() + "Z"
+            data = self._get_tracking_data(user_id)
+
+            data.setdefault(meal_plan_id, {})
+            data[meal_plan_id].setdefault(day, {})
+            data[meal_plan_id][day][meal_type] = {'cooked_at': now}
+
+            self._save_tracking_data(user_id, data)
+            return {'cooked_at': now, 'day': day, 'meal_type': meal_type}, None
+        except Exception as e:
+            print(f"[ERROR] mark_meal_cooked: {e}")
+            return None, str(e)
+
+    def unmark_meal_cooked(self, user_id: str, meal_plan_id: str, day: str, meal_type: str) -> tuple[dict | None, str | None]:
+        """Remove the cooked status from a meal."""
+        try:
+            data = self._get_tracking_data(user_id)
+
+            if meal_plan_id in data and day in data.get(meal_plan_id, {}):
+                data[meal_plan_id][day].pop(meal_type, None)
+                self._save_tracking_data(user_id, data)
+
+            return {'cooked_at': None, 'day': day, 'meal_type': meal_type}, None
+        except Exception as e:
+            print(f"[ERROR] unmark_meal_cooked: {e}")
+            return None, str(e)
+
+    def get_meal_tracking(self, user_id: str, meal_plan_id: str) -> tuple[dict | None, str | None]:
+        """Get all tracking records for a meal plan, organized by day and meal_type."""
+        try:
+            data = self._get_tracking_data(user_id)
+            plan_data = data.get(meal_plan_id, {})
+
+            tracking: dict = {}
+            for day, meals in plan_data.items():
+                tracking[day] = {}
+                for mt, info in meals.items():
+                    tracking[day][mt] = {
+                        'cooked_at': info.get('cooked_at') if isinstance(info, dict) else info,
+                        'eaten_at': info.get('eaten_at') if isinstance(info, dict) else None,
+                        'reminder_sent_at': info.get('reminder_sent_at') if isinstance(info, dict) else None,
+                    }
+            return tracking, None
+        except Exception as e:
+            print(f"[ERROR] get_meal_tracking: {e}")
+            return None, str(e)
+
+    def get_week_progress(self, user_id: str, meal_plan_id: str) -> tuple[dict | None, str | None]:
+        """Calculate weekly progress for a meal plan."""
+        try:
+            meal_plans, error = self.get_meal_plans(user_id)
+            if error:
+                return None, error
+
+            plan = next((p for p in (meal_plans or []) if str(p.get('id')) == str(meal_plan_id)), None)
+            if not plan:
+                return None, 'Meal plan not found'
+
+            meal_plan_data = plan.get('meal_plan')
+            if isinstance(meal_plan_data, str):
+                try:
+                    meal_plan_data = json.loads(meal_plan_data)
+                except Exception:
+                    meal_plan_data = []
+
+            if isinstance(meal_plan_data, dict) and 'mealPlan' in meal_plan_data:
+                meal_plan_data = meal_plan_data['mealPlan']
+
+            total_meals = 0
+            if isinstance(meal_plan_data, list):
+                for day_plan in meal_plan_data:
+                    for mt in ('breakfast', 'lunch', 'dinner', 'snack'):
+                        if day_plan.get(mt):
+                            total_meals += 1
+
+            tracking, _ = self.get_meal_tracking(user_id, meal_plan_id)
+            cooked_meals = 0
+            if tracking:
+                for day_meals in tracking.values():
+                    for info in day_meals.values():
+                        if isinstance(info, dict) and info.get('cooked_at'):
+                            cooked_meals += 1
+
+            progress_pct = (cooked_meals / total_meals * 100) if total_meals > 0 else 0
+            return {
+                'total_meals': total_meals,
+                'cooked_meals': cooked_meals,
+                'progress_percentage': round(progress_pct, 1),
+                'is_complete': cooked_meals >= total_meals and total_meals > 0,
+            }, None
+        except Exception as e:
+            print(f"[ERROR] get_week_progress: {e}")
+            return None, str(e)
+
+    def get_meal_reminder_settings(self, user_id: str) -> tuple[dict | None, str | None]:
+        """Get meal reminder settings stored in user_settings."""
+        try:
+            result = (
+                self.supabase.table('user_settings')
+                .select('settings_data')
+                .eq('user_id', user_id)
+                .eq('settings_type', 'meal_reminder_settings')
+                .limit(1)
+                .execute()
+            )
+            if result.data:
+                raw = result.data[0].get('settings_data', {})
+                if isinstance(raw, str):
+                    return json.loads(raw), None
+                return raw, None
+            return {
+                'reminders_enabled': True,
+                'breakfast_reminder_time': '08:00',
+                'lunch_reminder_time': '12:00',
+                'dinner_reminder_time': '18:00',
+                'followup_delay_hours': 2,
+                'timezone': 'UTC',
+            }, None
+        except Exception as e:
+            print(f"[ERROR] get_meal_reminder_settings: {e}")
+            return None, str(e)
+
+    def update_meal_reminder_settings(self, user_id: str, settings: dict) -> tuple[dict | None, str | None]:
+        """Update meal reminder settings in user_settings."""
+        try:
+            now = datetime.utcnow().isoformat() + 'Z'
+            current, _ = self.get_meal_reminder_settings(user_id)
+            merged = {**(current or {}), **settings}
+
+            existing = (
+                self.supabase.table('user_settings')
+                .select('id')
+                .eq('user_id', user_id)
+                .eq('settings_type', 'meal_reminder_settings')
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                self.supabase.table('user_settings').update({
+                    'settings_data': json.dumps(merged),
+                    'updated_at': now,
+                }).eq('id', existing.data[0]['id']).execute()
+            else:
+                self.supabase.table('user_settings').insert({
+                    'user_id': user_id,
+                    'settings_type': 'meal_reminder_settings',
+                    'settings_data': json.dumps(merged),
+                    'created_at': now,
+                    'updated_at': now,
+                }).execute()
+            return merged, None
+        except Exception as e:
+            print(f"[ERROR] update_meal_reminder_settings: {e}")
+            return None, str(e)
+
     def delete_settings_history(self, user_id: str, record_id: str) -> tuple[bool, str | None]:
         """
         Deletes a specific settings history record for a user.

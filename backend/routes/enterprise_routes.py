@@ -28,6 +28,8 @@ def get_frontend_url():
     if frontend_url:
         frontend_url = frontend_url.strip()
         if frontend_url:
+            if not frontend_url.startswith(('http://', 'https://')):
+                frontend_url = f'https://{frontend_url}'
             print(f"🔍 Using FRONTEND_URL from env: {frontend_url}")
             return frontend_url.rstrip('/')
     

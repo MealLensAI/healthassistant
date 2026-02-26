@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, X, Sparkles } from 'lucide-react';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import EnhancedRecipeCard from '../components/EnhancedRecipeCard';
@@ -8,7 +8,9 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import CookingTutorialModal from '../components/CookingTutorialModal';
 import MealPlanManager from '../components/MealPlanManager';
 import MealPlanSkeleton from '../components/MealPlanSkeleton';
+import WeekProgressBar from '../components/WeekProgressBar';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
+import { useMealTracking } from '../hooks/useMealTracking';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 import { useAuth } from '@/lib/utils';
@@ -130,7 +132,17 @@ const Index = () => {
     loading: mealPlansLoading,
     initialized: mealPlansInitialized,
     error: mealPlansError
-  } = useMealPlans(sicknessSettings.hasSickness); // Filter based on current health settings
+  } = useMealPlans(sicknessSettings.hasSickness);
+  
+  const {
+    tracking,
+    progress,
+    markAsCooked,
+    unmarkAsCooked,
+    isMealCooked,
+    refreshTracking,
+  } = useMealTracking(currentPlan?.id || null);
+  
   useEffect(() => {
     if (mealPlansError) {
       toast({
@@ -925,6 +937,35 @@ const Index = () => {
   };
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showMotivation, setShowMotivation] = useState(true);
+
+  const nutritionQuotes = [
+    "Eat for the body you want, not for the body you have.",
+    "Your diet is a bank account. Good food choices are good investments.",
+    "Take care of your body. It's the only place you have to live.",
+    "Let food be thy medicine and medicine be thy food.",
+    "The food you eat can be either the safest and most powerful form of medicine or the slowest form of poison.",
+    "Healthy eating is a way of life, so it's important to establish routines that are simple, realistically, and ultimately livable.",
+    "Every time you eat is an opportunity to nourish your body.",
+    "Don't eat anything your great-grandmother wouldn't recognize as food.",
+    "Good nutrition creates health in all areas of our existence.",
+    "One cannot think well, love well, sleep well, if one has not dined well.",
+    "When diet is wrong, medicine is of no use. When diet is correct, medicine is of no need.",
+    "Eating well is a form of self-respect.",
+    "You are what you eat, so don't be fast, cheap, easy, or fake.",
+    "A healthy outside starts from the inside.",
+    "Nourishing yourself in a way that helps you blossom in the direction you want to go is attainable.",
+    "The greatest wealth is health.",
+    "To eat is a necessity, but to eat intelligently is an art.",
+    "Small changes in your diet today lead to big transformations tomorrow.",
+    "Fuel your body like you would a luxury car — premium only.",
+    "Cooking at home is the single biggest thing you can do for your health.",
+  ];
+
+  const dailyQuote = useMemo(
+    () => nutritionQuotes[Math.floor(Math.random() * nutritionQuotes.length)],
+    []
+  );
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -970,6 +1011,34 @@ const Index = () => {
           </div>
         </div>
       </header>
+
+      {/* Daily Motivation Banner */}
+      {showMotivation && (
+        <div className="mx-4 sm:mx-6 md:mx-8 mt-4 sm:mt-5">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#3B6FD4] via-[#4B7FE2] to-[#5E93ED] px-5 sm:px-6 py-4 sm:py-5 text-white shadow-lg">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/15 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300" />
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-[10px] sm:text-xs font-bold tracking-[0.15em] uppercase opacity-90 mb-0.5 sm:mb-1 text-left">
+                  Daily Motivation
+                </p>
+                <p className="text-[13px] sm:text-[15px] font-medium leading-snug italic opacity-95 text-left">
+                  &ldquo;{dailyQuote}&rdquo;
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMotivation(false)}
+                className="flex-shrink-0 p-1 rounded-full hover:bg-white/20 transition-colors"
+                aria-label="Dismiss"
+              >
+                <X className="w-4 h-4 sm:w-5 sm:h-5 opacity-60 hover:opacity-100" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area - responsive padding */}
       <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6">
@@ -1045,18 +1114,23 @@ const Index = () => {
             <MealPlanSkeleton />
           ) : currentPlan ? (
             <React.Fragment>
+              {/* Weekly Progress Bar */}
+              <WeekProgressBar mealPlanId={currentPlan?.id || null} className="mb-4 sm:mb-6" />
+              
               {isLoading ? (
                 <LoadingSpinner />
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                   {getRecipesForSelectedDay().map((recipe, index) => {
                     const shouldShowEnhancedUI = sicknessSettings.hasSickness;
+                    const mealType = recipe.type as 'breakfast' | 'lunch' | 'dinner' | 'snack';
+                    const isCooked = isMealCooked(selectedDay, mealType);
 
                     if (shouldShowEnhancedUI) {
                       return (
                         <EnhancedRecipeCard
                           key={`${selectedDay}-${recipe.type}-${index}`}
-                          mealType={recipe.type as 'breakfast' | 'lunch' | 'dinner' | 'snack'}
+                          mealType={mealType}
                           name={recipe.name || recipe.title}
                           ingredients={recipe.ingredients || []}
                           calories={recipe.calories}
@@ -1064,8 +1138,13 @@ const Index = () => {
                           carbs={recipe.carbs}
                           fat={recipe.fat}
                           benefit={recipe.benefit}
-                          image={recipe.image} // Pass stored image URL
+                          image={recipe.image}
                           onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
+                          mealPlanId={currentPlan?.id}
+                          day={selectedDay}
+                          isCooked={isCooked}
+                          onMarkCooked={() => markAsCooked(selectedDay, mealType)}
+                          onUnmarkCooked={() => unmarkAsCooked(selectedDay, mealType)}
                         />
                       );
                     }
@@ -1077,9 +1156,14 @@ const Index = () => {
                         originalTitle={recipe.originalTitle}
                         time={recipe.time}
                         rating={recipe.rating}
-                        mealType={recipe.type as any}
-                        image={recipe.image} // Pass stored image URL
+                        mealType={mealType}
+                        image={recipe.image}
                         onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
+                        mealPlanId={currentPlan?.id}
+                        day={selectedDay}
+                        isCooked={isCooked}
+                        onMarkCooked={() => markAsCooked(selectedDay, mealType)}
+                        onUnmarkCooked={() => unmarkAsCooked(selectedDay, mealType)}
                       />
                     );
                   })}

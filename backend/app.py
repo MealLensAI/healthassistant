@@ -100,6 +100,31 @@ except Exception as e:
     print(f"Mock AI routes error: {e}")
     print("Mock AI endpoints will be disabled.")
 
+# Meal tracking routes import
+try:
+    from routes.meal_tracking_routes import meal_tracking_bp
+    MEAL_TRACKING_ROUTES_ENABLED = True
+    print("Meal tracking routes loaded successfully.")
+except ImportError as e:
+    MEAL_TRACKING_ROUTES_ENABLED = False
+    print(f"Meal tracking routes not available: {e}")
+except Exception as e:
+    MEAL_TRACKING_ROUTES_ENABLED = False
+    print(f"Meal tracking routes error: {e}")
+    print("Meal tracking endpoints will be disabled.")
+
+# Meal reminder service import
+try:
+    from services.meal_reminder_service import init_meal_reminder_service
+    MEAL_REMINDER_SERVICE_AVAILABLE = True
+    print("Meal reminder service loaded successfully.")
+except ImportError as e:
+    MEAL_REMINDER_SERVICE_AVAILABLE = False
+    print(f"Meal reminder service not available: {e}")
+except Exception as e:
+    MEAL_REMINDER_SERVICE_AVAILABLE = False
+    print(f"Meal reminder service error: {e}")
+
 def create_app():
   """
   Factory function to create and configure the Flask application.
@@ -247,6 +272,27 @@ def create_app():
       print("Mock AI routes registered.")
   else:
       print("Mock AI routes disabled.")
+
+  # Register meal tracking routes
+  if MEAL_TRACKING_ROUTES_ENABLED:
+      app.register_blueprint(meal_tracking_bp, url_prefix='/api')
+      print("Meal tracking routes registered.")
+  else:
+      print("Meal tracking routes disabled.")
+
+  # Initialize meal reminder service (scheduled email reminders)
+  if MEAL_REMINDER_SERVICE_AVAILABLE:
+      try:
+          enable_reminders = os.environ.get('ENABLE_MEAL_REMINDERS', 'true').lower() in ('true', '1', 'yes')
+          if enable_reminders:
+              init_meal_reminder_service(app.supabase_service)
+              print("Meal reminder service initialized and started.")
+          else:
+              print("Meal reminder service disabled via ENABLE_MEAL_REMINDERS env var.")
+      except Exception as e:
+          print(f"Failed to initialize meal reminder service: {e}")
+  else:
+      print("Meal reminder service not available.")
 
   return app
 

@@ -101,6 +101,13 @@ class EmailService:
         if not self.is_configured:
             print("Warning: Email service not configured. Set SMTP_USER and SMTP_PASSWORD environment variables.")
 
+    @staticmethod
+    def _ensure_url_protocol(url: str) -> str:
+        """Ensure a URL has a protocol prefix."""
+        if url and not url.startswith(('http://', 'https://')):
+            return f'https://{url}'
+        return url
+
     def _send_email_message(self, msg: MIMEMultipart, to_email: str) -> bool:
         """
         Send an email message with retry and timeout safeguards.
@@ -608,7 +615,7 @@ class EmailService:
         if not login_url:
             frontend_url = os.environ.get('FRONTEND_URL')
             if frontend_url:
-                frontend_url = frontend_url.strip().rstrip('/')
+                frontend_url = self._ensure_url_protocol(frontend_url.strip().rstrip('/'))
                 login_url = f"{frontend_url}/accept-invitation"
             else:
                 print("⚠️ WARNING: FRONTEND_URL not set in environment. Cannot generate login URL.")
@@ -771,7 +778,7 @@ class EmailService:
             msg['From'] = f'{self.from_name} <{self.from_email}>'
             msg['To'] = admin_email
             
-            frontend_url = os.environ.get('FRONTEND_URL', '').strip().rstrip('/')
+            frontend_url = self._ensure_url_protocol(os.environ.get('FRONTEND_URL', '').strip().rstrip('/'))
             dashboard_link = dashboard_url or (f"{frontend_url}/enterprise" if frontend_url else '/enterprise')
             
             # Create HTML email body
@@ -908,6 +915,582 @@ class EmailService:
             
         except Exception as e:
             print(f"Error sending invitation accepted notification: {e}")
+            return False
+
+
+    def send_meal_reminder_email(
+        self,
+        to_email: str,
+        user_name: str,
+        meal_type: str,
+        meal_name: str,
+        is_followup: bool = False,
+        app_url: str = None
+    ) -> bool:
+        """
+        Send a meal reminder email to a user.
+        
+        Args:
+            to_email: Recipient email address
+            user_name: User's name
+            meal_type: Type of meal (breakfast, lunch, dinner, snack)
+            meal_name: Name of the meal
+            is_followup: Whether this is a follow-up reminder
+            app_url: URL to the app
+            
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        
+        self._load_config()
+        
+        if not self.is_configured:
+            print(f"Email not configured. Meal reminder not sent to {to_email}")
+            return False
+        
+        try:
+            if not app_url:
+                app_url = self._ensure_url_protocol(os.environ.get('FRONTEND_URL', '').strip().rstrip('/'))
+            
+            meal_emoji = {
+                'breakfast': '🌅',
+                'lunch': '☀️',
+                'dinner': '🌙',
+                'snack': '🍎'
+            }.get(meal_type, '🍽️')
+            
+            if is_followup:
+                subject = f"Reminder: You haven't cooked your {meal_type} yet!"
+                greeting = f"Hey {user_name},"
+                message = f"We noticed you haven't marked your {meal_type} as cooked yet. The time for {meal_type} has passed. Don't forget to prepare:"
+            else:
+                time_greeting = {
+                    'breakfast': 'Good morning',
+                    'lunch': 'Good afternoon',
+                    'dinner': 'Good evening',
+                    'snack': 'Hey'
+                }.get(meal_type, 'Hey')
+                subject = f"{meal_emoji} Time for {meal_type}! - MeallensAI"
+                greeting = f"{time_greeting}, {user_name}!"
+                message = f"It's time to prepare your {meal_type}:"
+            
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f'{self.from_name} <{self.from_email}>'
+            msg['To'] = to_email
+            
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {{
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                        background-color: #f5f5f5;
+                    }}
+                    .container {{
+                        background-color: #ffffff;
+                        border-radius: 12px;
+                        padding: 30px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }}
+                    .header {{
+                        text-align: center;
+                        margin-bottom: 30px;
+                    }}
+                    .logo {{
+                        font-size: 28px;
+                        font-weight: bold;
+                        color: #4CAF50;
+                    }}
+                    .meal-card {{
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        border-radius: 12px;
+                        padding: 25px;
+                        margin: 20px 0;
+                        color: white;
+                        text-align: center;
+                    }}
+                    .meal-emoji {{
+                        font-size: 48px;
+                        margin-bottom: 10px;
+                    }}
+                    .meal-name {{
+                        font-size: 24px;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                    }}
+                    .meal-type {{
+                        font-size: 14px;
+                        opacity: 0.9;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                    }}
+                    .button {{
+                        display: inline-block;
+                        padding: 15px 40px;
+                        background-color: #4CAF50;
+                        color: white !important;
+                        text-decoration: none;
+                        font-weight: bold;
+                        text-align: center;
+                        border-radius: 30px;
+                        margin: 20px 0;
+                        font-size: 16px;
+                    }}
+                    .button:hover {{
+                        background-color: #45a049;
+                    }}
+                    .footer {{
+                        margin-top: 30px;
+                        padding-top: 20px;
+                        border-top: 1px solid #e0e0e0;
+                        font-size: 12px;
+                        color: #666;
+                        text-align: center;
+                    }}
+                    .tip {{
+                        background-color: #fff3cd;
+                        border-left: 4px solid #ffc107;
+                        padding: 15px;
+                        margin: 20px 0;
+                        border-radius: 0 8px 8px 0;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <div class="logo">MeallensAI</div>
+                    </div>
+                    
+                    <h2>{greeting}</h2>
+                    <p>{message}</p>
+                    
+                    <div class="meal-card">
+                        <div class="meal-emoji">{meal_emoji}</div>
+                        <div class="meal-name">{meal_name}</div>
+                        <div class="meal-type">{meal_type}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <a href="{app_url}" class="button">Open MeallensAI</a>
+                    </div>
+                    
+                    <div class="tip">
+                        <strong>💡 Tip:</strong> Once you've prepared your meal, click the "Cooked" button in the app to track your progress!
+                    </div>
+                    
+                    <div class="footer">
+                        <p>You're receiving this email because you have meal reminders enabled.</p>
+                        <p>To change your reminder settings, visit your profile in the app.</p>
+                        <p>&copy; 2025 MeallensAI. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_body = f"""
+            {greeting}
+            
+            {message}
+            
+            {meal_emoji} {meal_name} ({meal_type})
+            
+            Open MeallensAI: {app_url}
+            
+            Tip: Once you've prepared your meal, click the "Cooked" button in the app to track your progress!
+            
+            ---
+            You're receiving this email because you have meal reminders enabled.
+            To change your reminder settings, visit your profile in the app.
+            """
+            
+            msg.attach(MIMEText(text_body, 'plain'))
+            msg.attach(MIMEText(html_body, 'html'))
+            
+            return self._send_email_message(msg, to_email)
+            
+        except Exception as e:
+            print(f"Failed to send meal reminder email to {to_email}: {str(e)}")
+            return False
+
+    def send_meal_cooked_confirmation_email(
+        self,
+        to_email: str,
+        user_name: str,
+        meal_type: str,
+        meal_name: str,
+        app_url: str = None
+    ) -> bool:
+        """
+        Send a confirmation email when a user marks a meal as cooked.
+        """
+        self._load_config()
+        
+        if not self.is_configured:
+            print(f"Email not configured. Meal cooked confirmation not sent to {to_email}")
+            return False
+        
+        try:
+            if not app_url:
+                app_url = self._ensure_url_protocol(os.environ.get('FRONTEND_URL', '').strip().rstrip('/'))
+            
+            meal_emoji = {
+                'breakfast': '🌅',
+                'lunch': '☀️',
+                'dinner': '🌙',
+                'snack': '🍎'
+            }.get(meal_type, '🍽️')
+            
+            subject = f"🎉 Great job! You cooked your {meal_type}!"
+            greeting = f"Way to go, {user_name}!"
+            message = f"Congratulations on cooking your {meal_name}! You're making great progress on your healthy eating journey."
+            
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f'{self.from_name} <{self.from_email}>'
+            msg['To'] = to_email
+            
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {{
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                        background-color: #f5f5f5;
+                    }}
+                    .container {{
+                        background-color: #ffffff;
+                        border-radius: 12px;
+                        padding: 30px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                        text-align: center;
+                    }}
+                    .header {{
+                        margin-bottom: 30px;
+                    }}
+                    .logo {{
+                        font-size: 28px;
+                        font-weight: bold;
+                        color: #4CAF50;
+                    }}
+                    .celebration {{
+                        font-size: 64px;
+                        margin: 20px 0;
+                    }}
+                    .meal-card {{
+                        background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+                        border-radius: 12px;
+                        padding: 25px;
+                        margin: 20px 0;
+                        color: white;
+                    }}
+                    .meal-name {{
+                        font-size: 24px;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                    }}
+                    .meal-type {{
+                        font-size: 14px;
+                        opacity: 0.9;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                    }}
+                    .button {{
+                        display: inline-block;
+                        padding: 15px 40px;
+                        background-color: #4CAF50;
+                        color: white !important;
+                        text-decoration: none;
+                        font-weight: bold;
+                        border-radius: 30px;
+                        margin: 20px 0;
+                        font-size: 16px;
+                    }}
+                    .footer {{
+                        margin-top: 30px;
+                        padding-top: 20px;
+                        border-top: 1px solid #e0e0e0;
+                        font-size: 12px;
+                        color: #666;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <div class="logo">MeallensAI</div>
+                    </div>
+                    
+                    <div class="celebration">👨‍🍳✨</div>
+                    
+                    <h2>{greeting}</h2>
+                    <p>{message}</p>
+                    
+                    <div class="meal-card">
+                        <div style="font-size: 48px; margin-bottom: 10px;">{meal_emoji}</div>
+                        <div class="meal-name">{meal_name}</div>
+                        <div class="meal-type">{meal_type}</div>
+                    </div>
+                    
+                    <a href="{app_url}" class="button">Track More Meals</a>
+                    
+                    <div class="footer">
+                        <p>Keep up the momentum!</p>
+                        <p>&copy; 2025 MeallensAI. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_body = f"""
+            {greeting}
+            
+            {message}
+            
+            {meal_emoji} {meal_name} ({meal_type})
+            
+            Keep up the momentum!
+            
+            Track More Meals: {app_url}
+            """
+            
+            msg.attach(MIMEText(text_body, 'plain'))
+            msg.attach(MIMEText(html_body, 'html'))
+            
+            return self._send_email_message(msg, to_email)
+            
+        except Exception as e:
+            print(f"Failed to send meal cooked confirmation email to {to_email}: {str(e)}")
+            return False
+
+    def send_weekly_completion_email(
+        self,
+        to_email: str,
+        user_name: str,
+        total_meals: int,
+        cooked_meals: int,
+        app_url: str = None
+    ) -> bool:
+        """
+        Send a weekly completion/congratulations email.
+        
+        Args:
+            to_email: Recipient email address
+            user_name: User's name
+            total_meals: Total meals in the plan
+            cooked_meals: Number of meals cooked
+            app_url: URL to the app
+            
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        
+        self._load_config()
+        
+        if not self.is_configured:
+            print(f"Email not configured. Weekly completion email not sent to {to_email}")
+            return False
+        
+        try:
+            if not app_url:
+                app_url = self._ensure_url_protocol(os.environ.get('FRONTEND_URL', '').strip().rstrip('/'))
+            
+            is_complete = cooked_meals >= total_meals
+            progress_percent = round((cooked_meals / total_meals * 100) if total_meals > 0 else 0)
+            
+            if is_complete:
+                subject = "🎉 Congratulations! You completed all your meals this week!"
+                greeting = f"Amazing job, {user_name}!"
+                message = "You've successfully prepared all your planned meals this week. Keep up the fantastic work!"
+                cta_text = "Plan Next Week's Meals"
+            else:
+                subject = f"📊 Your weekly meal progress: {progress_percent}% complete"
+                greeting = f"Hey {user_name},"
+                message = f"Here's your meal prep progress for this week. You've cooked {cooked_meals} out of {total_meals} meals."
+                cta_text = "Continue Tracking"
+            
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f'{self.from_name} <{self.from_email}>'
+            msg['To'] = to_email
+            
+            progress_bar_width = min(progress_percent, 100)
+            progress_color = "#4CAF50" if is_complete else "#667eea"
+            
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {{
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                        background-color: #f5f5f5;
+                    }}
+                    .container {{
+                        background-color: #ffffff;
+                        border-radius: 12px;
+                        padding: 30px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }}
+                    .header {{
+                        text-align: center;
+                        margin-bottom: 30px;
+                    }}
+                    .logo {{
+                        font-size: 28px;
+                        font-weight: bold;
+                        color: #4CAF50;
+                    }}
+                    .celebration {{
+                        text-align: center;
+                        font-size: 64px;
+                        margin: 20px 0;
+                    }}
+                    .progress-container {{
+                        background-color: #e0e0e0;
+                        border-radius: 10px;
+                        height: 30px;
+                        margin: 20px 0;
+                        overflow: hidden;
+                    }}
+                    .progress-bar {{
+                        background: linear-gradient(90deg, {progress_color}, #764ba2);
+                        height: 100%;
+                        width: {progress_bar_width}%;
+                        border-radius: 10px;
+                        transition: width 0.5s ease;
+                    }}
+                    .stats {{
+                        display: flex;
+                        justify-content: space-around;
+                        margin: 30px 0;
+                        text-align: center;
+                    }}
+                    .stat {{
+                        padding: 15px;
+                    }}
+                    .stat-number {{
+                        font-size: 36px;
+                        font-weight: bold;
+                        color: {progress_color};
+                    }}
+                    .stat-label {{
+                        font-size: 14px;
+                        color: #666;
+                    }}
+                    .button {{
+                        display: inline-block;
+                        padding: 15px 40px;
+                        background-color: #4CAF50;
+                        color: white !important;
+                        text-decoration: none;
+                        font-weight: bold;
+                        text-align: center;
+                        border-radius: 30px;
+                        margin: 20px 0;
+                        font-size: 16px;
+                    }}
+                    .footer {{
+                        margin-top: 30px;
+                        padding-top: 20px;
+                        border-top: 1px solid #e0e0e0;
+                        font-size: 12px;
+                        color: #666;
+                        text-align: center;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <div class="logo">MeallensAI</div>
+                    </div>
+                    
+                    {'<div class="celebration">🎉🏆🎉</div>' if is_complete else ''}
+                    
+                    <h2 style="text-align: center;">{greeting}</h2>
+                    <p style="text-align: center;">{message}</p>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar"></div>
+                    </div>
+                    
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-number">{cooked_meals}</div>
+                            <div class="stat-label">Meals Cooked</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">{total_meals}</div>
+                            <div class="stat-label">Total Planned</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">{progress_percent}%</div>
+                            <div class="stat-label">Complete</div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <a href="{app_url}" class="button">{cta_text}</a>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>Keep up the great work on your healthy eating journey!</p>
+                        <p>&copy; 2025 MeallensAI. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_body = f"""
+            {greeting}
+            
+            {message}
+            
+            Your Progress:
+            - Meals Cooked: {cooked_meals}
+            - Total Planned: {total_meals}
+            - Progress: {progress_percent}%
+            
+            {cta_text}: {app_url}
+            
+            Keep up the great work on your healthy eating journey!
+            """
+            
+            msg.attach(MIMEText(text_body, 'plain'))
+            msg.attach(MIMEText(html_body, 'html'))
+            
+            return self._send_email_message(msg, to_email)
+            
+        except Exception as e:
+            print(f"Failed to send weekly completion email to {to_email}: {str(e)}")
             return False
 
 

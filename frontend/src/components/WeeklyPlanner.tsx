@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Flame, Drumstick, Wheat, Droplet } from 'lucide-react';
+import { ChevronDown, ChevronRight, Flame, Drumstick, Wheat, Droplet, Check, ChefHat } from 'lucide-react';
+import { useMealTracking } from '@/hooks/useMealTracking';
 
 interface MealPlan {
   day: string;
@@ -11,48 +12,58 @@ interface MealPlan {
   lunch_ingredients?: string[];
   dinner_ingredients?: string[];
   snack_ingredients?: string[];
-  // Enhanced nutritional information
   breakfast_name?: string;
   breakfast_calories?: number;
   breakfast_protein?: number;
   breakfast_carbs?: number;
   breakfast_fat?: number;
   breakfast_benefit?: string;
-  breakfast_image?: string; // Image URL stored in DB
+  breakfast_image?: string;
   lunch_name?: string;
   lunch_calories?: number;
   lunch_protein?: number;
   lunch_carbs?: number;
   lunch_fat?: number;
   lunch_benefit?: string;
-  lunch_image?: string; // Image URL stored in DB
+  lunch_image?: string;
   dinner_name?: string;
   dinner_calories?: number;
   dinner_protein?: number;
   dinner_carbs?: number;
   dinner_fat?: number;
   dinner_benefit?: string;
-  dinner_image?: string; // Image URL stored in DB
+  dinner_image?: string;
   snack_name?: string;
   snack_calories?: number;
   snack_protein?: number;
   snack_carbs?: number;
   snack_fat?: number;
   snack_benefit?: string;
-  snack_image?: string; // Image URL stored in DB
+  snack_image?: string;
 }
 
 interface WeeklyPlannerProps {
   selectedDay: string;
   onDaySelect: (day: string) => void;
   mealPlan?: MealPlan[];
-  startDay?: string; // new prop: the start day of the week (from calendar)
+  startDay?: string;
+  mealPlanId?: string;
 }
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect, mealPlan = [], startDay }) => {
+const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect, mealPlan = [], startDay, mealPlanId }) => {
   const [foodImages, setFoodImages] = useState<Record<string, string>>({});
+  const [cookingMeal, setCookingMeal] = useState<string | null>(null);
+  
+  const { 
+    tracking, 
+    progress, 
+    markAsCooked, 
+    unmarkAsCooked, 
+    isMealCooked,
+    loading: trackingLoading 
+  } = useMealTracking(mealPlanId || null);
 
   // Helper function to extract clean food name from meal description
   const extractFoodName = (mealDescription: string): string => {
@@ -163,15 +174,104 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
     onDaySelect(day);
   };
 
+  const handleCookToggle = async (day: string, mealType: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const key = `${day}-${mealType}`;
+    setCookingMeal(key);
+    
+    try {
+      if (isMealCooked(day, mealType)) {
+        await unmarkAsCooked(day, mealType);
+      } else {
+        await markAsCooked(day, mealType);
+      }
+    } finally {
+      setCookingMeal(null);
+    }
+  };
+
+  const CookedButton: React.FC<{ day: string; mealType: string }> = ({ day, mealType }) => {
+    const isCooked = isMealCooked(day, mealType);
+    const key = `${day}-${mealType}`;
+    const isLoading = cookingMeal === key;
+    
+    return (
+      <button
+        onClick={(e) => handleCookToggle(day, mealType, e)}
+        disabled={isLoading || !mealPlanId}
+        className={`
+          flex items-center gap-1 px-2 py-1 rounded-full text-[9px] sm:text-xs font-medium
+          transition-all duration-200 transform hover:scale-105
+          ${isCooked 
+            ? 'bg-green-500 text-white shadow-md' 
+            : 'bg-gray-100 text-gray-600 hover:bg-green-100 hover:text-green-700 border border-gray-200'
+          }
+          ${isLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer'}
+          ${!mealPlanId ? 'opacity-30 cursor-not-allowed' : ''}
+        `}
+        title={isCooked ? 'Click to unmark as cooked' : 'Click to mark as cooked'}
+      >
+        {isLoading ? (
+          <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : isCooked ? (
+          <Check className="w-3 h-3" />
+        ) : (
+          <ChefHat className="w-3 h-3" />
+        )}
+        <span>{isCooked ? 'Cooked' : 'Mark Cooked'}</span>
+      </button>
+    );
+  };
+
+  const getDayProgress = (day: string) => {
+    const dayTracking = tracking[day] || {};
+    const mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
+    const dayPlan = mealPlan.find(p => p.day === day);
+    
+    if (!dayPlan) return { cooked: 0, total: 0 };
+    
+    let total = 0;
+    let cooked = 0;
+    
+    mealTypes.forEach(type => {
+      if (dayPlan[type as keyof MealPlan]) {
+        total++;
+        if (dayTracking[type]?.cooked_at) {
+          cooked++;
+        }
+      }
+    });
+    
+    return { cooked, total };
+  };
+
   return (
     <div className="space-y-2">
-      <h3 className="text-base sm:text-lg font-semibold text-[#2D3436] mb-3 sm:mb-4">This Week</h3>
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <h3 className="text-base sm:text-lg font-semibold text-[#2D3436]">This Week</h3>
+        {progress && mealPlanId && (
+          <div className="flex items-center gap-2">
+            <div className="w-20 sm:w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500"
+                style={{ width: `${progress.progress_percentage}%` }}
+              />
+            </div>
+            <span className="text-[10px] sm:text-xs text-gray-600 font-medium">
+              {progress.cooked_meals}/{progress.total_meals}
+            </span>
+          </div>
+        )}
+      </div>
       <div className="space-y-1">
 
         {visibleDays.map((day) => {
           const mealPreview = getMealPreview(day);
           const hasMeals = mealPlan.length > 0;
           const isExpanded = expandedDay === day;
+          const dayProgress = getDayProgress(day);
+          const allDayMealsCooked = dayProgress.total > 0 && dayProgress.cooked === dayProgress.total;
+          
           return (
             <div key={day}>
               <div
@@ -188,8 +288,19 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                 )}
                 <span className="text-xs sm:text-sm font-medium">{day}</span>
                 {hasMeals && (
-                  <div className="ml-auto flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full"></div>
+                  <div className="ml-auto flex items-center gap-2">
+                    {dayProgress.total > 0 && (
+                      <span className={`text-[9px] sm:text-xs ${expandedDay === day ? 'text-white/80' : 'text-gray-500'}`}>
+                        {dayProgress.cooked}/{dayProgress.total}
+                      </span>
+                    )}
+                    {allDayMealsCooked ? (
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 bg-green-500 rounded-full flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+                      </div>
+                    ) : (
+                      <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full"></div>
+                    )}
                   </div>
                 )}
               </div>
@@ -197,23 +308,30 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
               {isExpanded && mealPreview && (
                 <div className="ml-4 sm:ml-6 mt-2 space-y-2 sm:space-y-3 text-xs">
                   {/* Breakfast */}
-                  <div className="bg-yellow-50 p-1.5 sm:p-2 border border-yellow-200 rounded">
-                    <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full overflow-hidden flex-shrink-0">
-                        {foodImages[mealPreview.breakfast.name] || mealPreview.breakfast.image ? (
-                          <img
-                            src={foodImages[mealPreview.breakfast.name] || mealPreview.breakfast.image}
-                            alt={mealPreview.breakfast.name}
-                            className="w-full h-full object-cover"
-                            onLoad={() => fetchFoodImage(mealPreview.breakfast.name, mealPreview.breakfast.image)}
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-yellow-200 flex items-center justify-center text-[10px] sm:text-xs">
-                            🥞
-                          </div>
-                        )}
+                  <div className={`p-1.5 sm:p-2 border rounded transition-all ${
+                    isMealCooked(day, 'breakfast') 
+                      ? 'bg-green-50 border-green-300' 
+                      : 'bg-yellow-50 border-yellow-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                        <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full overflow-hidden flex-shrink-0">
+                          {foodImages[mealPreview.breakfast.name] || mealPreview.breakfast.image ? (
+                            <img
+                              src={foodImages[mealPreview.breakfast.name] || mealPreview.breakfast.image}
+                              alt={mealPreview.breakfast.name}
+                              className="w-full h-full object-cover"
+                              onLoad={() => fetchFoodImage(mealPreview.breakfast.name, mealPreview.breakfast.image)}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-yellow-200 flex items-center justify-center text-[10px] sm:text-xs">
+                              🥞
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[#1e293b] font-medium truncate text-[10px] sm:text-xs">{mealPreview.breakfast.name}</span>
                       </div>
-                      <span className="text-[#1e293b] font-medium truncate text-[10px] sm:text-xs">{mealPreview.breakfast.name}</span>
+                      <CookedButton day={day} mealType="breakfast" />
                     </div>
                     {mealPreview.breakfast.calories && (
                       <div className="flex items-center gap-1.5 sm:gap-3 text-[9px] sm:text-xs text-gray-600">
@@ -243,10 +361,17 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                   </div>
 
                   {/* Lunch */}
-                  <div className="bg-green-50 p-1.5 sm:p-2 border border-green-200 rounded">
-                    <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                      <span className="text-[#FF6B6B] text-sm sm:text-base">🍽️</span>
-                      <span className="text-[#1e293b] font-medium truncate text-[10px] sm:text-xs">{mealPreview.lunch.name}</span>
+                  <div className={`p-1.5 sm:p-2 border rounded transition-all ${
+                    isMealCooked(day, 'lunch') 
+                      ? 'bg-green-50 border-green-300' 
+                      : 'bg-emerald-50 border-emerald-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                        <span className="text-[#FF6B6B] text-sm sm:text-base">🍽️</span>
+                        <span className="text-[#1e293b] font-medium truncate text-[10px] sm:text-xs">{mealPreview.lunch.name}</span>
+                      </div>
+                      <CookedButton day={day} mealType="lunch" />
                     </div>
                     {mealPreview.lunch.calories && (
                       <div className="flex items-center gap-1.5 sm:gap-3 text-[9px] sm:text-xs text-gray-600">
@@ -276,10 +401,17 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                   </div>
 
                   {/* Dinner */}
-                  <div className="bg-blue-50 p-1.5 sm:p-2 border border-blue-200 rounded">
-                    <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                      <span className="text-[#6366f1] text-sm sm:text-base">🍛</span>
-                      <span className="text-[#1e293b] font-medium truncate text-[10px] sm:text-xs">{mealPreview.dinner.name}</span>
+                  <div className={`p-1.5 sm:p-2 border rounded transition-all ${
+                    isMealCooked(day, 'dinner') 
+                      ? 'bg-green-50 border-green-300' 
+                      : 'bg-blue-50 border-blue-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                        <span className="text-[#6366f1] text-sm sm:text-base">🍛</span>
+                        <span className="text-[#1e293b] font-medium truncate text-[10px] sm:text-xs">{mealPreview.dinner.name}</span>
+                      </div>
+                      <CookedButton day={day} mealType="dinner" />
                     </div>
                     {mealPreview.dinner.calories && (
                       <div className="flex items-center gap-1.5 sm:gap-3 text-[9px] sm:text-xs text-gray-600">
@@ -310,10 +442,17 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
 
                   {/* Snack */}
                   {mealPreview.snack && (
-                    <div className="bg-purple-50 p-1.5 sm:p-2 border border-purple-200 rounded">
-                      <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                        <span className="text-[#00b894] text-sm sm:text-base">🍪</span>
-                        <span className="text-[#1e293b] font-medium truncate text-[10px] sm:text-xs">{mealPreview.snack.name}</span>
+                    <div className={`p-1.5 sm:p-2 border rounded transition-all ${
+                      isMealCooked(day, 'snack') 
+                        ? 'bg-green-50 border-green-300' 
+                        : 'bg-purple-50 border-purple-200'
+                    }`}>
+                      <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                          <span className="text-[#00b894] text-sm sm:text-base">🍪</span>
+                          <span className="text-[#1e293b] font-medium truncate text-[10px] sm:text-xs">{mealPreview.snack.name}</span>
+                        </div>
+                        <CookedButton day={day} mealType="snack" />
                       </div>
                       {mealPreview.snack.calories && (
                         <div className="flex items-center gap-1.5 sm:gap-3 text-[9px] sm:text-xs text-gray-600">

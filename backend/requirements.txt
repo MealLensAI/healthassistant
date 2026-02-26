@@ -6,3 +6,5 @@ dotenv
 requests
 gunicorn
 pytz
+apscheduler
+pymysql
