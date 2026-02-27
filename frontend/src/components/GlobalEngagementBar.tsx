@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bell, MessageCircle, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/utils";
+import { APP_CONFIG } from "@/lib/config";
 import {
   AppNotification,
   getLocalNotifications,
   notificationsEventName,
 } from "@/lib/notificationCenter";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+const API_BASE_URL = APP_CONFIG.api.base_url ? `${APP_CONFIG.api.base_url}/api` : "/api";
 
 const QUOTES = [
   "Every meal you complete is a win for your health.",

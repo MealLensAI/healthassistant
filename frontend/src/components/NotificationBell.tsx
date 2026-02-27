@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/lib/utils";
+import { APP_CONFIG } from "@/lib/config";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+const API_BASE_URL = APP_CONFIG.api.base_url ? `${APP_CONFIG.api.base_url}/api` : "/api";
 const LOCAL_READ_IDS_KEY = "meallensai_read_notification_ids";
 
 interface NotificationItem {

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/lib/utils';
+import { APP_CONFIG } from '@/lib/config';
 
 interface MealTrackingStatus {
   cooked_at: string | null;
@@ -31,7 +32,7 @@ interface UseMealTrackingReturn {
   refreshTracking: () => Promise<void>;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_BASE_URL = APP_CONFIG.api.base_url ? `${APP_CONFIG.api.base_url}/api` : '/api';
 
 export function useMealTracking(mealPlanId: string | null): UseMealTrackingReturn {
   const { token } = useAuth();
