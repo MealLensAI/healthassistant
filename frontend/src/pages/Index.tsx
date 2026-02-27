@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, X, Sparkles, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, X } from 'lucide-react';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import EnhancedRecipeCard from '../components/EnhancedRecipeCard';
@@ -10,6 +10,7 @@ import MealPlanManager from '../components/MealPlanManager';
 import MealPlanSkeleton from '../components/MealPlanSkeleton';
 import WeekProgressBar from '../components/WeekProgressBar';
 import NotificationBell from '../components/NotificationBell';
+import EngagementBanners from '../components/EngagementBanners';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useMealTracking } from '../hooks/useMealTracking';
 import { useToast } from '@/hooks/use-toast';
@@ -939,42 +940,6 @@ const Index = () => {
   };
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [showMotivation, setShowMotivation] = useState(true);
-
-  const nutritionQuotes = [
-    "Eat for the body you want, not for the body you have.",
-    "Your diet is a bank account. Good food choices are good investments.",
-    "Take care of your body. It's the only place you have to live.",
-    "Let food be thy medicine and medicine be thy food.",
-    "The food you eat can be either the safest and most powerful form of medicine or the slowest form of poison.",
-    "Healthy eating is a way of life, so it's important to establish routines that are simple, realistically, and ultimately livable.",
-    "Every time you eat is an opportunity to nourish your body.",
-    "Don't eat anything your great-grandmother wouldn't recognize as food.",
-    "Good nutrition creates health in all areas of our existence.",
-    "One cannot think well, love well, sleep well, if one has not dined well.",
-    "When diet is wrong, medicine is of no use. When diet is correct, medicine is of no need.",
-    "Eating well is a form of self-respect.",
-    "You are what you eat, so don't be fast, cheap, easy, or fake.",
-    "A healthy outside starts from the inside.",
-    "Nourishing yourself in a way that helps you blossom in the direction you want to go is attainable.",
-    "The greatest wealth is health.",
-    "To eat is a necessity, but to eat intelligently is an art.",
-    "Small changes in your diet today lead to big transformations tomorrow.",
-    "Fuel your body like you would a luxury car — premium only.",
-    "Cooking at home is the single biggest thing you can do for your health.",
-  ];
-
-  const dailyQuote = useMemo(
-    () => nutritionQuotes[Math.floor(Math.random() * nutritionQuotes.length)],
-    []
-  );
-
-  const whatsappNumber = '254748703778';
-  const whatsappMessage = encodeURIComponent(
-    'Hello Daniel, I am reaching out from MealLensAI for consultation, doctor follow-up, or feedback.'
-  );
-  const whatsappLink = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
-
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header - aligned with sidebar logo height (123px) - responsive */}
@@ -1024,64 +989,7 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Daily Motivation Banner */}
-      {showMotivation && (
-        <div className="mx-4 sm:mx-6 md:mx-8 mt-4 sm:mt-5">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#3B6FD4] via-[#4B7FE2] to-[#5E93ED] px-6 sm:px-8 py-5 sm:py-7 text-white shadow-lg">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/15 flex items-center justify-center">
-                <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-amber-300" />
-              </div>
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-xs sm:text-sm font-bold tracking-[0.15em] uppercase opacity-90 mb-1 text-left">
-                  Daily Motivation
-                </p>
-                <p className="text-[15px] sm:text-[18px] font-medium leading-snug italic opacity-95 text-left">
-                  &ldquo;{dailyQuote}&rdquo;
-                </p>
-              </div>
-              <button
-                onClick={() => setShowMotivation(false)}
-                className="flex-shrink-0 p-1 rounded-full hover:bg-white/20 transition-colors"
-                aria-label="Dismiss"
-              >
-                <X className="w-4 h-4 sm:w-5 sm:h-5 opacity-60 hover:opacity-100" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* WhatsApp Support Notification */}
-      <div className="mx-4 sm:mx-6 md:mx-8 mt-4">
-        <a
-          href={whatsappLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group block rounded-2xl border border-green-200 bg-gradient-to-r from-green-50 via-white to-green-50 p-4 sm:p-5 shadow-sm hover:shadow-md animate-notice-zoom"
-          aria-label="Reach out on WhatsApp"
-        >
-          <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-            <div className="relative flex-shrink-0">
-              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-green-500 flex items-center justify-center text-white shadow-md">
-                <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
-              </div>
-              <span className="absolute -right-1 -top-1 inline-flex h-3 w-3 rounded-full bg-green-500 animate-ping" />
-            </div>
-            <div className="min-w-0 flex-1 text-left">
-              <p className="text-[11px] sm:text-xs font-bold tracking-[0.12em] uppercase text-green-700">
-                WhatsApp Support
-              </p>
-              <p className="text-sm sm:text-base font-semibold text-gray-900">
-                Need consultation, personal doctor follow-up, or want to share feedback?
-              </p>
-              <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-                Message us now on WhatsApp: +254 748 703 778
-              </p>
-            </div>
-          </div>
-        </a>
-      </div>
+      <EngagementBanners />
 
       {/* Main Content Area - responsive padding */}
       <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6">

@@ -12,6 +12,7 @@ import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/lib/utils';
 import Swal from 'sweetalert2';
+import EngagementBanners from '@/components/EngagementBanners';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -251,6 +252,8 @@ const Settings = () => {
           </div>
         </div>
       </header>
+
+      <EngagementBanners />
 
       {/* Main Content */}
       <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6 md:py-8">

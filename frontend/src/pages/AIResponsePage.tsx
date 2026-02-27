@@ -13,6 +13,7 @@ import Swal from 'sweetalert2'
 import { api } from "@/lib/api"
 import CookingTutorialModal from "@/components/CookingTutorialModal"
 import MealDetailsModal from "@/components/MealDetailsModal"
+import EngagementBanners from "@/components/EngagementBanners"
 
 // Map new goal values to backend API format
 const mapGoalToBackendFormat = (goal: string | undefined): string => {
@@ -599,6 +600,8 @@ const AIResponsePage: FC = () => {
           </div>
         </div>
       </header>
+
+      <EngagementBanners />
 
       {/* Main Content */}
       <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6 md:py-8">

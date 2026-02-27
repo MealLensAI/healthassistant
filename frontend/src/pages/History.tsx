@@ -6,6 +6,7 @@ import { ChevronDown, ArrowRight, Trash2 } from "lucide-react"
 import { useAuth, safeGetItem } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
 import { getCachedHistory, getCachedSettingsHistory, SharedRecipe } from "@/lib/historyPreloader"
+import EngagementBanners from "@/components/EngagementBanners"
 
 const getSourceText = (recipeType: string) => {
   switch (recipeType) {
@@ -280,6 +281,8 @@ export function HistoryPage() {
           </div>
         </div>
       </header>
+
+      <EngagementBanners />
 
       {/* Main Content */}
       <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6 md:py-8">

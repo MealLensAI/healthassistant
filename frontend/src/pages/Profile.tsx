@@ -9,6 +9,7 @@ import { Eye, EyeOff, Mail, ChevronDown } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/utils'
+import EngagementBanners from '@/components/EngagementBanners'
 
 const Profile: React.FC = () => {
     const { toast } = useToast()
@@ -173,6 +174,8 @@ const Profile: React.FC = () => {
                     </div>
                 </div>
             </header>
+
+            <EngagementBanners />
 
             {/* Main Content */}
             <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6 md:py-8">

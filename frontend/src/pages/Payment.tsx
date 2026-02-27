@@ -7,6 +7,7 @@ import { Clock, Utensils, Heart, Calendar, ChevronDown } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
 // import { TrialService } from '@/lib/trialService'; // No longer needed
 import { safeGetItem, useAuth } from '@/lib/utils';
+import EngagementBanners from '@/components/EngagementBanners';
 
 // Helper to resolve profile (email and name) from backend using cookie auth
 async function resolveProfileFromBackend(): Promise<{ email: string | null; name: string | null }> {
@@ -748,6 +749,8 @@ const Payment: React.FC = () => {
           </div>
         </div>
       </header>
+
+      <EngagementBanners />
 
       {/* Main Content */}
       <section className="w-full min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#f5f5f5] to-[#e8e8e8] py-8 sm:py-12 md:py-20 px-4 sm:px-6">

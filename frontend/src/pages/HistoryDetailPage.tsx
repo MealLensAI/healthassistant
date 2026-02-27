@@ -5,6 +5,7 @@ import { useParams, useNavigate } from "react-router-dom"
 import { ArrowLeft, Play, Globe, ChevronDown } from "lucide-react"
 import { useAuth, safeGetItem } from "@/lib/utils"
 import { useAPI } from "@/lib/api"
+import EngagementBanners from "@/components/EngagementBanners"
 
 interface HistoryDetail {
   id: string
@@ -376,6 +377,8 @@ const HistoryDetailPage = () => {
             </button>
           </div>
         </header>
+
+        <EngagementBanners />
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto bg-white px-4 sm:px-6 md:px-8 py-4 sm:py-6">
