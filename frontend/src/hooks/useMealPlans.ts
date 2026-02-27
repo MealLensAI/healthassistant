@@ -249,7 +249,14 @@ export const useMealPlans = (filterBySickness?: boolean) => {
           setCachedPlans(plans, userId);
           
           setSavedPlans(filteredPlans);
-          if (filteredPlans.length > 0) setCurrentPlan(filteredPlans[0]);
+          setCurrentPlan(prev => {
+            if (filteredPlans.length === 0) return null;
+            if (prev) {
+              const stillSelected = filteredPlans.find(plan => plan.id === prev.id);
+              if (stillSelected) return stillSelected;
+            }
+            return filteredPlans[0];
+          });
         } else {
           console.error('Error fetching meal plans:', result.message);
           setSavedPlans([]);
@@ -506,6 +513,11 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     }
   };
 
+  const selectMealPlanByData = (plan: SavedMealPlan) => {
+    if (!plan) return;
+    setCurrentPlan(plan);
+  };
+
   const duplicateMealPlan = async (id: string, newStartDate: Date) => {
     const originalPlan = savedPlans.find(p => p.id === id);
     if (!originalPlan) return;
@@ -650,7 +662,14 @@ export const useMealPlans = (filterBySickness?: boolean) => {
         setCachedPlans(plans, userId);
         
         setSavedPlans(filteredPlans);
-        setCurrentPlan(filteredPlans.length > 0 ? filteredPlans[0] : null);
+        setCurrentPlan(prev => {
+          if (filteredPlans.length === 0) return null;
+          if (prev) {
+            const stillSelected = filteredPlans.find(plan => plan.id === prev.id);
+            if (stillSelected) return stillSelected;
+          }
+          return filteredPlans[0];
+        });
       } else {
         setSavedPlans([]);
         setCurrentPlan(null);
@@ -675,6 +694,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     updateMealPlan,
     deleteMealPlan,
     selectMealPlan,
+    selectMealPlanByData,
     duplicateMealPlan,
     clearAllPlans,
     generateWeekDates,

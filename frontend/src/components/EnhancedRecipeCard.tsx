@@ -113,30 +113,6 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
         }
     }, [isCooked]);
 
-    const sendCookedEmail = async () => {
-        try {
-            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-            if (!token) return;
-
-            await fetch(`${API_BASE_URL}/meal_tracking/send_cooked_email`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    meal_plan_id: mealPlanId,
-                    day: day,
-                    meal_type: mealType,
-                    meal_name: name,
-                }),
-            });
-        } catch (err) {
-            console.error('Failed to send cooked email:', err);
-        }
-    };
-
     const handleCookToggle = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (cookingLoading || isCooked) return;
@@ -162,7 +138,6 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                     timerProgressBar: true
                 });
 
-                sendCookedEmail();
             }
         } finally {
             setCookingLoading(false);
@@ -218,7 +193,7 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                                             ? 'bg-green-500 text-white ring-2 ring-white cursor-default' 
                                             : 'animate-heartbeat hover:animate-none hover:scale-110 bg-white text-gray-800 hover:text-green-600 ring-2 ring-green-100'
                                 } ${cookingLoading ? 'opacity-70 cursor-wait' : ''}`}
-                                title={isCooked ? 'You already cooked this meal!' : 'Mark as cooked'}
+                                title={isCooked ? 'You already cooked this meal!' : 'Mark cooked'}
                             >
                                 {cookingLoading ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -230,7 +205,7 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                                 ) : (
                                     <>
                                         <ChefHat className="w-4 h-4" />
-                                        <span>Cook</span>
+                                        <span>Mark cooked</span>
                                     </>
                                 )}
                             </button>

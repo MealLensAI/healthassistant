@@ -9,6 +9,7 @@ import CookingTutorialModal from '../components/CookingTutorialModal';
 import MealPlanManager from '../components/MealPlanManager';
 import MealPlanSkeleton from '../components/MealPlanSkeleton';
 import WeekProgressBar from '../components/WeekProgressBar';
+import NotificationBell from '../components/NotificationBell';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useMealTracking } from '../hooks/useMealTracking';
 import { useToast } from '@/hooks/use-toast';
@@ -128,6 +129,7 @@ const Index = () => {
     generateWeekDates,
     savedPlans,
     selectMealPlan,
+    selectMealPlanByData,
     refreshMealPlans,
     loading: mealPlansLoading,
     initialized: mealPlansInitialized,
@@ -211,7 +213,7 @@ const Index = () => {
 
   const handleSelectPlan = (plan: SavedMealPlan) => {
     setSelectedDate(new Date(plan.startDate));
-    selectMealPlan(plan.id);
+    selectMealPlanByData(plan);
     setShowPlanManager(false);
   };
 
@@ -987,33 +989,37 @@ const Index = () => {
         <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
           <h1 className="text-lg sm:text-xl md:text-2xl lg:text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%] truncate" style={{ fontFamily: "'Work Sans', sans-serif" }}>Diet Planner</h1>
           
-          {/* Profile Dropdown */}
-          <div className="relative flex-shrink-0">
-            <button
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[36px] sm:h-[40px] md:h-[56px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-[10px] sm:rounded-[12px] md:rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
-            >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-[10px] sm:text-xs md:text-sm border border-blue-100">
-                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
-              </div>
-              <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
-                {user?.displayName || user?.email?.split('@')[0] || 'User'}
-              </span>
-              <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {/* Dropdown Menu */}
-            {showProfileDropdown && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowProfileDropdown(false)}
-                />
-                <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-[12px] sm:rounded-[15px] shadow-lg border border-gray-200 py-2 sm:py-3 z-50">
-                  <a href="/profile" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <NotificationBell />
+
+            {/* Profile Dropdown */}
+            <div className="relative flex-shrink-0">
+              <button
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                className="flex items-center h-[36px] sm:h-[40px] md:h-[56px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-[10px] sm:rounded-[12px] md:rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-[10px] sm:text-xs md:text-sm border border-blue-100">
+                  {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
                 </div>
-              </>
-            )}
+                <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
+                  {user?.displayName || user?.email?.split('@')[0] || 'User'}
+                </span>
+                <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {/* Dropdown Menu */}
+              {showProfileDropdown && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setShowProfileDropdown(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-[12px] sm:rounded-[15px] shadow-lg border border-gray-200 py-2 sm:py-3 z-50">
+                    <a href="/profile" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -1021,16 +1027,16 @@ const Index = () => {
       {/* Daily Motivation Banner */}
       {showMotivation && (
         <div className="mx-4 sm:mx-6 md:mx-8 mt-4 sm:mt-5">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#3B6FD4] via-[#4B7FE2] to-[#5E93ED] px-5 sm:px-6 py-4 sm:py-5 text-white shadow-lg">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#3B6FD4] via-[#4B7FE2] to-[#5E93ED] px-6 sm:px-8 py-5 sm:py-7 text-white shadow-lg">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/15 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300" />
+              <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/15 flex items-center justify-center">
+                <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-amber-300" />
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-[10px] sm:text-xs font-bold tracking-[0.15em] uppercase opacity-90 mb-0.5 sm:mb-1 text-left">
+                <p className="text-xs sm:text-sm font-bold tracking-[0.15em] uppercase opacity-90 mb-1 text-left">
                   Daily Motivation
                 </p>
-                <p className="text-[13px] sm:text-[15px] font-medium leading-snug italic opacity-95 text-left">
+                <p className="text-[15px] sm:text-[18px] font-medium leading-snug italic opacity-95 text-left">
                   &ldquo;{dailyQuote}&rdquo;
                 </p>
               </div>
@@ -1153,6 +1159,9 @@ const Index = () => {
             <React.Fragment>
               {/* Weekly Progress Bar */}
               <WeekProgressBar mealPlanId={currentPlan?.id || null} className="mb-4 sm:mb-6" />
+              <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-5">
+                Tap &ldquo;Mark cooked&rdquo; after cooking to update your weekly progress.
+              </p>
               
               {isLoading ? (
                 <LoadingSpinner />

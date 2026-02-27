@@ -8,6 +8,7 @@ import uuid
 from utils.auth_utils import get_user_id_from_token, log_error
 from services.email_service import email_service
 from services.meal_reminder_service import get_meal_reminder_service
+from services.notification_service import notification_service
 
 meal_tracking_bp = Blueprint('meal_tracking', __name__)
 
@@ -94,6 +95,16 @@ def mark_meal_cooked():
                 )
                 if success:
                     print("Email sent successfully")
+                    try:
+                        notification_service.append_notification(
+                            db_service,
+                            user_id,
+                            title='Meal cooked confirmation sent',
+                            message=f'We sent a confirmation email for {meal_name}.',
+                            notification_type='email_confirmation'
+                        )
+                    except Exception as notify_error:
+                        print(f"Failed to append in-app notification: {notify_error}")
                 else:
                     print("Failed to send email (service returned False)")
             else:
@@ -193,6 +204,16 @@ def send_cooked_email():
 
         if success:
             print(f"[COOKED_EMAIL] Email sent successfully to {user_email}")
+            try:
+                notification_service.append_notification(
+                    db_service,
+                    user_id,
+                    title='Meal cooked confirmation sent',
+                    message=f'We sent a confirmation email for {meal_name}.',
+                    notification_type='email_confirmation'
+                )
+            except Exception as notify_error:
+                print(f"[COOKED_EMAIL] Failed to append in-app notification: {notify_error}")
             return jsonify({'status': 'success', 'message': 'Congratulations email sent'}), 200
         else:
             print(f"[COOKED_EMAIL] Failed to send email to {user_email}")

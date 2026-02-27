@@ -25,6 +25,7 @@ except ImportError:
     print("[MealReminder] APScheduler not installed. Run: pip install apscheduler")
 
 from services.email_service import email_service
+from services.notification_service import notification_service
 
 
 class MealReminderService:
@@ -199,6 +200,17 @@ class MealReminderService:
                     )
                     if success:
                         sent += 1
+                        try:
+                            followup_label = "follow-up " if is_followup else ""
+                            notification_service.append_notification(
+                                self.svc,
+                                user_id,
+                                title='Meal reminder email sent',
+                                message=f'We sent a {followup_label}{meal_type} reminder for {meal_name}.',
+                                notification_type='meal_reminder'
+                            )
+                        except Exception as notify_error:
+                            print(f"[MealReminder] Failed to append in-app notification: {notify_error}")
                         print(f"[MealReminder]   → sent to {email}")
                     else:
                         print(f"[MealReminder]   ✗ failed for {email}")
@@ -236,6 +248,19 @@ class MealReminderService:
                         total_meals=progress.get('total_meals', 0),
                         cooked_meals=progress.get('cooked_meals', 0),
                     )
+                    try:
+                        notification_service.append_notification(
+                            self.svc,
+                            user_id,
+                            title='Weekly progress email sent',
+                            message=(
+                                f'We emailed your weekly summary: '
+                                f'{progress.get("cooked_meals", 0)}/{progress.get("total_meals", 0)} meals cooked.'
+                            ),
+                            notification_type='weekly_summary'
+                        )
+                    except Exception as notify_error:
+                        print(f"[MealReminder] Failed to append weekly in-app notification: {notify_error}")
                     print(f"[MealReminder] Weekly summary sent to {email}")
                 except Exception as e:
                     print(f"[MealReminder] Weekly summary error: {e}")
@@ -298,6 +323,17 @@ class MealReminderService:
                     )
                     if success:
                         sent += 1
+                        try:
+                            followup_label = "follow-up " if is_followup else ""
+                            notification_service.append_notification(
+                                self.svc,
+                                user_id,
+                                title='Meal reminder email sent',
+                                message=f'We sent a {followup_label}{mt} reminder for {meal_name}.',
+                                notification_type='meal_reminder'
+                            )
+                        except Exception as notify_error:
+                            print(f"[MealReminder] trigger notification append failed: {notify_error}")
                 except Exception as e:
                     print(f"[MealReminder] trigger error: {e}")
 

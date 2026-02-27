@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 import json
 from utils.auth_utils import get_user_id_from_token, log_error
+from services.notification_service import notification_service
 
 meal_plan_bp = Blueprint('meal_plan', __name__)
 
@@ -23,6 +24,17 @@ def save_meal_plan():
         # Save to meal_plan_management table
         result = supabase_service.save_meal_plan(user_id, plan_data)
         if isinstance(result, dict):
+            try:
+                plan_name = result.get('name') or plan_data.get('name') or 'your meal plan'
+                notification_service.append_notification(
+                    supabase_service,
+                    user_id,
+                    title='Meal plan created',
+                    message=f'Your meal plan "{plan_name}" was created successfully.',
+                    notification_type='meal_plan_created'
+                )
+            except Exception as notify_error:
+                current_app.logger.warning(f"Failed to append meal-plan notification: {notify_error}")
             # Success - return the inserted data
             return jsonify({
                 'status': 'success', 
@@ -121,6 +133,18 @@ def create_meal_plan():
             error_str = str(error) if error is not None else 'Unknown error'
             log_error(f"Failed to save meal plan for user {user_id}", Exception(error_str))
             return jsonify({'status': 'error', 'message': f'Failed to save meal plan: {error_str}'}), 500
+
+        try:
+            plan_name = normalized_plan.get('name') or plan_data.get('name') or 'your meal plan'
+            notification_service.append_notification(
+                supabase_service,
+                user_id,
+                title='Meal plan created',
+                message=f'Your meal plan "{plan_name}" was created successfully.',
+                notification_type='meal_plan_created'
+            )
+        except Exception as notify_error:
+            current_app.logger.warning(f"Failed to append meal-plan notification: {notify_error}")
 
         return jsonify({'status': 'success', 'message': 'Meal plan saved.'}), 201
     except Exception as e:

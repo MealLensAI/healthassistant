@@ -299,3 +299,55 @@ def mark_notifications_read():
     except Exception as e:
         log_error("Unexpected error in mark_notifications_read", e)
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+
+@user_settings_bp.route('/notifications/read', methods=['POST'])
+def mark_notification_read():
+    """Mark a single notification as read for the authenticated user."""
+    try:
+        user_id, error = get_user_id_from_token()
+        if error:
+            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
+
+        data = request.get_json(silent=True) or {}
+        notification_id = data.get('notification_id')
+        if not notification_id:
+            return jsonify({'status': 'error', 'message': 'notification_id is required'}), 400
+
+        supabase_service = current_app.supabase_service
+        settings_data, fetch_error = supabase_service.get_user_settings(user_id, 'in_app_notifications')
+        if fetch_error:
+            log_error(f"Failed to load notifications for user {user_id}", Exception(fetch_error))
+            return jsonify({'status': 'error', 'message': f'Failed to load notifications: {fetch_error}'}), 500
+
+        normalized = _normalize_notifications(settings_data)
+        updated_items = []
+        found = False
+        for item in normalized.get('items', []):
+            updated = dict(item)
+            if str(updated.get('id')) == str(notification_id):
+                updated['read'] = True
+                found = True
+            updated_items.append(updated)
+
+        if not found:
+            return jsonify({'status': 'error', 'message': 'Notification not found'}), 404
+
+        unread_count = sum(1 for item in updated_items if not item.get('read'))
+        payload = {
+            'items': updated_items,
+            'unread_count': unread_count
+        }
+        success, save_error = supabase_service.save_user_settings(user_id, 'in_app_notifications', payload)
+        if not success:
+            log_error(f"Failed to mark notification read for user {user_id}", Exception(save_error or 'Unknown error'))
+            return jsonify({'status': 'error', 'message': f'Failed to update notifications: {save_error}'}), 500
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Notification marked as read',
+            'unread_count': unread_count
+        }), 200
+    except Exception as e:
+        log_error("Unexpected error in mark_notification_read", e)
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500

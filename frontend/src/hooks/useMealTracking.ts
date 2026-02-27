@@ -191,10 +191,17 @@ export function useMealTracking(mealPlanId: string | null): UseMealTrackingRetur
   }, [tracking]);
 
   useEffect(() => {
+    // Reset plan-specific state whenever user switches meal plans.
+    setTracking({});
+    setProgress(null);
+    setError(null);
+  }, [mealPlanId]);
+
+  useEffect(() => {
     if (mealPlanId && token) {
       refreshTracking();
     }
-  }, [mealPlanId, token]);
+  }, [mealPlanId, token, refreshTracking]);
 
   return {
     tracking,
