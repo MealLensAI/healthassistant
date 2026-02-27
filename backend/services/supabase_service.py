@@ -1148,13 +1148,25 @@ class SupabaseService:
     def _save_tracking_data(self, user_id: str, data: dict) -> None:
         """Persist the full tracking dict into user_settings via upsert."""
         now = datetime.utcnow().isoformat() + 'Z'
-        payload = {
-            'user_id': user_id,
-            'settings_type': self._TRACKING_SETTINGS_TYPE,
-            'settings_data': json.dumps(data),
-            'updated_at': now,
-        }
+
         try:
+            # Prefer RPC upsert first; this is the same path used by save_user_settings
+            # and avoids table-level RLS issues seen with direct inserts.
+            rpc_result = self.supabase.rpc('upsert_user_settings', {
+                'p_user_id': user_id,
+                'p_settings_type': self._TRACKING_SETTINGS_TYPE,
+                'p_settings_data': json.dumps(data)
+            }).execute()
+
+            if rpc_result.data:
+                payload = rpc_result.data[0] if isinstance(rpc_result.data, list) else rpc_result.data
+                if isinstance(payload, dict) and payload.get('status') == 'success':
+                    return
+        except Exception as rpc_error:
+            print(f"[TRACKING] RPC upsert failed, trying direct fallback: {rpc_error}")
+
+        try:
+            # Fallback to direct table update/insert
             existing = (
                 self.supabase.table('user_settings')
                 .select('id')
@@ -1169,10 +1181,15 @@ class SupabaseService:
                     'updated_at': now,
                 }).eq('id', existing.data[0]['id']).execute()
             else:
-                payload['created_at'] = now
-                self.supabase.table('user_settings').insert(payload).execute()
-        except Exception as e:
-            print(f"[TRACKING] Error saving tracking data: {e}")
+                self.supabase.table('user_settings').insert({
+                    'user_id': user_id,
+                    'settings_type': self._TRACKING_SETTINGS_TYPE,
+                    'settings_data': json.dumps(data),
+                    'created_at': now,
+                    'updated_at': now,
+                }).execute()
+        except Exception as table_error:
+            print(f"[TRACKING] Error saving tracking data: {table_error}")
             raise
 
     def mark_meal_cooked(self, user_id: str, meal_plan_id: str, day: str, meal_type: str) -> tuple[dict | None, str | None]:
