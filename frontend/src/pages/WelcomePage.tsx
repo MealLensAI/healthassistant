@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/utils';
 import LandingNavbar from '@/components/layout/LandingNavbar';
 import LandingFooter from '@/components/layout/LandingFooter';
 import HeroSection from '@/components/sections/HeroSection';
+import ConditionsWeSupportSection from '@/components/sections/ConditionsWeSupportSection';
 import FeaturesSection from '@/components/sections/FeaturesSection';
 import HowItWorksSection from '@/components/sections/HowItWorksSection';
 import PricingSection from '@/components/sections/PricingSection';
@@ -28,6 +29,7 @@ const WelcomePage: React.FC = () => {
       <LandingNavbar />
       <main>
         <HeroSection />
+        <ConditionsWeSupportSection />
         <FeaturesSection />
         <HowItWorksSection />
         <PricingSection />

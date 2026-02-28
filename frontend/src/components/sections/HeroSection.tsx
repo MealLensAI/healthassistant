@@ -7,7 +7,7 @@ const HeroSection = () => {
 
   return (
     <section className="relative min-h-screen bg-background overflow-hidden">
-      <div className="container mx-auto px-4 lg:px-8 pt-32 pb-20 relative z-10">
+      <div className="container mx-auto px-4 lg:px-8 pt-32 pb-4 relative z-10">
         <div className="max-w-4xl mx-auto text-center min-h-[calc(100vh-200px)] flex flex-col justify-center">
           
           {/* Main Headline - Simple, clean */}
@@ -21,6 +21,30 @@ const HeroSection = () => {
           <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-12 font-normal">
             An AI solution for people with chronic condition. Tell our AI your sickness, and it recommends food that maintains your health and can restore or improve your condition based on your health data.
           </p>
+
+          {/* Conditions strip */}
+          <div className="flex flex-wrap justify-center gap-2 mb-10">
+            {[
+              "Diabetes",
+              "High Blood Pressure",
+              "Obesity",
+              "High Cholesterol",
+              "Heart Disease",
+              "Kidney Care",
+              "PCOS",
+              "Cancer Support",
+              "Thyroid",
+              "Gluten-Free",
+              "IBS",
+            ].map((condition) => (
+              <span
+                key={condition}
+                className="px-3 py-1 text-sm rounded-full bg-muted text-muted-foreground border border-border"
+              >
+                {condition}
+              </span>
+            ))}
+          </div>
 
           {/* CTA Buttons - Simple Google-style */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
@@ -37,9 +61,9 @@ const HeroSection = () => {
               size="lg" 
               className="group border border-border text-foreground hover:bg-accent"
               onClick={() => {
-                const featuresSection = document.getElementById('features');
-                if (featuresSection) {
-                  featuresSection.scrollIntoView({ behavior: 'smooth' });
+                const conditionsSection = document.getElementById('conditions');
+                if (conditionsSection) {
+                  conditionsSection.scrollIntoView({ behavior: 'smooth' });
                 }
               }}
             >
