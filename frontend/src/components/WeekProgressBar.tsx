@@ -1,15 +1,21 @@
 import React from 'react';
 import { Trophy, TrendingUp } from 'lucide-react';
-import { useMealTracking } from '@/hooks/useMealTracking';
+
+interface WeekProgress {
+  total_meals: number;
+  cooked_meals: number;
+  progress_percentage: number;
+  is_complete: boolean;
+}
 
 interface WeekProgressBarProps {
   mealPlanId: string | null;
+  progress: WeekProgress | null;
+  loading?: boolean;
   className?: string;
 }
 
-const WeekProgressBar: React.FC<WeekProgressBarProps> = ({ mealPlanId, className = '' }) => {
-  const { progress, loading } = useMealTracking(mealPlanId);
-  
+const WeekProgressBar: React.FC<WeekProgressBarProps> = ({ mealPlanId, progress, loading = false, className = '' }) => {
   if (!mealPlanId || loading || !progress) {
     return null;
   }

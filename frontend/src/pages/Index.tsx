@@ -140,6 +140,7 @@ const Index = () => {
   const {
     tracking,
     progress,
+    loading,
     markAsCooked,
     unmarkAsCooked,
     isMealCooked,
@@ -1066,7 +1067,7 @@ const Index = () => {
           ) : currentPlan ? (
             <React.Fragment>
               {/* Weekly Progress Bar */}
-              <WeekProgressBar mealPlanId={currentPlan?.id || null} className="mb-4 sm:mb-6" />
+              <WeekProgressBar mealPlanId={currentPlan?.id || null} progress={progress} loading={loading} className="mb-4 sm:mb-6" />
               <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-5">
                 Tap &ldquo;Mark cooked&rdquo; after cooking to update your weekly progress.
               </p>
