@@ -178,12 +178,28 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
     e.stopPropagation();
     const key = `${day}-${mealType}`;
     setCookingMeal(key);
-    
+
     try {
       if (isMealCooked(day, mealType)) {
         await unmarkAsCooked(day, mealType);
       } else {
         await markAsCooked(day, mealType);
+      }
+    } catch (err) {
+      console.error('[WeeklyPlanner] mark cooked failed:', err);
+      // Surface a lightweight toast so the user knows the click did not persist.
+      try {
+        const Swal = (await import('sweetalert2')).default;
+        Swal.fire({
+          title: "Couldn't save your progress",
+          text: err instanceof Error ? err.message : 'Please try again in a moment.',
+          icon: 'error',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#EF4444',
+          timer: 4000,
+        });
+      } catch {
+        // sweetalert is optional; swallow if unavailable
       }
     } finally {
       setCookingMeal(null);

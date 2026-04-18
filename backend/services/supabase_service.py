@@ -1146,27 +1146,41 @@ class SupabaseService:
         return {}
 
     def _save_tracking_data(self, user_id: str, data: dict) -> None:
-        """Persist the full tracking dict into user_settings via upsert."""
-        now = datetime.utcnow().isoformat() + 'Z'
+        """Persist the full tracking dict into user_settings via upsert.
 
+        The write is verified with a read-back so silent failures (e.g. RLS
+        policies dropping the row or a missing unique constraint) surface as
+        explicit errors instead of returning a misleading "success" to the UI.
+        """
+        now = datetime.utcnow().isoformat() + 'Z'
+        serialized = json.dumps(data)
+        rpc_error_msg: str | None = None
+        table_error_msg: str | None = None
+
+        # ── 1) Preferred path: SECURITY DEFINER RPC ──────────────────────
         try:
-            # Prefer RPC upsert first; this is the same path used by save_user_settings
-            # and avoids table-level RLS issues seen with direct inserts.
             rpc_result = self.supabase.rpc('upsert_user_settings', {
                 'p_user_id': user_id,
                 'p_settings_type': self._TRACKING_SETTINGS_TYPE,
-                'p_settings_data': json.dumps(data)
+                # Match save_user_settings (sends a JSON string; PostgREST casts to JSONB).
+                'p_settings_data': serialized,
             }).execute()
 
             if rpc_result.data:
                 payload = rpc_result.data[0] if isinstance(rpc_result.data, list) else rpc_result.data
-                if isinstance(payload, dict) and payload.get('status') == 'success':
-                    return
+                if isinstance(payload, dict):
+                    if payload.get('status') == 'success':
+                        if self._verify_tracking_persisted(user_id, data):
+                            return
+                        rpc_error_msg = 'RPC reported success but read-back returned stale data'
+                    else:
+                        rpc_error_msg = str(payload.get('message') or 'RPC returned error status')
         except Exception as rpc_error:
+            rpc_error_msg = str(rpc_error)
             print(f"[TRACKING] RPC upsert failed, trying direct fallback: {rpc_error}")
 
+        # ── 2) Fallback: direct table upsert (works with service-role key) ──
         try:
-            # Fallback to direct table update/insert
             existing = (
                 self.supabase.table('user_settings')
                 .select('id')
@@ -1177,20 +1191,38 @@ class SupabaseService:
             )
             if existing.data:
                 self.supabase.table('user_settings').update({
-                    'settings_data': json.dumps(data),
+                    'settings_data': serialized,
                     'updated_at': now,
                 }).eq('id', existing.data[0]['id']).execute()
             else:
                 self.supabase.table('user_settings').insert({
                     'user_id': user_id,
                     'settings_type': self._TRACKING_SETTINGS_TYPE,
-                    'settings_data': json.dumps(data),
+                    'settings_data': serialized,
                     'created_at': now,
                     'updated_at': now,
                 }).execute()
+
+            if self._verify_tracking_persisted(user_id, data):
+                return
+            table_error_msg = 'Direct upsert returned without error but the row was not persisted (likely RLS or missing unique constraint on user_id, settings_type)'
         except Exception as table_error:
+            table_error_msg = str(table_error)
             print(f"[TRACKING] Error saving tracking data: {table_error}")
-            raise
+
+        # If we reach here, neither path actually persisted the row.
+        combined = ' | '.join([m for m in (rpc_error_msg, table_error_msg) if m]) or 'Unknown persistence failure'
+        raise RuntimeError(f"Failed to persist meal tracking: {combined}")
+
+    def _verify_tracking_persisted(self, user_id: str, expected: dict) -> bool:
+        """Re-read the tracking row to confirm the write actually stuck."""
+        try:
+            stored = self._get_tracking_data(user_id)
+            # Compare as JSON strings to sidestep dict ordering differences.
+            return json.dumps(stored, sort_keys=True) == json.dumps(expected, sort_keys=True)
+        except Exception as verify_error:
+            print(f"[TRACKING] verify read-back failed: {verify_error}")
+            return False
 
     def mark_meal_cooked(self, user_id: str, meal_plan_id: str, day: str, meal_type: str) -> tuple[dict | None, str | None]:
         """Mark a meal as cooked. Persists in user_settings."""

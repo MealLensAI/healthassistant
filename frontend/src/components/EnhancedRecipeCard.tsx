@@ -116,12 +116,12 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
     const handleCookToggle = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (cookingLoading || isCooked) return;
-        
+
         setCookingLoading(true);
         try {
             if (onMarkCooked) {
                 await onMarkCooked();
-                
+
                 confetti({
                     particleCount: 100,
                     spread: 70,
@@ -137,8 +137,17 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                     timer: 3000,
                     timerProgressBar: true
                 });
-
             }
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Please try again in a moment.';
+            console.error('[EnhancedRecipeCard] mark cooked failed:', err);
+            Swal.fire({
+                title: "Couldn't save your progress",
+                text: message,
+                icon: 'error',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#EF4444',
+            });
         } finally {
             setCookingLoading(false);
         }

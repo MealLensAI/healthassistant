@@ -25,7 +25,7 @@ const MealTrackingButton: React.FC<MealTrackingButtonProps> = ({
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!mealPlanId || isLoading) return;
-    
+
     setIsLoading(true);
     try {
       if (isCooked) {
@@ -33,6 +33,8 @@ const MealTrackingButton: React.FC<MealTrackingButtonProps> = ({
       } else {
         await markAsCooked(day, mealType);
       }
+    } catch (err) {
+      console.error('[MealTrackingButton] toggle failed:', err);
     } finally {
       setIsLoading(false);
     }

@@ -46,10 +46,17 @@ def mark_meal_cooked():
 
         db_service = current_app.supabase_service
         result, error = db_service.mark_meal_cooked(user_id, meal_plan_id, day, meal_type)
-        
+
         if error:
             log_error(f"Failed to mark meal as cooked for user {user_id}", Exception(error))
-            return jsonify({'status': 'error', 'message': str(error)}), 500
+            # Make the failure obvious in the client: include the server-side
+            # diagnostic so the UI can tell the user exactly what went wrong
+            # (auth, RLS, missing RPC, etc.) instead of silently rolling back.
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to persist meal tracking: {error}',
+                'code': 'tracking_persist_failed',
+            }), 500
 
         # Send confirmation email
         try:
@@ -254,10 +261,14 @@ def unmark_meal_cooked():
 
         db_service = current_app.supabase_service
         result, error = db_service.unmark_meal_cooked(user_id, meal_plan_id, day, meal_type)
-        
+
         if error:
             log_error(f"Failed to unmark meal as cooked for user {user_id}", Exception(error))
-            return jsonify({'status': 'error', 'message': str(error)}), 500
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to persist meal tracking: {error}',
+                'code': 'tracking_persist_failed',
+            }), 500
 
         return jsonify({
             'status': 'success',
