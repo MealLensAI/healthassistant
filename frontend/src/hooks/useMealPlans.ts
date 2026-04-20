@@ -76,6 +76,20 @@ const getCacheKeys = (userId?: string) => {
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// Ensures `mealPlan` is always an array of day plans.
+// The backend historically may return an object wrapper like
+// { name, startDate, endDate, mealPlan: [...] } or even a single-day object.
+// This normalization prevents runtime errors like "mealPlan.find is not a function".
+const normalizeMealPlanArray = (raw: any): MealPlan[] => {
+  if (Array.isArray(raw)) return raw as MealPlan[];
+  if (raw && typeof raw === 'object') {
+    if (Array.isArray(raw.mealPlan)) return raw.mealPlan as MealPlan[];
+    if (Array.isArray(raw.plan_data?.mealPlan)) return raw.plan_data.mealPlan as MealPlan[];
+    if (typeof raw.day === 'string') return [raw as MealPlan];
+  }
+  return [];
+};
+
 // Helper functions for caching
 const getCachedPlans = (userId?: string): SavedMealPlan[] | null => {
   try {
@@ -95,7 +109,15 @@ const getCachedPlans = (userId?: string): SavedMealPlan[] | null => {
       return null;
     }
     
-    return JSON.parse(cached);
+    const parsed = JSON.parse(cached);
+    if (Array.isArray(parsed)) {
+      // Defensively normalize mealPlan shape from any stale cache entries
+      return parsed.map((p: any) => ({
+        ...p,
+        mealPlan: normalizeMealPlanArray(p?.mealPlan),
+      }));
+    }
+    return parsed;
   } catch (error) {
     console.error('Error reading cached meal plans:', error);
     return null;
@@ -201,7 +223,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
             name: plan.name,
             startDate: plan.start_date,
             endDate: plan.end_date,
-            mealPlan: plan.meal_plan,
+            mealPlan: normalizeMealPlanArray(plan.meal_plan),
             createdAt: plan.created_at,
             updatedAt: plan.updated_at,
             healthAssessment: plan.health_assessment,
@@ -258,10 +280,11 @@ export const useMealPlans = (filterBySickness?: boolean) => {
             return filteredPlans[0];
           });
         } else {
-          console.error('Error fetching meal plans:', result.message);
-          setSavedPlans([]);
-          setCurrentPlan(null);
-          clearCachedPlans(userId);
+          // Unexpected response shape. Don't wipe cached plans — keep whatever
+          // is on screen so a transient backend hiccup doesn't look like
+          // "all my plans disappeared". Just log and surface an error.
+          console.error('[useMealPlans] Unexpected fetch response shape:', result);
+          setError(result?.message || 'Failed to load meal plans');
         }
       } catch (error) {
         console.error('Error fetching meal plans:', error);
@@ -286,6 +309,65 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     };
   };
 
+  // Background image enrichment: fetches images for all meals in parallel
+  // and updates React state + localStorage cache as images arrive.
+  //
+  // NOTE: We intentionally do NOT persist the enriched plan back to the DB.
+  // The imageCache already caches resolved URLs in localStorage (7-day TTL),
+  // so re-opening a plan pulls images from the local cache instead of re-hitting
+  // the slow image service. Skipping the PUT keeps the write path simple and
+  // removes any risk of a server-side shape mismatch clobbering columns like
+  // `is_approved` on partial updates.
+  const enrichPlanWithImages = async (plan: SavedMealPlan, ownerUserId?: string) => {
+    try {
+      if (!plan || !Array.isArray(plan.mealPlan) || plan.mealPlan.length === 0) return;
+
+      const { imageCache } = await import('@/lib/imageCache');
+      const fallbackImages: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', string> = {
+        breakfast: 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
+        lunch: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
+        dinner: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=300&fit=crop',
+        snack: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
+      };
+      const mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
+
+      // Fetch every meal image across every day fully in parallel.
+      const enrichedPlan = await Promise.all(
+        plan.mealPlan.map(async (dayPlan) => {
+          const updatedDay: MealPlan = { ...dayPlan };
+          await Promise.all(
+            mealTypes.map(async (type) => {
+              const nameKey = `${type}_name` as keyof MealPlan;
+              const imgKey = `${type}_image` as keyof MealPlan;
+              const foodName = (dayPlan as any)[nameKey] as string | undefined;
+              const existingImg = (dayPlan as any)[imgKey] as string | undefined;
+              if (foodName && !existingImg) {
+                try {
+                  (updatedDay as any)[imgKey] = await imageCache.getImage(foodName, fallbackImages[type]);
+                } catch {
+                  (updatedDay as any)[imgKey] = fallbackImages[type];
+                }
+              }
+            })
+          );
+          return updatedDay;
+        })
+      );
+
+      // Safety: only commit if we still have a valid array — never clobber state with [].
+      if (!Array.isArray(enrichedPlan) || enrichedPlan.length === 0) return;
+
+      setSavedPlans(prev => {
+        const updated = prev.map(p => p.id === plan.id ? { ...p, mealPlan: enrichedPlan } : p);
+        setCachedPlans(updated, ownerUserId);
+        return updated;
+      });
+      setCurrentPlan(prev => (prev && prev.id === plan.id ? { ...prev, mealPlan: enrichedPlan } : prev));
+    } catch (err) {
+      console.warn('[enrichPlanWithImages] Image enrichment failed (non-fatal):', err);
+    }
+  };
+
   const saveMealPlan = async (mealPlan: MealPlan[], startDate?: Date, healthAssessment?: HealthAssessment, userInfo?: any, sicknessSettings?: { hasSickness: boolean; sicknessType: string }) => {
     setLoading(true);
     setError(null);
@@ -293,40 +375,16 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       const now = new Date();
       const weekDates = startDate ? generateWeekDates(startDate) : generateWeekDates(now);
 
-      // Fetch and attach images to meal plan before saving
-      const mealPlanWithImages = await Promise.all(mealPlan.map(async (dayPlan) => {
-        const { imageCache } = await import('@/lib/imageCache');
-        const fallbackImages = {
-          breakfast: 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
-          lunch: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
-          dinner: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=300&fit=crop',
-          snack: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop'
-        };
-
-        const updatedPlan = { ...dayPlan };
-
-        // Fetch images for each meal if not already present
-        if (dayPlan.breakfast_name && !dayPlan.breakfast_image) {
-          updatedPlan.breakfast_image = await imageCache.getImage(dayPlan.breakfast_name, fallbackImages.breakfast);
-        }
-        if (dayPlan.lunch_name && !dayPlan.lunch_image) {
-          updatedPlan.lunch_image = await imageCache.getImage(dayPlan.lunch_name, fallbackImages.lunch);
-        }
-        if (dayPlan.dinner_name && !dayPlan.dinner_image) {
-          updatedPlan.dinner_image = await imageCache.getImage(dayPlan.dinner_name, fallbackImages.dinner);
-        }
-        if (dayPlan.snack_name && !dayPlan.snack_image) {
-          updatedPlan.snack_image = await imageCache.getImage(dayPlan.snack_name, fallbackImages.snack);
-        }
-
-        return updatedPlan;
-      }));
-
+      // FAST PATH: save the AI-generated plan immediately, without waiting for
+      // any image fetches. Images are fetched lazily per-card via imageCache in
+      // WeeklyPlanner / RecipeCard, and the background enricher below updates
+      // state as images resolve. This cuts perceived generation time from
+      // minutes (28 sequential image fetches) down to seconds.
       const planData = {
         name: weekDates.name,
         start_date: weekDates.startDate,
         end_date: weekDates.endDate,
-        meal_plan: mealPlanWithImages, // Save meal plan with images
+        meal_plan: mealPlan,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
         health_assessment: healthAssessment,
@@ -335,7 +393,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
         sickness_type: sicknessSettings?.sicknessType || ''
       };
 
-      console.log('[DEBUG] Sending meal plan data:', planData);
+      console.log('[DEBUG] Sending meal plan data (fast path, no image pre-fetch):', planData);
 
       const token = safeGetItem('access_token');
       console.log('[DEBUG] Using access token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
@@ -351,7 +409,6 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       });
 
       if (!response.ok) {
-        // Try to parse the error message from the response
         let errorMessage = `HTTP error! status: ${response.status}`;
         try {
           const errorData = await response.json();
@@ -367,12 +424,16 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       const result = await response.json();
 
       if (result.status === 'success' && result.data) {
+        // Prefer the backend-returned plan; if somehow it's empty/missing,
+        // fall back to the mealPlan we just submitted so the UI renders.
+        const fromBackend = normalizeMealPlanArray(result.data.mealPlan);
+        const resolvedPlan = fromBackend.length > 0 ? fromBackend : mealPlan;
         const newPlan: SavedMealPlan = {
           id: result.data.id,
           name: result.data.name,
           startDate: result.data.startDate,
           endDate: result.data.endDate,
-          mealPlan: result.data.mealPlan,
+          mealPlan: resolvedPlan,
           createdAt: result.data.createdAt,
           updatedAt: result.data.updatedAt,
           healthAssessment: result.data.healthAssessment,
@@ -380,13 +441,16 @@ export const useMealPlans = (filterBySickness?: boolean) => {
           hasSickness: sicknessSettings?.hasSickness || false,
           sicknessType: sicknessSettings?.sicknessType || ''
         };
-          setSavedPlans(prev => {
-            const updated = [newPlan, ...prev];
-            // Update cache
-            setCachedPlans(updated, userId);
-            return updated;
-          });
+        setSavedPlans(prev => {
+          const updated = [newPlan, ...prev];
+          setCachedPlans(updated, userId);
+          return updated;
+        });
         setCurrentPlan(newPlan);
+
+        // Kick off background image enrichment — does NOT block UI or this return.
+        void enrichPlanWithImages(newPlan, userId);
+
         return newPlan;
       } else {
         throw new Error(result.message || 'Failed to save meal plan');
@@ -559,7 +623,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
         name: result.data.name,
         startDate: result.data.startDate,
         endDate: result.data.endDate,
-        mealPlan: result.data.mealPlan,
+        mealPlan: normalizeMealPlanArray(result.data.mealPlan),
         createdAt: result.data.createdAt,
         updatedAt: result.data.updatedAt,
         hasSickness: originalPlan.hasSickness || false,
@@ -640,7 +704,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
           name: plan.name,
           startDate: plan.start_date,
           endDate: plan.end_date,
-          mealPlan: plan.meal_plan,
+          mealPlan: normalizeMealPlanArray(plan.meal_plan),
           createdAt: plan.created_at,
           updatedAt: plan.updated_at,
           healthAssessment: plan.health_assessment,

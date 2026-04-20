@@ -768,7 +768,8 @@ const Index = () => {
     const cleanName = recipeName.replace(/\s*\(buy:[^)]*\)/, '').trim();
 
     // Get ingredients for the selected meal type
-    const dayPlan = currentPlan.mealPlan.find(plan => plan.day === selectedDay);
+    const mealPlanArr = Array.isArray(currentPlan.mealPlan) ? currentPlan.mealPlan : [];
+    const dayPlan = mealPlanArr.find(plan => plan.day === selectedDay);
     let ingredients: string[] = [];
 
     if (dayPlan) {
@@ -797,11 +798,12 @@ const Index = () => {
   // Helper: rotate meal plan array to start from selectedDay
   const getRotatedMealPlan = () => {
     if (!currentPlan) return [];
+    const mealPlanArr = Array.isArray(currentPlan.mealPlan) ? currentPlan.mealPlan : [];
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const startIdx = daysOfWeek.indexOf(selectedDay);
-    if (startIdx === -1) return currentPlan.mealPlan;
+    if (startIdx === -1) return mealPlanArr;
     // Sort mealPlan to match daysOfWeek order
-    const sortedPlan = daysOfWeek.map(day => currentPlan.mealPlan.find(mp => mp.day === day)).filter(Boolean);
+    const sortedPlan = daysOfWeek.map(day => mealPlanArr.find(mp => mp.day === day)).filter(Boolean);
     // Rotate
     return [...sortedPlan.slice(startIdx), ...sortedPlan.slice(0, startIdx)];
   };

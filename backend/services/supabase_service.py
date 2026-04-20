@@ -557,10 +557,23 @@ class SupabaseService:
         try:
             print(f"[DEBUG] Fetching meal plans for user: {user_id}")
             
-            # Query the meal_plan_management table
-            # Only return APPROVED plans (is_approved = TRUE)
-            # Plans created by admin that are not approved yet won't show to user
-            result = self.supabase.table('meal_plan_management').select('*').eq('user_id', user_id).eq('is_approved', True).order('updated_at', desc=True).execute()
+            # Query the meal_plan_management table.
+            # Return APPROVED plans (is_approved = TRUE) AND any rows where
+            # is_approved is NULL — NULL is treated as approved for backwards
+            # compatibility with older rows and user-created plans whose
+            # is_approved flag was never explicitly set. This matches the
+            # MySQL path in database_service.get_meal_plans.
+            # Plans created by admin and still pending approval have
+            # is_approved = FALSE and are correctly excluded.
+            result = (
+                self.supabase
+                .table('meal_plan_management')
+                .select('*')
+                .eq('user_id', user_id)
+                .or_('is_approved.eq.true,is_approved.is.null')
+                .order('updated_at', desc=True)
+                .execute()
+            )
             
             print(f"[DEBUG] Query result: {result.data}")
             

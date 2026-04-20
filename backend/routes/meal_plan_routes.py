@@ -88,10 +88,21 @@ def get_meal_plan():
                     plan['name'] = plan.get('name') or meal_plan_obj.get('name')
                     plan['start_date'] = plan.get('start_date') or meal_plan_obj.get('startDate')
                     plan['end_date'] = plan.get('end_date') or meal_plan_obj.get('endDate')
+                    # The frontend expects `meal_plan` to be the array of day plans.
+                    # When stored as a wrapping object ({name, startDate, endDate, mealPlan: [...]}),
+                    # unwrap it to the inner array. Fall back to empty list if unavailable.
+                    inner_plan = meal_plan_obj.get('mealPlan')
+                    if isinstance(inner_plan, list):
+                        plan['meal_plan'] = inner_plan
+                    elif isinstance(inner_plan, dict):
+                        plan['meal_plan'] = [inner_plan]
+                    else:
+                        plan['meal_plan'] = []
+                elif isinstance(meal_plan_obj, list):
                     plan['meal_plan'] = meal_plan_obj
                 else:
-                    # If meal_plan_obj is None or not a dict, keep existing values
-                    plan['meal_plan'] = meal_plan_obj or []
+                    # If meal_plan_obj is None or unexpected, default to empty list
+                    plan['meal_plan'] = []
                 # Log the extracted fields for debugging
                 current_app.logger.info(f"[EXTRACTED] Plan ID: {plan.get('id')}, Name: {plan.get('name')}, Start: {plan.get('start_date')}, End: {plan.get('end_date')}")
             print('[DEBUG] Final meal_plans to return:', meal_plans)
