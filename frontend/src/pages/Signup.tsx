@@ -11,6 +11,7 @@ import { Eye, EyeOff, Mail, Lock, User, Loader2, CheckCircle, XCircle, Building2
 import { useAuth, safeSetItem } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
 import Logo from "@/components/Logo"
+import { DEMO_PLAN_FLAG_KEY } from "@/lib/mockMealPlan"
 
 const Signup = () => {
   const navigate = useNavigate()
@@ -201,11 +202,19 @@ const Signup = () => {
           // Refresh auth context
           await refreshAuth()
 
+          if (!isOrganizationSignup) {
+            try {
+              sessionStorage.setItem(DEMO_PLAN_FLAG_KEY, 'true')
+            } catch (_) {
+              // sessionStorage can throw in private mode — safe to ignore
+            }
+          }
+
           toast({
             title: "Account Created!",
             description: isOrganizationSignup
               ? "Welcome! Preparing your organization workspace..."
-              : "Welcome to MealLensAI! Your account has been successfully created.",
+              : "Welcome to MealLensAI! Here's a sample meal plan to explore.",
           })
 
           // If organization signup, register the organization after user creation

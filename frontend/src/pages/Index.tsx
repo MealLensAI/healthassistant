@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, X } from 'lucide-react';
+import { buildDemoMealPlan, DEMO_PLAN_FLAG_KEY } from '@/lib/mockMealPlan';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import EnhancedRecipeCard from '../components/EnhancedRecipeCard';
@@ -114,6 +115,13 @@ const Index = () => {
   const [location, setLocation] = useState('');
   const [budget, setBudget] = useState('');
   const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(false);
+  const [showDemoPlan, setShowDemoPlan] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && sessionStorage.getItem(DEMO_PLAN_FLAG_KEY) === 'true';
+    } catch (_) {
+      return false;
+    }
+  });
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -156,6 +164,35 @@ const Index = () => {
       });
     }
   }, [mealPlansError, toast]);
+
+  // Once the user has at least one real saved plan, dismiss the demo for good.
+  useEffect(() => {
+    if (savedPlans.length > 0 && showDemoPlan) {
+      try { sessionStorage.removeItem(DEMO_PLAN_FLAG_KEY); } catch (_) { /* noop */ }
+      setShowDemoPlan(false);
+    }
+  }, [savedPlans.length, showDemoPlan]);
+
+  // Build (and memoize) the sample plan we show newly signed-up users.
+  // It's purely UI — never saved to the backend. Disappears as soon as
+  // the user creates a real plan.
+  const demoPlan = useMemo(() => (showDemoPlan ? buildDemoMealPlan() : null), [showDemoPlan]);
+  const shouldShowDemo =
+    showDemoPlan &&
+    !!demoPlan &&
+    !currentPlan &&
+    savedPlans.length === 0 &&
+    mealPlansInitialized &&
+    !mealPlansLoading;
+  const displayPlan = currentPlan ?? (shouldShowDemo ? demoPlan : null);
+  const isDemo = !currentPlan && !!displayPlan;
+
+  // NOTE: we do NOT clear the demo flag here. The sample plan stays visible
+  // until the user actually saves a real meal plan. The effect above that
+  // watches `savedPlans.length` handles the cleanup once a real plan exists.
+  const dismissDemoAndCreate = () => {
+    setShowInputModal(true);
+  };
 
 
   const prevShowPlanManager = useRef(showPlanManager);
@@ -762,13 +799,13 @@ const Index = () => {
   };
 
   const handleRecipeClick = (recipeName: string, mealType: string) => {
-    if (!currentPlan) return;
+    if (!displayPlan) return;
 
     // Extract clean food name for tutorial content
     const cleanName = recipeName.replace(/\s*\(buy:[^)]*\)/, '').trim();
 
     // Get ingredients for the selected meal type
-    const mealPlanArr = Array.isArray(currentPlan.mealPlan) ? currentPlan.mealPlan : [];
+    const mealPlanArr = Array.isArray(displayPlan.mealPlan) ? displayPlan.mealPlan : [];
     const dayPlan = mealPlanArr.find(plan => plan.day === selectedDay);
     let ingredients: string[] = [];
 
@@ -797,8 +834,8 @@ const Index = () => {
 
   // Helper: rotate meal plan array to start from selectedDay
   const getRotatedMealPlan = () => {
-    if (!currentPlan) return [];
-    const mealPlanArr = Array.isArray(currentPlan.mealPlan) ? currentPlan.mealPlan : [];
+    if (!displayPlan) return [];
+    const mealPlanArr = Array.isArray(displayPlan.mealPlan) ? displayPlan.mealPlan : [];
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const startIdx = daysOfWeek.indexOf(selectedDay);
     if (startIdx === -1) return mealPlanArr;
@@ -817,10 +854,11 @@ const Index = () => {
 
     // Debug: Log the current plan and day plan data
     console.log('[DEBUG] getRecipesForSelectedDay - Current Plan:', {
-      id: currentPlan?.id,
-      name: currentPlan?.name,
-      hasSickness: currentPlan?.hasSickness,
-      sicknessType: currentPlan?.sicknessType
+      id: displayPlan?.id,
+      name: displayPlan?.name,
+      hasSickness: displayPlan?.hasSickness,
+      sicknessType: displayPlan?.sicknessType,
+      isDemo
     });
     console.log('[DEBUG] getRecipesForSelectedDay - Day Plan Data:', {
       breakfast: dayPlan.breakfast,
@@ -924,8 +962,8 @@ const Index = () => {
 
   // Format date range for display
   const formatDateRange = () => {
-    if (currentPlan) {
-      const start = new Date(currentPlan.startDate);
+    if (displayPlan) {
+      const start = new Date(displayPlan.startDate);
       const end = new Date(start);
       end.setDate(end.getDate() + 6);
       
@@ -1064,16 +1102,41 @@ const Index = () => {
 
         {/* Main Content */}
         <div className="flex-1">
-          {!mealPlansInitialized && mealPlansLoading && !currentPlan ? (
+          {!mealPlansInitialized && mealPlansLoading && !displayPlan ? (
             <MealPlanSkeleton />
-          ) : currentPlan ? (
+          ) : displayPlan ? (
             <React.Fragment>
-              {/* Weekly Progress Bar */}
-              <WeekProgressBar mealPlanId={currentPlan?.id || null} progress={progress} loading={loading} className="mb-4 sm:mb-6" />
-              <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-5">
-                Tap &ldquo;Mark cooked&rdquo; after cooking to update your weekly progress.
-              </p>
-              
+              {isDemo && (
+                <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border border-yellow-200 bg-yellow-50 rounded-lg">
+                  <div className="flex items-start sm:items-center gap-3">
+                    <span className="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-400 text-white text-base font-bold">
+                      !
+                    </span>
+                    <p className="text-sm sm:text-base text-gray-800 leading-snug">
+                      Below is a <span className="font-semibold">sample preview plan</span>. To get started, please create your own plan by clicking the{' '}
+                      <span className="font-semibold text-blue-600">&ldquo;Create New Plan&rdquo;</span> button.
+                    </p>
+                  </div>
+                  <button
+                    onClick={dismissDemoAndCreate}
+                    className="flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors shadow-sm w-full sm:w-auto"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create New Plan
+                  </button>
+                </div>
+              )}
+
+              {/* Weekly Progress Bar — only for real saved plans */}
+              {!isDemo && (
+                <>
+                  <WeekProgressBar mealPlanId={displayPlan?.id || null} progress={progress} loading={loading} className="mb-4 sm:mb-6" />
+                  <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-5">
+                    Tap &ldquo;Mark cooked&rdquo; after cooking to update your weekly progress.
+                  </p>
+                </>
+              )}
+
               {isLoading ? (
                 <LoadingSpinner />
               ) : (
@@ -1081,7 +1144,22 @@ const Index = () => {
                   {getRecipesForSelectedDay().map((recipe, index) => {
                     const shouldShowEnhancedUI = sicknessSettings.hasSickness;
                     const mealType = recipe.type as 'breakfast' | 'lunch' | 'dinner' | 'snack';
-                    const isCooked = isMealCooked(selectedDay, mealType);
+                    const isCooked = !isDemo && isMealCooked(selectedDay, mealType);
+
+                    const handleMarkCooked = async () => {
+                      if (isDemo) {
+                        toast({
+                          title: 'Sample plan',
+                          description: 'Create your own plan to start tracking meals.',
+                        });
+                        return;
+                      }
+                      await markAsCooked(selectedDay, mealType);
+                    };
+                    const handleUnmarkCooked = async () => {
+                      if (isDemo) return;
+                      await unmarkAsCooked(selectedDay, mealType);
+                    };
 
                     if (shouldShowEnhancedUI) {
                       return (
@@ -1097,11 +1175,11 @@ const Index = () => {
                           benefit={recipe.benefit}
                           image={recipe.image}
                           onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
-                          mealPlanId={currentPlan?.id}
+                          mealPlanId={isDemo ? undefined : displayPlan?.id}
                           day={selectedDay}
                           isCooked={isCooked}
-                          onMarkCooked={() => markAsCooked(selectedDay, mealType)}
-                          onUnmarkCooked={() => unmarkAsCooked(selectedDay, mealType)}
+                          onMarkCooked={handleMarkCooked}
+                          onUnmarkCooked={handleUnmarkCooked}
                         />
                       );
                     }
@@ -1116,11 +1194,11 @@ const Index = () => {
                         mealType={mealType}
                         image={recipe.image}
                         onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
-                        mealPlanId={currentPlan?.id}
+                        mealPlanId={isDemo ? undefined : displayPlan?.id}
                         day={selectedDay}
                         isCooked={isCooked}
-                        onMarkCooked={() => markAsCooked(selectedDay, mealType)}
-                        onUnmarkCooked={() => unmarkAsCooked(selectedDay, mealType)}
+                        onMarkCooked={handleMarkCooked}
+                        onUnmarkCooked={handleUnmarkCooked}
                       />
                     );
                   })}
