@@ -4,12 +4,14 @@
  */
 
 const IMAGE_CACHE_KEY = 'meallensai_image_cache';
-const IMAGE_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+const IMAGE_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days for real hits
+const IMAGE_FALLBACK_TTL = 15 * 60 * 1000; // 15 min for fallbacks so we retry the API soon
 const IMAGE_API_URL = 'https://get-images-qa23.onrender.com/image';
 
 interface CachedImage {
   url: string;
   timestamp: number;
+  isFallback?: boolean;
 }
 
 interface ImageCache {
@@ -24,27 +26,30 @@ class ImageCacheService {
     this.loadCache();
   }
 
+  private isExpired(entry: CachedImage, now = Date.now()): boolean {
+    const ttl = entry.isFallback ? IMAGE_FALLBACK_TTL : IMAGE_CACHE_TTL;
+    return now - entry.timestamp >= ttl;
+  }
+
   private loadCache(): void {
     try {
       if (typeof window === 'undefined' || !window.localStorage) return;
-      
+
       const cached = localStorage.getItem(IMAGE_CACHE_KEY);
       if (!cached) return;
 
       const parsed: ImageCache = JSON.parse(cached);
       const now = Date.now();
 
-      // Clean expired entries
       const validCache: ImageCache = {};
       for (const [key, value] of Object.entries(parsed)) {
-        if (now - value.timestamp < IMAGE_CACHE_TTL) {
+        if (!this.isExpired(value, now)) {
           validCache[key] = value;
         }
       }
 
       this.cache = validCache;
-      
-      // Update localStorage with cleaned cache
+
       if (Object.keys(validCache).length !== Object.keys(parsed).length) {
         localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(validCache));
       }
@@ -78,10 +83,14 @@ class ImageCacheService {
     // Normalize food name (lowercase, trim)
     const normalizedName = foodName.toLowerCase().trim();
 
-    // Check cache first
+    // Check cache first (respecting per-entry TTL)
     const cached = this.cache[normalizedName];
-    if (cached) {
+    if (cached && !this.isExpired(cached)) {
       return cached.url;
+    }
+    // Expired — drop it so the request below hits the API again
+    if (cached) {
+      delete this.cache[normalizedName];
     }
 
     // Check if there's already a pending request for this food
@@ -116,20 +125,20 @@ class ImageCacheService {
       const data = await response.json();
 
       if (data.image_url && !data.error) {
-        // Cache the successful result
         this.cache[foodName] = {
           url: data.image_url,
           timestamp: Date.now(),
+          isFallback: false,
         };
         this.saveCache();
         return data.image_url;
       } else {
-        // Use fallback
         const fallback = fallbackImage || this.getDefaultFallback();
-        // Cache fallback to avoid repeated failed requests
+        // Cache fallback with a SHORT TTL so we retry the API soon
         this.cache[foodName] = {
           url: fallback,
           timestamp: Date.now(),
+          isFallback: true,
         };
         this.saveCache();
         return fallback;
@@ -137,14 +146,40 @@ class ImageCacheService {
     } catch (error) {
       console.error(`Error fetching image for "${foodName}":`, error);
       const fallback = fallbackImage || this.getDefaultFallback();
-      // Cache fallback to avoid repeated failed requests
       this.cache[foodName] = {
         url: fallback,
         timestamp: Date.now(),
+        isFallback: true,
       };
       this.saveCache();
       return fallback;
     }
+  }
+
+  /**
+   * Drop a single entry from the cache (both memory and localStorage).
+   * Use this when an <img> tag fails to load a URL we previously handed out.
+   */
+  invalidate(foodName: string): void {
+    if (!foodName || typeof foodName !== 'string') return;
+    const key = foodName.toLowerCase().trim();
+    if (this.cache[key]) {
+      delete this.cache[key];
+      this.saveCache();
+    }
+    this.pendingRequests.delete(key);
+  }
+
+  /**
+   * Force a refetch for a food name, bypassing any cached entry.
+   * Returns the new image URL (or a fallback if the API still fails).
+   */
+  async refreshImage(foodName: string, fallbackImage?: string): Promise<string> {
+    if (!foodName || typeof foodName !== 'string') {
+      return fallbackImage || this.getDefaultFallback();
+    }
+    this.invalidate(foodName);
+    return this.getImage(foodName, fallbackImage);
   }
 
   private getDefaultFallback(): string {

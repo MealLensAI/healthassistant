@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Check, ChefHat, Loader2 } from 'lucide-react';
 import { imageCache } from '@/lib/imageCache';
+
+const MAX_IMAGE_RETRIES = 3;
 import confetti from 'canvas-confetti';
 import Swal from 'sweetalert2';
 
@@ -31,34 +33,10 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   onMarkCooked,
   onUnmarkCooked,
 }) => {
-  const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const [foodImage, setFoodImage] = useState<string>('');
   const [cookingLoading, setCookingLoading] = useState(false);
-
-  const fetchFoodImage = async (foodName: string) => {
-    if (image) {
-      setFoodImage(image);
-      setImageLoading(false);
-      return;
-    }
-
-    try {
-      const fallback = getFallbackImage();
-      const cachedImage = await imageCache.getImage(foodName, fallback);
-      setFoodImage(cachedImage);
-    } catch (error) {
-      setFoodImage(getFallbackImage());
-    } finally {
-      setImageLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    setImageLoading(true);
-    setImageError(false);
-    fetchFoodImage(title);
-  }, [title, image]);
+  const retryCountRef = useRef(0);
 
   const getFallbackImage = () => {
     const fallbackImages: Record<string, string> = {
@@ -70,14 +48,54 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
     return fallbackImages[mealType] || fallbackImages.dinner;
   };
 
-  const handleImageError = () => {
-    if (!imageError) {
-      setImageError(true);
-      fetchFoodImage(title + ' food');
-    } else {
+  const fetchFoodImage = async (foodName: string, forceRefresh = false) => {
+    if (image && !forceRefresh) {
+      setFoodImage(image);
+      setImageLoading(false);
+      return;
+    }
+
+    try {
+      const fallback = getFallbackImage();
+      const nextImage = forceRefresh
+        ? await imageCache.refreshImage(foodName, fallback)
+        : await imageCache.getImage(foodName, fallback);
+      setFoodImage(nextImage);
+    } catch (error) {
       setFoodImage(getFallbackImage());
+    } finally {
       setImageLoading(false);
     }
+  };
+
+  useEffect(() => {
+    setImageLoading(true);
+    retryCountRef.current = 0;
+    fetchFoodImage(title);
+  }, [title, image]);
+
+  // Retry-with-backoff on <img> onError. We invalidate the cached (broken)
+  // URL so refresh actually hits the image API again, and try a few query
+  // variations before giving up on the meal-type stock image.
+  const handleImageError = () => {
+    const attempt = retryCountRef.current;
+    if (attempt >= MAX_IMAGE_RETRIES) {
+      setFoodImage(getFallbackImage());
+      setImageLoading(false);
+      return;
+    }
+
+    retryCountRef.current = attempt + 1;
+
+    const variants = [title, `${title} food`, `${title} meal`, `${mealType} ${title.split(' ').slice(0, 2).join(' ')}`];
+    const nextQuery = variants[attempt] || title;
+
+    imageCache.invalidate(nextQuery);
+    const delay = attempt === 0 ? 0 : 400 * Math.pow(2, attempt - 1);
+    setImageLoading(true);
+    setTimeout(() => {
+      fetchFoodImage(nextQuery, true);
+    }, delay);
   };
 
   const getMealTypeBadge = () => {

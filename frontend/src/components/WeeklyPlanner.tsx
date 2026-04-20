@@ -52,9 +52,14 @@ interface WeeklyPlannerProps {
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect, mealPlan = [], startDay, mealPlanId }) => {
+const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect, mealPlan: mealPlanProp = [], startDay, mealPlanId }) => {
+  // Defensive: ensure mealPlan is always an array regardless of upstream shape
+  const mealPlan: MealPlan[] = Array.isArray(mealPlanProp) ? mealPlanProp : [];
   const [foodImages, setFoodImages] = useState<Record<string, string>>({});
   const [cookingMeal, setCookingMeal] = useState<string | null>(null);
+  // Track how many times we've retried a broken image for a given food name,
+  // so we don't loop forever if every variation 404s.
+  const imageRetries = React.useRef<Record<string, number>>({});
   
   const { 
     tracking, 
@@ -71,26 +76,50 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
   };
 
   // Fetch food image for a meal - use DB image if available, otherwise fetch
-  const fetchFoodImage = async (foodName: string, storedImageUrl?: string) => {
-    if (foodImages[foodName]) return; // Already in component state
+  const fetchFoodImage = async (foodName: string, storedImageUrl?: string, forceRefresh = false) => {
+    if (foodImages[foodName] && !forceRefresh) return; // Already in component state
 
-    // If image is stored in DB, use it directly
-    if (storedImageUrl) {
+    // If image is stored in DB and we're not forcing a refresh, use it directly
+    if (storedImageUrl && !forceRefresh) {
       setFoodImages(prev => ({ ...prev, [foodName]: storedImageUrl }));
       return;
     }
 
-    // Otherwise fetch from cache/API
     try {
       const { imageCache } = await import('@/lib/imageCache');
       const fallback = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop';
-      const cachedImage = await imageCache.getImage(foodName, fallback);
-      setFoodImages(prev => ({ ...prev, [foodName]: cachedImage }));
+      const nextImage = forceRefresh
+        ? await imageCache.refreshImage(foodName, fallback)
+        : await imageCache.getImage(foodName, fallback);
+      setFoodImages(prev => ({ ...prev, [foodName]: nextImage }));
     } catch (error) {
       console.error('Error fetching food image:', error);
-      // Set fallback image on error
       const fallback = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop';
       setFoodImages(prev => ({ ...prev, [foodName]: fallback }));
+    }
+  };
+
+  // When a thumbnail fails to load, invalidate the bad URL and try a variant.
+  // Caps at 3 attempts per food name to avoid loops.
+  const handleThumbnailError = async (foodName: string) => {
+    const attempts = imageRetries.current[foodName] || 0;
+    if (attempts >= 3) return;
+    imageRetries.current[foodName] = attempts + 1;
+
+    const variants = [foodName, `${foodName} food`, `${foodName} meal`];
+    const nextQuery = variants[attempts] || foodName;
+
+    try {
+      const { imageCache } = await import('@/lib/imageCache');
+      imageCache.invalidate(nextQuery);
+    } catch {
+      // ignore — worst case we just refetch without invalidation
+    }
+
+    await fetchFoodImage(nextQuery, undefined, true);
+    // Map the bad foodName back to the freshly-fetched URL if the query differed
+    if (nextQuery !== foodName) {
+      setFoodImages(prev => ({ ...prev, [foodName]: prev[nextQuery] || prev[foodName] }));
     }
   };
 
@@ -338,6 +367,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                               alt={mealPreview.breakfast.name}
                               className="w-full h-full object-cover"
                               onLoad={() => fetchFoodImage(mealPreview.breakfast.name, mealPreview.breakfast.image)}
+                              onError={() => handleThumbnailError(mealPreview.breakfast.name)}
                             />
                           ) : (
                             <div className="w-full h-full bg-yellow-200 flex items-center justify-center text-[10px] sm:text-xs">
