@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "MealLens AI",
+    "slug": "meallensai-mobile",
+    "scheme": "meallensai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.meallensai.mobile",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "MealLens needs access to your photo library so you can upload meal and ingredient photos for AI analysis.",
+        "NSCameraUsageDescription": "MealLens uses the camera so you can capture ingredients or meals for AI detection."
+      }
+    },
+    "android": {
+      "package": "com.meallensai.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MealLens accesses your photos to let you upload meal and ingredient images.",
+          "cameraPermission": "MealLens uses the camera so you can capture ingredients or meals for analysis."
+        }
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "https://api.meallensai.com/5001",
+      "aiApiUrl": "https://api.meallensai.com/7017",
+      "imageSearchUrl": "https://get-images-qa23.onrender.com"
+    }
+  }
+}
