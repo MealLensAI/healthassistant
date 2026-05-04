@@ -110,34 +110,67 @@ class SubscriptionService:
                             has_active_subscription = True
                             break
             
-            # Get trial info
-            trial_result = self.supabase.table('user_trials').select('*').eq('user_id', supabase_user_id).order('created_at', desc=True).limit(1).execute()
-            
+            # Trial is no longer time-based: each new user gets to generate ONE
+            # 7-day meal plan for free, after which they must subscribe to
+            # generate more. Determine "free meal plan used" by counting saved
+            # meal plans for this user. This is the source of truth.
+            free_plan_limit = 1
+            meal_plans_used = 0
+            try:
+                mp_result = self.supabase.table('meal_plan_management').select(
+                    'id', count='exact'
+                ).eq('user_id', supabase_user_id).execute()
+                # supabase-py returns count via .count when count='exact'
+                count_value = getattr(mp_result, 'count', None)
+                if count_value is None:
+                    count_value = len(mp_result.data) if getattr(mp_result, 'data', None) else 0
+                meal_plans_used = int(count_value or 0)
+            except Exception as count_err:
+                print(f"⚠️ Could not count meal plans for user {supabase_user_id}: {count_err}")
+                meal_plans_used = 0
+
+            free_meal_plan_used = meal_plans_used >= free_plan_limit
+            trial_active = (not has_active_subscription) and (not free_meal_plan_used)
+
+            # Get most recent trial row (used as a marker only; dates are no
+            # longer authoritative for whether the trial is active).
             trial = None
-            trial_active = False
+            trial_result = self.supabase.table('user_trials').select('*').eq(
+                'user_id', supabase_user_id
+            ).order('created_at', desc=True).limit(1).execute()
             if trial_result.data:
                 trial_data = trial_result.data[0]
                 trial = {
                     'id': trial_data['id'],
                     'start_date': trial_data.get('start_date'),
                     'end_date': trial_data.get('end_date'),
-                    'is_used': trial_data.get('is_used'),
-                    'created_at': trial_data.get('created_at')
+                    'is_used': free_meal_plan_used,
+                    'is_active': trial_active,
+                    'created_at': trial_data.get('created_at'),
+                    'meal_plans_used': meal_plans_used,
+                    'meal_plans_limit': free_plan_limit,
+                    'free_meal_plan_used': free_meal_plan_used,
                 }
-                # Determine trial active: active if end_date in future (regardless of is_used)
-                # is_used should only be set when trial actually expires, not when user pays
-                try:
-                    from datetime import datetime, timezone
-                    if trial_data.get('end_date'):
-                        trial_end = datetime.fromisoformat(str(trial_data['end_date']).replace('Z', '+00:00'))
-                        now_dt = datetime.now(timezone.utc)
-                        # Trial is active if end_date is in the future
-                        # is_used is only set when trial actually expires, not when user pays
-                        trial_active = (trial_end > now_dt)
-                except Exception:
-                    trial_active = False
-            
-            # Determine if user can access app (subscription OR active trial)
+            else:
+                # User has no trial row but the policy still applies — synthesize
+                # a virtual trial object so the frontend can always reason about
+                # the free-plan budget.
+                trial = {
+                    'id': None,
+                    'start_date': None,
+                    'end_date': None,
+                    'is_used': free_meal_plan_used,
+                    'is_active': trial_active,
+                    'created_at': None,
+                    'meal_plans_used': meal_plans_used,
+                    'meal_plans_limit': free_plan_limit,
+                    'free_meal_plan_used': free_meal_plan_used,
+                }
+
+            # Determine if user can access app (subscription OR free plan still
+            # available). Users who have used their free plan but have no
+            # subscription can still reach allowed pages (handled by frontend
+            # routing/blocker), but cannot create a new meal plan.
             can_access_app = has_active_subscription or trial_active
             
             # Check organization time restrictions if user is in an organization
@@ -156,6 +189,10 @@ class SubscriptionService:
                     'subscription': subscription,
                     'trial': trial,
                     'can_access_app': can_access_app,
+                    'meal_plans_used': meal_plans_used,
+                    'meal_plans_limit': free_plan_limit,
+                    'free_meal_plan_used': free_meal_plan_used,
+                    'can_generate_meal_plan': has_active_subscription or (not free_meal_plan_used),
                     'time_restriction': time_restriction_info
                 }
             }
@@ -173,6 +210,71 @@ class SubscriptionService:
                 }
             }
     
+    def can_user_generate_meal_plan(self, user_id: str) -> Dict[str, Any]:
+        """
+        Decide whether a user is allowed to create a new meal plan.
+
+        Policy: a user may create at most ONE meal plan for free. After that,
+        they must have an active subscription. Users in an organization
+        (enterprise members) inherit access from their organization and are
+        not subject to the free-plan limit.
+        """
+        try:
+            if not user_id or user_id in ('anon', 'anonymous'):
+                return {
+                    'allowed': False,
+                    'reason': 'unauthenticated',
+                    'message': 'You must be signed in to create a meal plan.'
+                }
+
+            # Enterprise members bypass the personal free-plan limit.
+            try:
+                org_result = self.supabase.table('organization_users').select(
+                    'id'
+                ).eq('user_id', user_id).limit(1).execute()
+                if org_result.data:
+                    return {
+                        'allowed': True,
+                        'reason': 'organization_member',
+                        'message': 'Access granted via organization membership.'
+                    }
+            except Exception:
+                pass
+
+            status = self.get_user_subscription_status(user_id)
+            data = (status or {}).get('data') or {}
+
+            if data.get('has_active_subscription'):
+                return {
+                    'allowed': True,
+                    'reason': 'active_subscription',
+                    'message': 'Access granted via active subscription.'
+                }
+
+            if not data.get('free_meal_plan_used'):
+                return {
+                    'allowed': True,
+                    'reason': 'free_plan_available',
+                    'message': 'Free meal plan available.',
+                    'meal_plans_used': data.get('meal_plans_used', 0),
+                    'meal_plans_limit': data.get('meal_plans_limit', 1),
+                }
+
+            return {
+                'allowed': False,
+                'reason': 'free_plan_used',
+                'message': 'Your free meal plan has been used. Please subscribe to generate more meal plans.',
+                'meal_plans_used': data.get('meal_plans_used', 0),
+                'meal_plans_limit': data.get('meal_plans_limit', 1),
+            }
+        except Exception as e:
+            print(f"Error in can_user_generate_meal_plan: {e}")
+            return {
+                'allowed': False,
+                'reason': 'error',
+                'message': f'Unable to verify access: {e}'
+            }
+
     def can_user_use_feature(self, user_id: str, feature_name: str) -> Dict[str, Any]:
         """
         Check if user can use a specific feature

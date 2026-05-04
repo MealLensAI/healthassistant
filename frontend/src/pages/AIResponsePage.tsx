@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/config"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { useSicknessSettings } from "@/hooks/useSicknessSettings"
+import { useTrial } from "@/hooks/useTrial"
 import Swal from 'sweetalert2'
 import { api } from "@/lib/api"
 import CookingTutorialModal from "@/components/CookingTutorialModal"
@@ -207,6 +208,12 @@ const AIResponsePage: FC = () => {
   
   const { user, isAuthenticated, loading } = useAuth()
   const { settings: sicknessSettings, isHealthProfileComplete } = useSicknessSettings()
+  const {
+    canGenerateMealPlan,
+    hasActiveSubscription,
+    freeMealPlanUsed,
+    refreshStatus: refreshTrialStatus,
+  } = useTrial()
 
   if (loading) {
     return <LoadingSpinner />
@@ -217,11 +224,40 @@ const AIResponsePage: FC = () => {
     return null
   }
 
-  const handleUploadClick = () => {
+  const promptForSubscription = async (
+    title: string = "Subscribe to use the ingredient detector",
+    description: string = "You've used your free 7-day meal plan. Subscribe to keep detecting ingredients and getting AI meal suggestions.",
+  ) => {
+    const result = await Swal.fire({
+      icon: 'info',
+      title,
+      text: description,
+      showCancelButton: true,
+      confirmButtonText: 'Subscribe',
+      cancelButtonText: 'Maybe later',
+      confirmButtonColor: '#1A76E3',
+    })
+    if (result.isConfirmed) {
+      navigate('/payment')
+    }
+  }
+
+  const isBlockedByQuota = () =>
+    !hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan)
+
+  const handleUploadClick = async () => {
+    if (isBlockedByQuota()) {
+      await promptForSubscription()
+      return
+    }
     setShowUploadModal(true)
   }
 
-  const handleListIngredientsClick = () => {
+  const handleListIngredientsClick = async () => {
+    if (isBlockedByQuota()) {
+      await promptForSubscription()
+      return
+    }
     setShowIngredientModal(true)
   }
 
@@ -255,6 +291,14 @@ const AIResponsePage: FC = () => {
   }
 
   const handleDetect = async (inputType: "image" | "ingredient_list" = "image") => {
+    if (isBlockedByQuota()) {
+      setShowUploadModal(false)
+      setShowIngredientModal(false)
+      try { await refreshTrialStatus() } catch (_) { /* noop */ }
+      await promptForSubscription()
+      return
+    }
+
     if (inputType === "image" && !selectedImage) {
       Swal.fire({
         icon: 'warning',

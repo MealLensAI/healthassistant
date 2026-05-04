@@ -290,7 +290,7 @@ const Settings = () => {
               }`}
             >
               <Clock className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{isTrialExpired ? 'Trial expired' : `Trial: ${formattedRemainingTime}`}</span>
+              <span className="truncate">{isTrialExpired ? 'Free meal plan used' : formattedRemainingTime}</span>
             </div>
           )}
 

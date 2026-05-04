@@ -16,9 +16,11 @@ import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useMealTracking } from '../hooks/useMealTracking';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
+import { useTrial } from '@/hooks/useTrial';
 import { useAuth } from '@/lib/utils';
 import { APP_CONFIG } from '@/lib/config';
 import Swal from 'sweetalert2';
+import { useNavigate } from 'react-router-dom';
 
 // Countries list for the dropdown
 const countries = [
@@ -125,6 +127,13 @@ const Index = () => {
 
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const {
+    canGenerateMealPlan,
+    hasActiveSubscription,
+    freeMealPlanUsed,
+    refreshStatus: refreshTrialStatus,
+  } = useTrial();
   const {
     getSicknessInfo,
     getHealthProfilePayload,
@@ -173,6 +182,12 @@ const Index = () => {
     }
   }, [savedPlans.length, showDemoPlan]);
 
+  // Whenever the saved-plan count changes, re-check the free-plan budget so
+  // that the UI can prompt for a subscription right after the first save.
+  useEffect(() => {
+    refreshTrialStatus().catch(() => { /* non-fatal */ });
+  }, [savedPlans.length, refreshTrialStatus]);
+
   // Build (and memoize) the sample plan we show newly signed-up users.
   // It's purely UI — never saved to the backend. Disappears as soon as
   // the user creates a real plan.
@@ -190,7 +205,11 @@ const Index = () => {
   // NOTE: we do NOT clear the demo flag here. The sample plan stays visible
   // until the user actually saves a real meal plan. The effect above that
   // watches `savedPlans.length` handles the cleanup once a real plan exists.
-  const dismissDemoAndCreate = () => {
+  const dismissDemoAndCreate = async () => {
+    if (!hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan)) {
+      await promptForSubscription();
+      return;
+    }
     setShowInputModal(true);
   };
 
@@ -239,7 +258,13 @@ const Index = () => {
     }
   }, [showPlanManager, currentPlan, savedPlans]);
 
-  const handleNewPlan = () => {
+  const handleNewPlan = async () => {
+    // Free-plan budget: a user gets ONE free 7-day meal plan. Once used,
+    // they need an active subscription before opening the create modal.
+    if (!hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan)) {
+      await promptForSubscription();
+      return;
+    }
     setShowInputModal(true);
   };
 
@@ -297,8 +322,33 @@ const Index = () => {
     }
   };
 
+  const promptForSubscription = async (
+    title: string = "Subscribe to generate more meal plans",
+    description: string = "You've already used your free 7-day meal plan. Subscribe to generate unlimited new meal plans.",
+  ) => {
+    const result = await Swal.fire({
+      icon: 'info',
+      title,
+      text: description,
+      showCancelButton: true,
+      confirmButtonText: 'Subscribe',
+      cancelButtonText: 'Maybe later',
+      confirmButtonColor: '#f97316',
+    });
+    if (result.isConfirmed) {
+      navigate('/payment');
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    // Free-plan budget check: a user gets ONE free 7-day meal plan. After
+    // that, they need an active subscription to generate more.
+    if (!hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan)) {
+      await promptForSubscription();
+      return;
+    }
 
     // Only validate ingredients/image if auto-generate is OFF
     if (!isAutoGenerateEnabled) {
@@ -754,6 +804,17 @@ const Index = () => {
     } catch (error: any) {
       // Log the error in detail
       console.error('Error generating meal plan:', error);
+
+      // Backend rejected the save because the user has used their free
+      // 7-day meal plan and has no active subscription.
+      if (error?.code === 'PAYMENT_REQUIRED' || error?.status === 402) {
+        try { await refreshTrialStatus(); } catch (_) { /* noop */ }
+        await promptForSubscription(
+          'Subscription required',
+          error?.message || "You've already used your free 7-day meal plan. Subscribe to generate more.",
+        );
+        return;
+      }
 
       // Try to extract error message from various possible structures
       let errorMessage = '';
@@ -1249,8 +1310,12 @@ const Index = () => {
               </button>
             </div>
             <MealPlanManager
-              onNewPlan={() => {
+              onNewPlan={async () => {
                 setShowPlanManager(false);
+                if (!hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan)) {
+                  await promptForSubscription();
+                  return;
+                }
                 setShowInputModal(true);
               }}
               onEditPlan={handleEditPlan}

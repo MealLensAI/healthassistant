@@ -2,8 +2,45 @@ from flask import Blueprint, request, jsonify, current_app
 import json
 from utils.auth_utils import get_user_id_from_token, log_error
 from services.notification_service import notification_service
+from services.subscription_service import SubscriptionService
 
 meal_plan_bp = Blueprint('meal_plan', __name__)
+
+
+def _enforce_meal_plan_quota(user_id: str):
+    """Return a Flask response tuple (response, status) when the user is not
+    allowed to create a new meal plan, or None when access is granted.
+
+    Policy: each user gets ONE free 7-day meal plan. After that, an active
+    subscription is required. Enterprise/organization members bypass the
+    limit (handled inside SubscriptionService.can_user_generate_meal_plan).
+    """
+    try:
+        sub_service = SubscriptionService()
+        decision = sub_service.can_user_generate_meal_plan(user_id)
+    except Exception as quota_err:
+        # Fail open: if the quota check itself errors, allow the save so we
+        # don't block paying users due to infra issues. Errors are logged.
+        log_error(
+            f"Quota check failed for user {user_id}; allowing meal plan save",
+            quota_err,
+        )
+        return None
+
+    if decision.get('allowed'):
+        return None
+
+    return (
+        jsonify({
+            'status': 'error',
+            'error': 'payment_required',
+            'reason': decision.get('reason'),
+            'message': decision.get('message') or 'Subscription required to create another meal plan.',
+            'meal_plans_used': decision.get('meal_plans_used'),
+            'meal_plans_limit': decision.get('meal_plans_limit'),
+        }),
+        402,
+    )
 
 @meal_plan_bp.route('/meal_plan', methods=['POST'])
 def save_meal_plan():
@@ -20,6 +57,10 @@ def save_meal_plan():
         
         if not plan_data:
             return jsonify({'status': 'error', 'message': 'Meal plan data is required.'}), 400
+
+        quota_block = _enforce_meal_plan_quota(user_id)
+        if quota_block is not None:
+            return quota_block
 
         # Save to meal_plan_management table
         result = supabase_service.save_meal_plan(user_id, plan_data)
@@ -134,6 +175,10 @@ def create_meal_plan():
         plan_data = request.get_json()
         if not plan_data:
             return jsonify({'status': 'error', 'message': 'Meal plan data is required.'}), 400
+
+        quota_block = _enforce_meal_plan_quota(user_id)
+        if quota_block is not None:
+            return quota_block
 
         # Normalize the plan data before saving
         normalized_plan = supabase_service.normalize_meal_plan_entry(plan_data, user_id)

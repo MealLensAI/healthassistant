@@ -77,15 +77,25 @@ export const useTrial = () => {
       // Extract data from single backend call
       // Note: Backend can return either snake_case or camelCase depending on the endpoint
       const trialData = backendResult.trialInfo;
-      const info = trialData ? {
-        isActive: trialData.isActive ?? !trialData.isExpired,
-        startDate: new Date(trialData.startDate || trialData.start_date),
-        endDate: new Date(trialData.endDate || trialData.end_date),
-        isExpired: trialData.isExpired ?? (trialData.end_date ? new Date(trialData.end_date) < new Date() : false),
-        remainingTime: trialData.remainingTime ?? trialData.remaining_time ?? 0,
-        remainingHours: trialData.remainingHours ?? Math.floor((trialData.remaining_time || 0) / (1000 * 60 * 60)),
-        remainingMinutes: trialData.remainingMinutes ?? Math.floor(((trialData.remaining_time || 0) % (1000 * 60 * 60)) / (1000 * 60))
-      } : null;
+      const info = trialData ? (() => {
+        const mealPlansUsed = Number(trialData.meal_plans_used ?? trialData.mealPlansUsed ?? 0);
+        const mealPlansLimit = Number(trialData.meal_plans_limit ?? trialData.mealPlansLimit ?? 1);
+        const freeMealPlanUsed = Boolean(
+          trialData.free_meal_plan_used ?? trialData.freeMealPlanUsed ?? mealPlansUsed >= mealPlansLimit
+        );
+        return {
+          isActive: !freeMealPlanUsed,
+          startDate: new Date(trialData.startDate || trialData.start_date || Date.now()),
+          endDate: new Date(trialData.endDate || trialData.end_date || Date.now()),
+          isExpired: freeMealPlanUsed,
+          remainingTime: 0,
+          remainingHours: 0,
+          remainingMinutes: 0,
+          mealPlansUsed,
+          mealPlansLimit,
+          freeMealPlanUsed,
+        };
+      })() : null;
       
       console.log('🔍 Parsed trial info:', info);
       
@@ -197,58 +207,34 @@ export const useTrial = () => {
   }, []);
   
   const getFormattedRemainingTime = (): string => {
-    // Use subscription info if available
+    // Active subscription wins — show the remaining subscription time.
     if (subscriptionInfo && hasActiveSubscription && subscriptionInfo.formattedRemainingTime) {
       return subscriptionInfo.formattedRemainingTime;
     }
-    
-    // Calculate from trial info synchronously - recalculate from dates for accuracy
-    if (trialInfo) {
-      // Recalculate remaining time from end date for real-time accuracy
-      const now = new Date(currentTime); // Use currentTime state for real-time updates
-      const endDate = new Date(trialInfo.endDate);
-      const remainingTime = Math.max(0, endDate.getTime() - now.getTime());
-      
-      if (remainingTime <= 0) {
-        return 'Trial expired';
-      }
-      
-      const hours = Math.floor(remainingTime / (1000 * 60 * 60));
-      const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
-      
-      if (hours > 0) {
-        return `${hours}h ${minutes}m remaining`;
-      } else if (minutes > 0) {
-        return `${minutes}m remaining`;
-      } else {
-        return 'Expiring soon';
-      }
+
+    // The "trial" is no longer time-based: each user gets ONE free 7-day meal
+    // plan. Show whether that free plan is still available.
+    const trial: any = trialInfo || cachedData?.trialInfo;
+    if (trial) {
+      const freeUsed = Boolean(trial.freeMealPlanUsed ?? trial.isExpired);
+      if (freeUsed) return 'Free meal plan used';
+      return '1 free meal plan available';
     }
-    
-    // Fallback: try to calculate from cached data dates
-    if (cachedData?.trialInfo && cachedData.trialInfo.endDate) {
-      const now = new Date(currentTime);
-      const endDate = new Date(cachedData.trialInfo.endDate);
-      const remainingTime = Math.max(0, endDate.getTime() - now.getTime());
-      
-      if (remainingTime <= 0) {
-        return 'Trial expired';
-      }
-      
-      const hours = Math.floor(remainingTime / (1000 * 60 * 60));
-      const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
-      
-      if (hours > 0) {
-        return `${hours}h ${minutes}m remaining`;
-      } else if (minutes > 0) {
-        return `${minutes}m remaining`;
-      }
-    }
-    
-    return 'Trial expired';
+
+    return 'Free meal plan available';
   };
-  
+
+  // Suppress the "currentTime" lint warning by referencing it (we no longer
+  // need it for the time-based display, but keep the state to drive periodic
+  // re-renders of components that use this hook).
+  void currentTime;
+
   const formattedRemainingTime = getFormattedRemainingTime();
+
+  const freeMealPlanUsed = trialInfo?.freeMealPlanUsed ?? false;
+  const mealPlansUsed = trialInfo?.mealPlansUsed ?? 0;
+  const mealPlansLimit = trialInfo?.mealPlansLimit ?? 1;
+  const canGenerateMealPlan = hasActiveSubscription || !freeMealPlanUsed;
 
   return {
     trialInfo,
@@ -265,6 +251,11 @@ export const useTrial = () => {
     formattedRemainingTime,
     progressPercentage,
     trialProgress: progressPercentage,
+    // Free 7-day meal plan budget
+    freeMealPlanUsed,
+    mealPlansUsed,
+    mealPlansLimit,
+    canGenerateMealPlan,
     activateSubscription,
     activateSubscriptionForDays,
     resetTrial,

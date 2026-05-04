@@ -410,15 +410,22 @@ export const useMealPlans = (filterBySickness?: boolean) => {
 
       if (!response.ok) {
         let errorMessage = `HTTP error! status: ${response.status}`;
+        let errorPayload: any = null;
         try {
-          const errorData = await response.json();
-          if (errorData && errorData.message) {
-            errorMessage = errorData.message;
+          errorPayload = await response.json();
+          if (errorPayload && errorPayload.message) {
+            errorMessage = errorPayload.message;
           }
         } catch (e) {
           // If we can't parse the response as JSON, use the generic error
         }
-        throw new Error(errorMessage);
+        const err: Error & { code?: string; payload?: any; status?: number } = new Error(errorMessage);
+        err.status = response.status;
+        if (response.status === 402 || errorPayload?.error === 'payment_required') {
+          err.code = 'PAYMENT_REQUIRED';
+        }
+        err.payload = errorPayload;
+        throw err;
       }
 
       const result = await response.json();

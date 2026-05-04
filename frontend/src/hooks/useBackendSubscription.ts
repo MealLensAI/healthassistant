@@ -119,7 +119,7 @@ export const useBackendSubscription = () => {
         if (subscriptionInfo.subscription) {
             return subscriptionInfo.subscription.plan_display_name;
         } else if (subscriptionInfo.trial) {
-            return 'Free Trial';
+            return 'Free Plan';
         }
         return 'No Plan';
     }, [subscriptionInfo]);

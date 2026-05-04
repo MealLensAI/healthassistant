@@ -5,18 +5,18 @@ import { Check, Zap, Clock, CalendarDays, Heart, Calendar } from "lucide-react";
 const PRICING_CARDS = [
   {
     id: "trial",
-    name: "Free Trial",
+    name: "Free",
     price: "$0",
-    period: "7 days free",
-    description: "Full access to try everything",
+    period: "1 free meal plan",
+    description: "Try a full 7-day meal plan on us",
     features: [
       "AI ingredient recognition",
       "Step-by-step recipes",
-      "7-day meal plans",
+      "One free 7-day meal plan",
       "Chronic condition meal planning",
       "Budget & location-based plans",
     ],
-    cta: "Start Free Trial",
+    cta: "Get Started",
     highlight: false,
     icon: Zap,
   },
@@ -27,7 +27,7 @@ const PRICING_CARDS = [
     period: "per week",
     description: "Flexible short-term access",
     features: [
-      "Everything in free trial",
+      "Everything in Free",
       "Unlimited meal plans",
       "Unlimited health meal generations",
       "Cancel anytime",
@@ -43,7 +43,7 @@ const PRICING_CARDS = [
     period: "per 2 weeks",
     description: "Two weeks of full access",
     features: [
-      "Everything in free trial",
+      "Everything in Free",
       "Unlimited meal plans",
       "Unlimited health meal generations",
       "Cancel anytime",
@@ -57,9 +57,9 @@ const PRICING_CARDS = [
     name: "Monthly",
     price: "$5",
     period: "per month",
-    description: "Unlock everything after your trial",
+    description: "Unlimited plans after your free one",
     features: [
-      "Everything in free trial",
+      "Everything in Free",
       "Unlimited meal plans",
       "Unlimited health meal generations",
       "Priority support",
@@ -98,7 +98,7 @@ const PricingSection = () => {
             Simple, transparent pricing
           </h2>
           <p className="text-lg text-muted-foreground">
-            7-day free trial. Then $5/month. One payment unlocks Cooking and Health features.
+            Get one free 7-day meal plan when you sign up. After that, just $5/month for unlimited plans. One payment unlocks Cooking and Health features.
           </p>
         </div>
 

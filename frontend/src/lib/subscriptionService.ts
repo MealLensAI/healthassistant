@@ -18,15 +18,24 @@ export interface SubscriptionStatus {
         progress_percentage: number;
     } | null;
     trial: {
-        start_date: string;
-        end_date: string;
+        start_date: string | null;
+        end_date: string | null;
         is_active: boolean;
-        remaining_days: number;
-        remaining_hours: number;
-        remaining_minutes: number;
-        progress_percentage: number;
+        is_used?: boolean;
+        meal_plans_used?: number;
+        meal_plans_limit?: number;
+        free_meal_plan_used?: boolean;
+        // Legacy fields kept for backward compatibility — they may be 0/absent.
+        remaining_days?: number;
+        remaining_hours?: number;
+        remaining_minutes?: number;
+        progress_percentage?: number;
     } | null;
     can_access_app: boolean;
+    meal_plans_used?: number;
+    meal_plans_limit?: number;
+    free_meal_plan_used?: boolean;
+    can_generate_meal_plan?: boolean;
 }
 
 export interface FeatureAccess {
@@ -358,7 +367,9 @@ class SubscriptionService {
      */
     getFormattedRemainingTime(status: SubscriptionStatus): string {
         if (status.subscription) {
-            const { remaining_days, remaining_hours, remaining_minutes } = status.subscription;
+            const remaining_days = status.subscription.remaining_days ?? 0;
+            const remaining_hours = status.subscription.remaining_hours ?? 0;
+            const remaining_minutes = status.subscription.remaining_minutes ?? 0;
 
             if (remaining_days > 0) {
                 return `${remaining_days}d ${remaining_hours}h remaining`;
@@ -370,17 +381,8 @@ class SubscriptionService {
                 return 'Expired';
             }
         } else if (status.trial) {
-            const { remaining_days, remaining_hours, remaining_minutes } = status.trial;
-
-            if (remaining_days > 0) {
-                return `${remaining_days}d ${remaining_hours}h remaining`;
-            } else if (remaining_hours > 0) {
-                return `${remaining_hours}h ${remaining_minutes}m remaining`;
-            } else if (remaining_minutes > 0) {
-                return `${remaining_minutes}m remaining`;
-            } else {
-                return 'Trial expired';
-            }
+            const freeUsed = status.trial.free_meal_plan_used ?? !status.trial.is_active;
+            return freeUsed ? 'Free meal plan used' : '1 free meal plan available';
         }
 
         return 'No active subscription';
@@ -393,7 +395,7 @@ class SubscriptionService {
         if (status.subscription) {
             return status.subscription.plan_display_name;
         } else if (status.trial) {
-            return 'Free Trial';
+            return 'Free Plan';
         }
         return 'No Plan';
     }
@@ -403,22 +405,23 @@ class SubscriptionService {
      */
     isSubscriptionExpired(status: SubscriptionStatus): boolean {
         if (status.subscription) {
-            return status.subscription.remaining_days <= 0 &&
-                status.subscription.remaining_hours <= 0 &&
-                status.subscription.remaining_minutes <= 0;
+            const remaining_days = status.subscription.remaining_days ?? 0;
+            const remaining_hours = status.subscription.remaining_hours ?? 0;
+            const remaining_minutes = status.subscription.remaining_minutes ?? 0;
+            return remaining_days <= 0 && remaining_hours <= 0 && remaining_minutes <= 0;
         }
         return true;
     }
 
     /**
-     * Check if trial is expired
+     * Check if the free meal plan has been used (replaces the old time-based
+     * trial-expired check).
      */
     isTrialExpired(status: SubscriptionStatus): boolean {
         if (status.trial) {
-            return !status.trial.is_active ||
-                (status.trial.remaining_days <= 0 &&
-                    status.trial.remaining_hours <= 0 &&
-                    status.trial.remaining_minutes <= 0);
+            return Boolean(
+                status.trial.free_meal_plan_used ?? !status.trial.is_active
+            );
         }
         return true;
     }

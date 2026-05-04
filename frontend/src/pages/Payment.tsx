@@ -771,12 +771,12 @@ const Payment: React.FC = () => {
             Your subscription has ended. Renew to continue using MealLensAI.
           </div>
         ) : (
-          // User has never paid - show trial status
+          // User has never paid - show free-plan status
           <div className={`mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
             <Clock className={`h-4 w-4 ${isTrialExpired ? 'text-red-600' : 'text-orange-600'}`} />
             {isTrialExpired
-              ? 'Your trial has ended. Upgrade to continue using MealLensAI.'
-              : `Trial: ${formattedRemainingTime}`
+              ? "You've used your free 7-day meal plan. Subscribe to generate more."
+              : formattedRemainingTime
             }
           </div>
         )}

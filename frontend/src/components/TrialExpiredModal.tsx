@@ -43,7 +43,7 @@ const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose, 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-red-600">
             <Lock className="h-6 w-6" />
-            {isSubscriptionExpired ? 'Subscription Expired' : 'Trial Period Expired'}
+            {isSubscriptionExpired ? 'Subscription Expired' : 'Free Meal Plan Used'}
           </DialogTitle>
         </DialogHeader>
 
@@ -57,12 +57,12 @@ const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose, 
 
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {isSubscriptionExpired ? 'Your Subscription Has Ended' : 'Your 24-Hour Trial Has Ended'}
+                {isSubscriptionExpired ? 'Your Subscription Has Ended' : "You've Used Your Free 7-Day Meal Plan"}
               </h3>
               <p className="text-gray-600 text-sm leading-relaxed">
                 {isSubscriptionExpired
                   ? 'Your subscription period has ended. To continue using all the amazing features, please renew your subscription.'
-                  : 'We hope you enjoyed exploring MealLensAI! To continue using all the amazing features, please upgrade to one of our premium plans.'
+                  : 'You\'ve already generated your one free 7-day meal plan. Subscribe to generate unlimited new meal plans whenever you need them.'
                 }
               </p>
             </div>
@@ -88,7 +88,7 @@ const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose, 
               className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-3"
             >
               <CreditCard className="h-4 w-4 mr-2" />
-              {isSubscriptionExpired ? 'Renew Subscription' : 'Upgrade Now - Starting at $1/week'}
+              {isSubscriptionExpired ? 'Renew Subscription' : 'Subscribe to Generate More'}
             </Button>
 
             <Button

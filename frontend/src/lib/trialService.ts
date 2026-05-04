@@ -4,9 +4,13 @@ export interface TrialInfo {
   startDate: Date;
   endDate: Date;
   isExpired: boolean;
-  remainingTime: number; // in milliseconds
-  remainingHours: number;
-  remainingMinutes: number;
+  remainingTime: number; // legacy: kept for backward compatibility
+  remainingHours: number; // legacy: kept for backward compatibility
+  remainingMinutes: number; // legacy: kept for backward compatibility
+  // Free-plan budget (1 free 7-day meal plan per user)
+  mealPlansUsed: number;
+  mealPlansLimit: number;
+  freeMealPlanUsed: boolean;
 }
 
 
@@ -133,32 +137,42 @@ export class TrialService {
 
   /**
    * Get current trial information from backend
+   *
+   * Note: the trial is no longer time-based. A user gets ONE free 7-day meal
+   * plan; once they've generated it, the trial is considered "expired" and
+   * they need to subscribe to generate more.
    */
   static async getTrialInfo(): Promise<TrialInfo | null> {
     try {
       const backendResult = await this.fetchSubscriptionFromBackend();
-      
+
       if (backendResult.trialInfo) {
-        const trial = backendResult.trialInfo;
-        
-        // Parse dates
-        const startDate = new Date(trial.start_date);
-        const endDate = new Date(trial.end_date);
-        const now = new Date();
-        const remainingTime = Math.max(0, endDate.getTime() - now.getTime());
-        const isExpired = remainingTime <= 0;
+        const trial = backendResult.trialInfo as any;
+
+        const mealPlansUsed = Number(trial.meal_plans_used ?? trial.mealPlansUsed ?? 0);
+        const mealPlansLimit = Number(trial.meal_plans_limit ?? trial.mealPlansLimit ?? 1);
+        const freeMealPlanUsed = Boolean(
+          trial.free_meal_plan_used ?? trial.freeMealPlanUsed ?? mealPlansUsed >= mealPlansLimit
+        );
+
+        const startDate = trial.start_date ? new Date(trial.start_date) : new Date();
+        const endDate = trial.end_date ? new Date(trial.end_date) : new Date();
 
         return {
-          isActive: !isExpired,
+          isActive: !freeMealPlanUsed,
           startDate,
           endDate,
-          isExpired,
-          remainingTime,
-          remainingHours: Math.floor(remainingTime / (1000 * 60 * 60)),
-          remainingMinutes: Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60))
+          isExpired: freeMealPlanUsed,
+          // Legacy fields preserved for compatibility but no longer meaningful
+          remainingTime: 0,
+          remainingHours: 0,
+          remainingMinutes: 0,
+          mealPlansUsed,
+          mealPlansLimit,
+          freeMealPlanUsed,
         };
       }
-      
+
       return null;
     } catch (error) {
       console.error('Error fetching trial info from backend:', error);
@@ -167,11 +181,32 @@ export class TrialService {
   }
 
   /**
-   * Check if trial has expired
+   * Check if the user's free meal plan has been used.
+   * (Kept under the existing name `isTrialExpired` for backward compatibility.)
    */
   static async isTrialExpired(): Promise<boolean> {
     const trialInfo = await this.getTrialInfo();
     return trialInfo ? trialInfo.isExpired : false;
+  }
+
+  /**
+   * Whether the user can generate a new meal plan right now (active
+   * subscription OR they still have their free 7-day meal plan unused).
+   */
+  static async canGenerateMealPlan(): Promise<boolean> {
+    try {
+      const backendResult = await this.fetchSubscriptionFromBackend();
+      if (backendResult.hasActiveSubscription) return true;
+      const trial = backendResult.trialInfo as any;
+      if (!trial) return true; // no trial info yet — let the backend decide
+      const freeUsed = Boolean(
+        trial.free_meal_plan_used ?? trial.freeMealPlanUsed ?? false
+      );
+      return !freeUsed;
+    } catch (error) {
+      console.error('Error checking meal plan generation access:', error);
+      return false;
+    }
   }
 
   /**
