@@ -1,11 +1,10 @@
 {
-  "$comment": "Keep the /image-api/:path* destination in sync with VITE_IMAGES_API_URL in .env so dev (Vite proxy) and prod (Vercel rewrite) point at the same upstream. Vercel rewrites cannot read env vars at runtime, so the URL must be hard-coded here.",
   "version": 2,
   "buildCommand": "npm ci && npm run build",
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
-    { "source": "/image-api/:path*", "destination": "https://get-images-qa23.onrender.com/:path*" },
+    { "source": "/image-api/:path*", "destination": "https://api.meallensai.com/7016/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
