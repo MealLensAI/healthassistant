@@ -943,8 +943,6 @@ const Index = () => {
         time: '15 mins',
         rating: 5,
         originalTitle: dayPlan.breakfast, // Keep original for display
-        image: dayPlan.breakfast_image, // Pass stored image URL
-        // Include nutritional data if current health settings indicate sickness
         name: shouldIncludeNutritionData ? (dayPlan.breakfast_name || extractFoodName(dayPlan.breakfast)) : undefined,
         ingredients: shouldIncludeNutritionData ? (dayPlan.breakfast_ingredients || []) : undefined,
         calories: shouldIncludeNutritionData ? dayPlan.breakfast_calories : undefined,
@@ -959,8 +957,6 @@ const Index = () => {
         time: '25 mins',
         rating: 4,
         originalTitle: dayPlan.lunch,
-        image: dayPlan.lunch_image, // Pass stored image URL
-        // Include nutritional data if current health settings indicate sickness
         name: shouldIncludeNutritionData ? (dayPlan.lunch_name || extractFoodName(dayPlan.lunch)) : undefined,
         ingredients: shouldIncludeNutritionData ? (dayPlan.lunch_ingredients || []) : undefined,
         calories: shouldIncludeNutritionData ? dayPlan.lunch_calories : undefined,
@@ -975,8 +971,6 @@ const Index = () => {
         time: '35 mins',
         rating: 5,
         originalTitle: dayPlan.dinner,
-        image: dayPlan.dinner_image, // Pass stored image URL
-        // Include nutritional data if current health settings indicate sickness
         name: shouldIncludeNutritionData ? (dayPlan.dinner_name || extractFoodName(dayPlan.dinner)) : undefined,
         ingredients: shouldIncludeNutritionData ? (dayPlan.dinner_ingredients || []) : undefined,
         calories: shouldIncludeNutritionData ? dayPlan.dinner_calories : undefined,
@@ -993,8 +987,6 @@ const Index = () => {
         time: '5 mins',
         rating: 4,
         originalTitle: dayPlan.snack,
-        image: dayPlan.snack_image, // Pass stored image URL
-        // Include nutritional data if current health settings indicate sickness
         name: shouldIncludeNutritionData ? (dayPlan.snack_name || extractFoodName(dayPlan.snack)) : undefined,
         ingredients: shouldIncludeNutritionData ? (dayPlan.snack_ingredients || []) : undefined,
         calories: shouldIncludeNutritionData ? dayPlan.snack_calories : undefined,
@@ -1234,7 +1226,6 @@ const Index = () => {
                           carbs={recipe.carbs}
                           fat={recipe.fat}
                           benefit={recipe.benefit}
-                          image={recipe.image}
                           onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
                           mealPlanId={isDemo ? undefined : displayPlan?.id}
                           day={selectedDay}
@@ -1253,7 +1244,6 @@ const Index = () => {
                         time={recipe.time}
                         rating={recipe.rating}
                         mealType={mealType}
-                        image={recipe.image}
                         onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
                         mealPlanId={isDemo ? undefined : displayPlan?.id}
                         day={selectedDay}

@@ -309,62 +309,31 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     };
   };
 
-  // Background image enrichment: fetches images for all meals in parallel
-  // and updates React state + localStorage cache as images arrive.
-  //
-  // NOTE: We intentionally do NOT persist the enriched plan back to the DB.
-  // The imageCache already caches resolved URLs in localStorage (7-day TTL),
-  // so re-opening a plan pulls images from the local cache instead of re-hitting
-  // the slow image service. Skipping the PUT keeps the write path simple and
-  // removes any risk of a server-side shape mismatch clobbering columns like
-  // `is_approved` on partial updates.
-  const enrichPlanWithImages = async (plan: SavedMealPlan, ownerUserId?: string) => {
+  // Background image pre-warm: kick off image fetches for every meal so
+  // the get-images-qa23 results land in the localStorage imageCache
+  // before the user navigates to a card. We do NOT store the URLs back
+  // onto the meal plan object — the recipe cards always look the image
+  // up via `imageCache.getImage(name)` on mount.
+  const enrichPlanWithImages = async (plan: SavedMealPlan, _ownerUserId?: string) => {
     try {
       if (!plan || !Array.isArray(plan.mealPlan) || plan.mealPlan.length === 0) return;
 
       const { imageCache } = await import('@/lib/imageCache');
-      const fallbackImages: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', string> = {
-        breakfast: 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
-        lunch: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
-        dinner: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=300&fit=crop',
-        snack: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
-      };
       const mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
-      // Fetch every meal image across every day fully in parallel.
-      const enrichedPlan = await Promise.all(
-        plan.mealPlan.map(async (dayPlan) => {
-          const updatedDay: MealPlan = { ...dayPlan };
-          await Promise.all(
-            mealTypes.map(async (type) => {
-              const nameKey = `${type}_name` as keyof MealPlan;
-              const imgKey = `${type}_image` as keyof MealPlan;
-              const foodName = (dayPlan as any)[nameKey] as string | undefined;
-              const existingImg = (dayPlan as any)[imgKey] as string | undefined;
-              if (foodName && !existingImg) {
-                try {
-                  (updatedDay as any)[imgKey] = await imageCache.getImage(foodName, fallbackImages[type]);
-                } catch {
-                  (updatedDay as any)[imgKey] = fallbackImages[type];
-                }
-              }
-            })
-          );
-          return updatedDay;
-        })
+      await Promise.all(
+        plan.mealPlan.flatMap((dayPlan) =>
+          mealTypes.map((type) => {
+            const nameKey = `${type}_name` as keyof MealPlan;
+            const fallbackName = (dayPlan as any)[type] as string | undefined;
+            const foodName = ((dayPlan as any)[nameKey] as string | undefined) || fallbackName;
+            if (!foodName) return Promise.resolve(null);
+            return imageCache.getImage(foodName).catch(() => null);
+          })
+        )
       );
-
-      // Safety: only commit if we still have a valid array — never clobber state with [].
-      if (!Array.isArray(enrichedPlan) || enrichedPlan.length === 0) return;
-
-      setSavedPlans(prev => {
-        const updated = prev.map(p => p.id === plan.id ? { ...p, mealPlan: enrichedPlan } : p);
-        setCachedPlans(updated, ownerUserId);
-        return updated;
-      });
-      setCurrentPlan(prev => (prev && prev.id === plan.id ? { ...prev, mealPlan: enrichedPlan } : prev));
     } catch (err) {
-      console.warn('[enrichPlanWithImages] Image enrichment failed (non-fatal):', err);
+      console.warn('[enrichPlanWithImages] Image pre-warm failed (non-fatal):', err);
     }
   };
 

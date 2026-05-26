@@ -75,27 +75,36 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
     return mealDescription.replace(/\s*\(buy:[^)]*\)/, '').trim();
   };
 
-  // Fetch food image for a meal - use DB image if available, otherwise fetch
-  const fetchFoodImage = async (foodName: string, storedImageUrl?: string, forceRefresh = false) => {
-    if (foodImages[foodName] && !forceRefresh) return; // Already in component state
-
-    // If image is stored in DB and we're not forcing a refresh, use it directly
-    if (storedImageUrl && !forceRefresh) {
-      setFoodImages(prev => ({ ...prev, [foodName]: storedImageUrl }));
-      return;
-    }
+  // Fetch food image for a meal. Images are ALWAYS fetched from the
+  // trusted upstream image API (configured via VITE_IMAGES_API_URL in
+  // .env, proxied at /image-api/image to avoid CORS). There is no
+  // DB-stored URL fallback and no Unsplash fallback — if the API can't
+  // supply one we simply leave the slot empty and the UI shows an
+  // emoji placeholder.
+  const fetchFoodImage = async (foodName: string, forceRefresh = false) => {
+    if (foodImages[foodName] && !forceRefresh) return;
 
     try {
       const { imageCache } = await import('@/lib/imageCache');
-      const fallback = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop';
-      const nextImage = forceRefresh
-        ? await imageCache.refreshImage(foodName, fallback)
-        : await imageCache.getImage(foodName, fallback);
-      setFoodImages(prev => ({ ...prev, [foodName]: nextImage }));
+      const url = forceRefresh
+        ? await imageCache.refreshImage(foodName)
+        : await imageCache.getImage(foodName);
+      if (url) {
+        setFoodImages(prev => ({ ...prev, [foodName]: url }));
+      } else {
+        setFoodImages(prev => {
+          const next = { ...prev };
+          delete next[foodName];
+          return next;
+        });
+      }
     } catch (error) {
       console.error('Error fetching food image:', error);
-      const fallback = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop';
-      setFoodImages(prev => ({ ...prev, [foodName]: fallback }));
+      setFoodImages(prev => {
+        const next = { ...prev };
+        delete next[foodName];
+        return next;
+      });
     }
   };
 
@@ -106,7 +115,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
     if (attempts >= 3) return;
     imageRetries.current[foodName] = attempts + 1;
 
-    const variants = [foodName, `${foodName} food`, `${foodName} meal`];
+    const variants = [foodName, `${foodName} dish`, `${foodName} meal`];
     const nextQuery = variants[attempts] || foodName;
 
     try {
@@ -116,10 +125,13 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
       // ignore — worst case we just refetch without invalidation
     }
 
-    await fetchFoodImage(nextQuery, undefined, true);
-    // Map the bad foodName back to the freshly-fetched URL if the query differed
+    await fetchFoodImage(nextQuery, true);
     if (nextQuery !== foodName) {
-      setFoodImages(prev => ({ ...prev, [foodName]: prev[nextQuery] || prev[foodName] }));
+      setFoodImages(prev => {
+        const resolved = prev[nextQuery];
+        if (!resolved) return prev;
+        return { ...prev, [foodName]: resolved };
+      });
     }
   };
 
@@ -135,7 +147,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
         carbs: dayPlan.breakfast_carbs,
         fat: dayPlan.breakfast_fat,
         benefit: dayPlan.breakfast_benefit,
-        image: dayPlan.breakfast_image // Use stored image from DB
       },
       lunch: {
         name: dayPlan.lunch_name || extractFoodName(dayPlan.lunch),
@@ -144,7 +155,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
         carbs: dayPlan.lunch_carbs,
         fat: dayPlan.lunch_fat,
         benefit: dayPlan.lunch_benefit,
-        image: dayPlan.lunch_image // Use stored image from DB
       },
       dinner: {
         name: dayPlan.dinner_name || extractFoodName(dayPlan.dinner),
@@ -153,7 +163,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
         carbs: dayPlan.dinner_carbs,
         fat: dayPlan.dinner_fat,
         benefit: dayPlan.dinner_benefit,
-        image: dayPlan.dinner_image // Use stored image from DB
       },
       snack: dayPlan.snack ? {
         name: dayPlan.snack_name || extractFoodName(dayPlan.snack),
@@ -162,7 +171,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
         carbs: dayPlan.snack_carbs,
         fat: dayPlan.snack_fat,
         benefit: dayPlan.snack_benefit,
-        image: dayPlan.snack_image // Use stored image from DB
       } : null
     };
   };
@@ -186,14 +194,20 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
     setExpandedDay(selectedDay);
   }, [selectedDay]);
 
-  // Fetch images for all meals when meal plan changes
+  // Fetch images for all meals when meal plan changes. We use the
+  // canonical food name (breakfast_name etc.) when available, otherwise
+  // fall back to the cleaned meal description.
   useEffect(() => {
     if (mealPlan.length > 0) {
       mealPlan.forEach(dayPlan => {
-        if (dayPlan.breakfast_name) fetchFoodImage(dayPlan.breakfast_name, dayPlan.breakfast_image);
-        if (dayPlan.lunch_name) fetchFoodImage(dayPlan.lunch_name, dayPlan.lunch_image);
-        if (dayPlan.dinner_name) fetchFoodImage(dayPlan.dinner_name, dayPlan.dinner_image);
-        if (dayPlan.snack_name) fetchFoodImage(dayPlan.snack_name, dayPlan.snack_image);
+        const breakfast = dayPlan.breakfast_name || extractFoodName(dayPlan.breakfast);
+        const lunch = dayPlan.lunch_name || extractFoodName(dayPlan.lunch);
+        const dinner = dayPlan.dinner_name || extractFoodName(dayPlan.dinner);
+        const snack = dayPlan.snack_name || (dayPlan.snack ? extractFoodName(dayPlan.snack) : '');
+        if (breakfast) fetchFoodImage(breakfast);
+        if (lunch) fetchFoodImage(lunch);
+        if (dinner) fetchFoodImage(dinner);
+        if (snack) fetchFoodImage(snack);
       });
     }
   }, [mealPlan]);
@@ -361,12 +375,11 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                     <div className="flex items-center justify-between mb-0.5 sm:mb-1">
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
                         <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full overflow-hidden flex-shrink-0">
-                          {foodImages[mealPreview.breakfast.name] || mealPreview.breakfast.image ? (
+                          {foodImages[mealPreview.breakfast.name] ? (
                             <img
-                              src={foodImages[mealPreview.breakfast.name] || mealPreview.breakfast.image}
+                              src={foodImages[mealPreview.breakfast.name]}
                               alt={mealPreview.breakfast.name}
                               className="w-full h-full object-cover"
-                              onLoad={() => fetchFoodImage(mealPreview.breakfast.name, mealPreview.breakfast.image)}
                               onError={() => handleThumbnailError(mealPreview.breakfast.name)}
                             />
                           ) : (

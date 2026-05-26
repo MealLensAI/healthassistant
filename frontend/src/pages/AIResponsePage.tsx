@@ -15,6 +15,7 @@ import { api } from "@/lib/api"
 import CookingTutorialModal from "@/components/CookingTutorialModal"
 import MealDetailsModal from "@/components/MealDetailsModal"
 import EngagementBanners from "@/components/EngagementBanners"
+import { imageCache } from "@/lib/imageCache"
 
 // Map new goal values to backend API format
 const mapGoalToBackendFormat = (goal: string | undefined): string => {
@@ -94,28 +95,25 @@ const MealCard: React.FC<{ meal: HealthMeal; onViewDetails: () => void }> = ({ m
   const [imageLoading, setImageLoading] = useState(true)
 
   useEffect(() => {
+    let cancelled = false
     const fetchFoodImage = async () => {
       const foodName = meal.food_suggestions?.[0] || "healthy meal"
       try {
-        const response = await fetch('https://get-images-qa23.onrender.com/image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ q: foodName }),
-        })
-        if (!response.ok) throw new Error('HTTP error')
-        const data = await response.json()
-        if (data.image_url && !data.error) {
-          setFoodImage(data.image_url)
-        } else {
-          setFoodImage('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop')
-        }
+        // Always route through the shared imageCache so we hit the
+        // upstream image API (configured via VITE_IMAGES_API_URL) with
+        // the food name. There is no fallback URL — if the API can't
+        // supply an image we leave foodImage empty and render a
+        // placeholder.
+        const url = await imageCache.getImage(foodName)
+        if (!cancelled) setFoodImage(url ?? "")
       } catch (error) {
-        setFoodImage('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop')
+        if (!cancelled) setFoodImage("")
       } finally {
-        setImageLoading(false)
+        if (!cancelled) setImageLoading(false)
       }
     }
     fetchFoodImage()
+    return () => { cancelled = true }
   }, [meal.food_suggestions])
 
   return (
@@ -126,16 +124,18 @@ const MealCard: React.FC<{ meal: HealthMeal; onViewDetails: () => void }> = ({ m
           <div className="w-full h-full flex items-center justify-center bg-gray-100">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
-        ) : (
-          <img 
-            src={foodImage} 
+        ) : foodImage ? (
+          <img
+            src={foodImage}
             alt={meal.food_suggestions?.[0] || "Meal"}
             className="w-full h-full object-cover"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement
-              target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop'
-            }}
+            onError={() => setFoodImage("")}
           />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 flex flex-col items-center justify-center text-blue-500">
+            <span className="text-2xl mb-1">🍽️</span>
+            <span className="text-[10px] font-medium opacity-80">No image available</span>
+          </div>
         )}
         {/* Calorie Badge */}
         <div className="absolute bottom-2 right-2 bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">

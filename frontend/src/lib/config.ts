@@ -197,6 +197,15 @@ export const APP_CONFIG = {
                   : '',
         // AI API URL - defaults to production AI server
         ai_api_url: (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_AI_API_URL) || 'https://api.meallensai.com/7017',
+        // Food image lookup service. The browser never calls this URL
+        // directly (CORS is not enabled upstream); instead it hits the
+        // same-origin path '/image-api/image' which Vite (dev) and
+        // Vercel (prod) rewrite to this URL server-side. Read here for
+        // documentation / debugging only.
+        images_api_url: (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_IMAGES_API_URL) || '',
+        // Path the browser actually fetches from. Same-origin, proxied
+        // by the host (Vite in dev, Vercel rewrite in prod).
+        images_proxy_path: '/image-api/image',
         timeout: 30000
     },
 
