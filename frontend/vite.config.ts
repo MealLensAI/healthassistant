@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: 'http://0.0.0.0:5001',
+          target: 'https://api.meallensai.com/5001',
           changeOrigin: true,
           secure: false,
 
