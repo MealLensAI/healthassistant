@@ -14,12 +14,12 @@ const HeroSection = () => {
           <h1 className="text-3xl sm:text-6xl lg:text-6xl font-normal leading-[1.1] mb-8 text-foreground tracking-tight">
             {/* Using food to maintain
             <br /> */}
-            <span className="text-primary">Use your everyday food to manage and improve your chronic conditions—with AI.</span>
+            <span className="text-primary">Use your daily food to manage diabetes, high blood pressure or ulcers with AI.</span>
           </h1>
 
           {/* Subheadline */}
           <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-12 font-normal">
-            An AI solution for people with chronic condition. Tell our AI your sickness, and it recommends food that maintains your health and can restore or improve your condition based on your health data.
+            An AI solution for people with diabetes, high blood pressure or ulcers. Tell our AI your sickness, and it recommends food that maintains your health and can improve your condition based on your health data.
           </p>
 
           {/* Conditions strip */}
@@ -27,15 +27,7 @@ const HeroSection = () => {
             {[
               "Diabetes",
               "High Blood Pressure",
-              "Obesity",
-              "High Cholesterol",
-              "Heart Disease",
-              "Kidney Care",
-              "PCOS",
-              "Cancer Support",
-              "Thyroid",
-              "Gluten-Free",
-              "IBS",
+              "Ulcers",
             ].map((condition) => (
               <span
                 key={condition}

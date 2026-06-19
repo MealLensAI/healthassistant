@@ -1,191 +1,133 @@
-import { useCallback, useEffect, useState, useRef } from "react";
-import type { CarouselApi } from "@/components/ui/carousel";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
 
 const CONDITIONS = [
   {
-    name: "Obesity & Weight Loss",
-    shortDesc: "Calorie-conscious, balanced plans",
-    image: "/assets/condition-obesity.png",
-  },
-  {
     name: "Diabetes",
-    shortDesc: "Blood sugar–friendly meal plans",
     image: "/assets/condition-diabetes.png",
+     
   },
   {
     name: "High Blood Pressure",
-    shortDesc: "Heart-healthy, low-sodium options",
+  
+
     image: "/assets/condition-hypertension.png",
   },
   {
-    name: "High Cholesterol",
-    shortDesc: "Low-saturated-fat, fiber-rich meals",
-    image: "https://images.unsplash.com/photo-1547592180-85f173990664?w=400&h=600&fit=crop",
+    name: "Ulcers",
+  
+    image: "/assets/condition-ulcers.png",
+  },
+];
+
+const TESTIMONIALS = [
+  {
+    name: "Standly",
+    condition: "Diabetes",
+    image: "/assets/standly.png",
+    quote: (
+      <>
+        My blood sugar was at 9.8, and I honestly felt stuck.
+        Just one week after using MealLensAI, it dropped to 6.5!
+        <br />
+        <br />
+        I didn&apos;t overhaul my whole life, I simply followed the meal guidance, and the results spoke for themselves.
+        <br />
+        <br />
+        I&apos;m amazed at how fast it worked.
+      </>
+    ),
   },
   {
-    name: "Heart Disease",
-    shortDesc: "Cardioprotective nutrition",
-    image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=600&fit=crop",
-  },
-  {
-    name: "Kidney & Renal Care",
-    shortDesc: "Kidney-friendly, controlled phosphorus",
-    image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=600&fit=crop",
-  },
-  {
-    name: "PCOS",
-    shortDesc: "Hormone-supportive, low-GI diets",
-    image: "https://images.unsplash.com/photo-1604329760661-e71dc83f2b26?w=400&h=600&fit=crop",
-  },
-  {
-    name: "Cancer Support",
-    shortDesc: "Nutrient-dense, immune-supportive food",
-    image: "https://images.unsplash.com/photo-1579684947550-22e945225d9a?w=400&h=600&fit=crop",
-  },
-  {
-    name: "Thyroid",
-    shortDesc: "Iodine-aware, balanced nutrition",
-    image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=400&h=600&fit=crop",
-  },
-  {
-    name: "Celiac & Gluten-Free",
-    shortDesc: "Safe, gluten-free meal plans",
-    image: "https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=400&h=600&fit=crop",
-  },
-  {
-    name: "IBS & Gut Health",
-    shortDesc: "Low-FODMAP, gut-friendly options",
-    image: "/assets/condition-ibs.png",
+    name: "Chinyere",
+    condition: "High Blood Pressure",
+    image: "/assets/chinyere.png",
+    quote: (
+      <>
+        As a high blood pressure patient, I started using MealLensAI in December 2025 and followed the meal plan it generated.
+        <br />
+        <br />
+        Since then, I haven&apos;t had to take my blood pressure medication again. The change has been incredible, and I feel so much better day to day.
+        <br />
+        <br />
+        I&apos;m truly grateful I found MealLensAI it has helped me more than I expected.
+      </>
+    ),
   },
 ];
 
 const ConditionsWeSupportSection = () => {
-  const [api, setApi] = useState<CarouselApi>();
-  const [current, setCurrent] = useState(0);
-
-  // 3D Scroll Effect Logic
-  const onScroll = useCallback((api: CarouselApi) => {
-    if (!api) return;
-
-    const scrollProgress = api.scrollProgress();
-    const slides = api.slideNodes();
-    const snapList = api.scrollSnapList();
-    
-    slides.forEach((slide, index) => {
-      const target = snapList[index];
-      // Calculate distance from the current scroll position
-      // We handle the loop wrapping logic approximately here for visual effect
-      let distance = (scrollProgress - target);
-      
-      // Adjust for loop wrapping if needed (simplified for this visual effect)
-      if (distance < -0.5) distance += 1;
-      if (distance > 0.5) distance -= 1;
-
-      // Calculate rotation and translation based on distance from center
-      // Distance is roughly -0.5 to 0.5 where 0 is center
-      
-      // "Eye glass" / Cylinder effect:
-      // Rotate Y based on distance
-      const rotateY = distance * 100; // Adjust multiplier for curvature
-      const translateZ = Math.abs(distance) * -300; // Push back sides
-      const scale = 1 - Math.abs(distance) * 0.2; // Scale down sides slightly
-
-      // Apply transform to the inner container of the slide
-      const inner = slide.querySelector('.slide-inner') as HTMLElement;
-      if (inner) {
-        inner.style.transform = `perspective(1000px) rotateY(${rotateY}deg) translateZ(${translateZ}px) scale(${scale})`;
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!api) return;
-
-    setCurrent(api.selectedScrollSnap());
-
-    api.on("select", () => {
-      setCurrent(api.selectedScrollSnap());
-    });
-
-    api.on("scroll", () => onScroll(api));
-    api.on("reInit", () => onScroll(api));
-    
-    // Initial call
-    onScroll(api);
-
-  }, [api, onScroll]);
-
   return (
-    <section id="conditions" className="py-4 bg-background overflow-hidden">
+    <section id="conditions" className="py-12 md:py-16 bg-background">
       <div className="container mx-auto px-4 lg:px-8">
-        <div className="relative">
-          {/* 
-            The perspective container is crucial for the 3D effect.
-            We use a mask to fade out the edges, enhancing the "cylinder" look.
-          */}
-          <div className="relative w-full [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
-            <Carousel
-              setApi={setApi}
-              opts={{
-                align: "start",
-                loop: true,
-                dragFree: true,
-                containScroll: false,
-              }}
-              className="w-full"
+        {/* All three visible at once — no carousel needed for a fixed set of three */}
+        <div className="flex gap-5 sm:gap-8 md:gap-10 max-w-4xl mx-auto overflow-x-auto snap-x snap-mandatory pb-2 md:pb-0 md:grid md:grid-cols-3 md:overflow-visible items-end justify-items-center [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {CONDITIONS.map((item, index) => (
+            <article
+              key={item.name}
+              className={cn(
+                "group flex flex-col items-center snap-center shrink-0 w-[72vw] sm:w-[240px] md:w-full",
+                index === 1 && "md:-translate-y-4"
+              )}
             >
-              <CarouselContent className="-ml-4 md:-ml-8 py-10">
-                {CONDITIONS.map((item, idx) => (
-                  <CarouselItem 
-                    key={idx} 
-                    className="pl-4 md:pl-8 basis-[60%] md:basis-[40%] lg:basis-[22%] transition-all duration-500 ease-out"
-                    style={{ perspective: '1000px' }} // Ensure perspective is available for the 3D transform
-                  >
-                    <div className="slide-inner group relative flex flex-col items-center cursor-pointer transition-transform duration-100 ease-linear will-change-transform">
-                      <div className={cn(
-                        "relative w-full aspect-[3/4] rounded-[2.5rem] overflow-hidden mb-6 shadow-lg",
-                        "transition-all duration-500 ease-out",
-                        "group-hover:shadow-2xl group-hover:-translate-y-2",
-                        "ring-1 ring-border/50 bg-background"
-                      )}>
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=600&fit=crop";
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/30 opacity-60 group-hover:opacity-40 transition-opacity duration-300" />
-                      </div>
-                      
-                      <div className="text-center px-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <h3 className="font-bold text-lg text-foreground mb-1">
-                          {item.name}
-                        </h3>
-                      </div>
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              
-              {/* Navigation Buttons */}
-              <div className="hidden md:flex justify-center gap-4 mt-8">
-                 <CarouselPrevious className="static translate-y-0 h-12 w-12 rounded-full border border-border bg-background hover:bg-accent hover:text-accent-foreground transition-all" />
-                 <CarouselNext className="static translate-y-0 h-12 w-12 rounded-full border border-border bg-background hover:bg-accent hover:text-accent-foreground transition-all" />
+              <div
+                className={cn(
+                  "relative w-full aspect-[3/4] rounded-[2.5rem] overflow-hidden",
+                  "bg-muted shadow-[0_12px_40px_-12px_rgba(0,0,0,0.18)]",
+                  "ring-1 ring-border/60",
+                  "transition-all duration-500 ease-out",
+                  "group-hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.22)] group-hover:-translate-y-1.5",
+                  index === 1 && "md:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.22)]"
+                )}
+              >
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.03]"
+                  loading="lazy"
+                />
               </div>
-            </Carousel>
-          </div>
+
+              <div className="mt-5 text-center px-1">
+                <h3 className="font-semibold text-base sm:text-lg text-foreground tracking-tight">
+                  {item.name}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground leading-snug max-w-[200px] mx-auto">
+                  {item.shortDesc}
+                </p>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="max-w-5xl mx-auto mt-16 md:mt-20 grid md:grid-cols-2 gap-8 lg:gap-12">
+          {TESTIMONIALS.map((testimonial) => (
+            <div
+              key={testimonial.name}
+              className="flex flex-col items-center text-center"
+            >
+              <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-4 ring-border/50 shadow-lg mb-6">
+                <img
+                  src={testimonial.image}
+                  alt={testimonial.name}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+
+              <blockquote className="text-muted-foreground leading-relaxed text-sm sm:text-base mb-4">
+                &ldquo;{testimonial.quote}&rdquo;
+              </blockquote>
+
+              <footer>
+                <p className="font-semibold text-foreground">
+                  — {testimonial.name}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {testimonial.condition}
+                </p>
+              </footer>
+            </div>
+          ))}
         </div>
       </div>
     </section>

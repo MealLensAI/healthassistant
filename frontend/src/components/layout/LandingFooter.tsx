@@ -44,7 +44,7 @@ const LandingFooter = () => {
               meallensai@gmail.com
             </p>
             <p className="text-sm text-muted-foreground">
-              WhatsApp or call: <a href="tel:+274748703778" className="text-primary hover:underline">+274748703778</a>
+              WhatsApp or call: <a href="tel:+254748703778" className="text-primary hover:underline">+254748703778</a>
             </p>
           </div>
 

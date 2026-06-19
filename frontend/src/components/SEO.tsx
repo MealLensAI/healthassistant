@@ -41,7 +41,7 @@ const SEO: React.FC<SEOProps> = ({
                 contactPoint: {
                     '@type': 'ContactPoint',
                     email: 'meallensai@gmail.com',
-                    telephone: '+274748703778',
+                    telephone: '+254748703778',
                     contactType: 'Customer Support'
                 }
             },
