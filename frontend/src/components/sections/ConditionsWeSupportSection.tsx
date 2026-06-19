@@ -59,41 +59,41 @@ const ConditionsWeSupportSection = () => {
   return (
     <section id="conditions" className="py-12 md:py-16 bg-background">
       <div className="container mx-auto px-4 lg:px-8">
-        {/* All three visible at once — no carousel needed for a fixed set of three */}
-        <div className="flex gap-5 sm:gap-8 md:gap-10 max-w-4xl mx-auto overflow-x-auto snap-x snap-mandatory pb-2 md:pb-0 md:grid md:grid-cols-3 md:overflow-visible items-end justify-items-center [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* Curved Carousel Effect for the three conditions */}
+        <div className="flex gap-4 sm:gap-5 md:gap-6 max-w-[1000px] lg:max-w-[1100px] mx-auto overflow-x-auto snap-x snap-mandatory pb-10 md:pb-16 md:flex-row md:justify-center md:items-stretch md:overflow-visible [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:[perspective:1000px] md:[transform-style:preserve-3d] -mt-4 md:-mt-8 pt-4">
           {CONDITIONS.map((item, index) => (
             <article
               key={item.name}
               className={cn(
-                "group flex flex-col items-center snap-center shrink-0 w-[72vw] sm:w-[240px] md:w-full",
-                index === 1 && "md:-translate-y-4"
+                "group flex flex-col snap-center shrink-0 w-[75vw] sm:w-[260px] md:w-[300px] lg:w-[320px] transition-transform duration-700 ease-out relative",
+                // Concave 3D Carousel effect for desktop (inside of cylinder)
+                index === 0 && "md:origin-right md:[transform:rotateY(22deg)]",
+                index === 1 && "md:z-10",
+                index === 2 && "md:origin-left md:[transform:rotateY(-22deg)]",
+                // Mobile fallback
+                "max-md:[transform:none]"
               )}
             >
               <div
-                className={cn(
-                  "relative w-full aspect-[3/4] rounded-[2.5rem] overflow-hidden",
-                  "bg-muted shadow-[0_12px_40px_-12px_rgba(0,0,0,0.18)]",
-                  "ring-1 ring-border/60",
-                  "transition-all duration-500 ease-out",
-                  "group-hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.22)] group-hover:-translate-y-1.5",
-                  index === 1 && "md:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.22)]"
-                )}
+                className="relative w-full aspect-[4/5] overflow-hidden rounded-md bg-muted shadow-lg transition-shadow duration-700 ease-out group-hover:shadow-xl"
               >
                 <img
                   src={item.image}
                   alt={item.name}
-                  className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.03]"
+                  className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                   loading="lazy"
                 />
               </div>
 
-              <div className="mt-5 text-center px-1">
-                <h3 className="font-semibold text-base sm:text-lg text-foreground tracking-tight">
+              <div className="mt-6 text-center px-2">
+                <h3 className="font-bold text-lg sm:text-xl text-foreground tracking-tight transition-colors group-hover:text-primary">
                   {item.name}
                 </h3>
-                <p className="mt-1 text-sm text-muted-foreground leading-snug max-w-[200px] mx-auto">
-                  {item.shortDesc}
-                </p>
+                {(item as any).shortDesc && (
+                  <p className="mt-2 text-sm text-muted-foreground leading-snug max-w-[200px] mx-auto">
+                    {(item as any).shortDesc}
+                  </p>
+                )}
               </div>
             </article>
           ))}
