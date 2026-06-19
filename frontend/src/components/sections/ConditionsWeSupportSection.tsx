@@ -60,7 +60,7 @@ const ConditionsWeSupportSection = () => {
     <section id="conditions" className="py-12 md:py-16 bg-background">
       <div className="container mx-auto px-4 lg:px-8">
         {/* Curved Carousel Effect for the three conditions */}
-        <div className="flex gap-4 sm:gap-5 md:gap-6 max-w-[1000px] lg:max-w-[1100px] mx-auto overflow-x-auto snap-x snap-mandatory pb-10 md:pb-16 md:flex-row md:justify-center md:items-stretch md:overflow-visible [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:[perspective:1000px] md:[transform-style:preserve-3d] -mt-4 md:-mt-8 pt-4">
+        <div className="flex gap-4 sm:gap-5 md:gap-6 max-w-[1000px] lg:max-w-[1100px] mx-auto overflow-x-auto snap-x snap-mandatory pb-10 md:pb-16 md:flex-row md:justify-center md:items-stretch md:overflow-visible [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:[perspective:1000px] md:[transform-style:preserve-3d] -mt-8 md:-mt-16">
           {CONDITIONS.map((item, index) => (
             <article
               key={item.name}
