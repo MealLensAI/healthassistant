@@ -7,6 +7,7 @@ import CookingTutorialModal from '@/components/CookingTutorialModal';
 import MealPlanSkeleton from '@/components/MealPlanSkeleton';
 import { useToast } from '@/hooks/use-toast';
 import { APP_CONFIG } from '@/lib/config';
+import { COUNTRIES, formatBudgetWithCurrency, getCurrencyForCountry } from '@/lib/countryCurrency';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,30 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Swal from 'sweetalert2';
-
-// Countries list for the dropdown
-const countries = [
-  'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria',
-  'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan',
-  'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cambodia',
-  'Cameroon', 'Canada', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica',
-  'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Democratic Republic of the Congo', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'Ecuador',
-  'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France',
-  'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau',
-  'Guyana', 'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland',
-  'Israel', 'Italy', 'Ivory Coast', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kuwait',
-  'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg',
-  'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico',
-  'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru',
-  'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman',
-  'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal',
-  'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe',
-  'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia',
-  'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria',
-  'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Timor-Leste', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey',
-  'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu',
-  'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
-];
 
 interface MealPlan {
   day: string;
@@ -148,6 +125,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [location, setLocation] = useState('');
   const [budget, setBudget] = useState('');
+  const budgetCurrency = getCurrencyForCountry(location);
   const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(false);
 
   // Health profile state for selected user
@@ -458,7 +436,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         // Auto generate based on location and budget
       const formData = new FormData();
         formData.append('location', location);
-        formData.append('budget', budget);
+        formData.append('budget', formatBudgetWithCurrency(budget, location));
 
         if (hasSickness && healthProfile) {
           // Use sick_smart_plan for users with health conditions
@@ -1521,7 +1499,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
                         disabled={isLoading}
                       >
                         <option value="">Select a country</option>
-                        {countries.map(country => (
+                        {COUNTRIES.map(country => (
                           <option key={country} value={country}>{country}</option>
                         ))}
                       </select>
@@ -1529,14 +1507,26 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
 
                     <div>
                       <label className="block text-sm font-semibold text-[#2D3436] mb-2">Weekly Budget</label>
-                      <input
-                        type="number"
-                        value={budget}
-                        onChange={(e) => setBudget(e.target.value)}
-                        placeholder="e.g., 15000"
-                        className="w-full p-3 border border-green-300 rounded-lg focus:border-green-500 focus:outline-none"
-                        disabled={isLoading}
-                      />
+                      <div className="flex items-stretch rounded-lg border border-green-300 focus-within:border-green-500 overflow-hidden">
+                        <span className="flex items-center px-3 bg-green-50 text-sm font-semibold text-[#2D3436] border-r border-green-300 whitespace-nowrap">
+                          {budgetCurrency.symbol}
+                        </span>
+                        <input
+                          type="number"
+                          value={budget}
+                          onChange={(e) => setBudget(e.target.value)}
+                          placeholder="e.g., 150"
+                          className="w-full p-3 focus:outline-none"
+                          disabled={isLoading}
+                          min="0"
+                          step="any"
+                        />
+                      </div>
+                      <p className="text-sm text-[#1e293b] mt-1">
+                        {location
+                          ? `Weekly budget in ${budgetCurrency.name} (${budgetCurrency.code})`
+                          : 'Select a location to set local currency'}
+                      </p>
                     </div>
                   </div>
                 </div>
