@@ -7,7 +7,7 @@ import CookingTutorialModal from '@/components/CookingTutorialModal';
 import MealPlanSkeleton from '@/components/MealPlanSkeleton';
 import { useToast } from '@/hooks/use-toast';
 import { APP_CONFIG } from '@/lib/config';
-import { COUNTRIES, formatBudgetWithCurrency, getCurrencyForCountry } from '@/lib/countryCurrency';
+import { COUNTRIES, getCurrencyForCountry } from '@/lib/countryCurrency';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -436,7 +436,7 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
         // Auto generate based on location and budget
       const formData = new FormData();
         formData.append('location', location);
-        formData.append('budget', formatBudgetWithCurrency(budget, location));
+        formData.append('budget', budget);
 
         if (hasSickness && healthProfile) {
           // Use sick_smart_plan for users with health conditions

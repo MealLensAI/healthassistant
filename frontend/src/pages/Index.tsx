@@ -19,7 +19,7 @@ import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 import { useTrial } from '@/hooks/useTrial';
 import { useAuth } from '@/lib/utils';
 import { APP_CONFIG } from '@/lib/config';
-import { COUNTRIES, formatBudgetWithCurrency, getCurrencyForCountry } from '@/lib/countryCurrency';
+import { COUNTRIES, getCurrencyForCountry } from '@/lib/countryCurrency';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
 
@@ -510,7 +510,7 @@ const Index = () => {
           formData.append('goal', mapGoalToBackendFormat(healthProfilePayload!.goal));
           formData.append('location', location);
           formData.append('budget_state', 'true');
-          formData.append('budget', formatBudgetWithCurrency(budget, location));
+          formData.append('budget', budget);
 
           console.log('[Index] Using Sick Smart Plan (Auto) with budget_state=true');
 
@@ -591,7 +591,7 @@ const Index = () => {
         } else {
           // Auto generate based on location and budget only
           formData.append('location', location);
-          formData.append('budget', formatBudgetWithCurrency(budget, location));
+          formData.append('budget', budget);
           
           const response = await fetch(`${APP_CONFIG.api.ai_api_url}/auto_generate_plan`, {
             method: 'POST',
