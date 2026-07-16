@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const HeroSection = () => {
@@ -9,25 +8,34 @@ const HeroSection = () => {
     <section className="relative min-h-screen bg-background overflow-hidden">
       <div className="container mx-auto px-4 lg:px-8 pt-32 pb-4 relative z-10">
         <div className="max-w-4xl mx-auto text-center min-h-[calc(100vh-200px)] flex flex-col justify-center">
-          
-          {/* Main Headline - Simple, clean */}
-          <h1 className="text-3xl sm:text-6xl lg:text-6xl font-normal leading-[1.1] mb-8 text-foreground tracking-tight">
-            {/* Using food to maintain
-            <br /> */}
-            <span className="text-primary">Use your daily food to manage diabetes, high blood pressure or ulcers with AI.</span>
+
+          {/* Main Headline */}
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-normal leading-[1.15] mb-6 text-foreground tracking-tight">
+            Every Meal Can Either Help Your Condition or Hurt It.{" "}
+            <span className="text-primary">Know the Difference Instantly.</span>
           </h1>
 
           {/* Subheadline */}
-          <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-12 font-normal">
-            An AI solution for people with diabetes, high blood pressure or ulcers. Tell our AI your sickness, and it recommends food that maintains your health and can improve your condition based on your health data.
+          <p className="text-lg lg:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-8 font-normal">
+            Transform everyday meals into a powerful tool for managing diabetes, hypertension, cancer, ulcers, and other health conditions with science-backed, personalized food recommendations.
           </p>
 
-          {/* Conditions strip */}
+          {/* Secondary message */}
+          <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-3">
+            Stop Guessing What to Eat. Start Eating for Better Health.
+          </h2>
+          <p className="text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-10">
+            MealLensAI helps you identify what to eat, what to avoid, and how to build healthier eating habits based on your unique health profile.
+          </p>
+
+          {/* Broader conditions strip */}
           <div className="flex flex-wrap justify-center gap-2 mb-10">
             {[
               "Diabetes",
-              "High Blood Pressure",
+              "Hypertension",
+              "Cancer",
               "Ulcers",
+              "& More",
             ].map((condition) => (
               <span
                 key={condition}
@@ -38,19 +46,19 @@ const HeroSection = () => {
             ))}
           </div>
 
-          {/* CTA Buttons - Simple Google-style */}
+          {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Button 
-              variant="hero" 
-              size="lg" 
+            <Button
+              variant="hero"
+              size="lg"
               className="group bg-primary hover:bg-blue-deep text-white"
               onClick={() => navigate('/signup')}
             >
-              Get Started
+              Discover Foods That Work for You NOW!
             </Button>
-            <Button 
-              variant="heroOutline" 
-              size="lg" 
+            <Button
+              variant="heroOutline"
+              size="lg"
               className="group border border-border text-foreground hover:bg-accent"
               onClick={() => {
                 const conditionsSection = document.getElementById('conditions');
@@ -66,7 +74,7 @@ const HeroSection = () => {
           {/* Trust indicators */}
           <div className="flex flex-col items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              Trusted by people with chronic condition, nutritionists, dietitians, and insurance companies.
+              Trusted by people managing health conditions, nutritionists, dietitians, and insurance companies.
             </p>
           </div>
         </div>

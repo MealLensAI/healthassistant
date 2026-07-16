@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useTrial } from '@/hooks/useTrial';
-import { Clock, Utensils, Heart, Calendar, ChevronDown } from 'lucide-react';
+import { Clock, Heart, Calendar, ChevronDown, CalendarDays } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
 // import { TrialService } from '@/lib/trialService'; // No longer needed
 import { safeGetItem, useAuth } from '@/lib/utils';
@@ -58,45 +58,45 @@ const FEATURES = [
 ];
 
 // Pricing plans (USD) — aligned with landing page (PricingSection).
-const MONTHLY_PLANS = [
+// Free: one 7-day meal plan trial (handled separately via trial status).
+const PLANS = [
   {
-    label: '$1.25 Weekly',
-    price: 1.25,
+    label: '$10 Weekly',
+    price: 10,
     duration: 'per week',
     durationMinutes: 10080,
-    paystackAmount: 1.25,
+    paystackAmount: 10,
     highlight: false,
     icon: <Clock className="h-8 w-8 text-blue-500" />,
   },
   {
-    label: '$2.50 Two Weeks',
-    price: 2.5,
-    duration: 'per 2 weeks',
-    durationMinutes: 20160,
-    paystackAmount: 2.5,
-    highlight: false,
-    icon: <Utensils className="h-8 w-8 text-green-500" />,
-  },
-  {
-    label: '$5 Monthly',
-    price: 5,
+    label: '$20 Monthly',
+    price: 20,
     duration: 'per month',
     durationMinutes: 43200,
-    paystackAmount: 5,
+    paystackAmount: 20,
     highlight: true,
     icon: <Heart className="h-8 w-8 text-red-500" />,
   },
+  {
+    label: '$120 Six Months',
+    price: 120,
+    duration: 'per 6 months',
+    durationMinutes: 259200,
+    paystackAmount: 120,
+    highlight: false,
+    icon: <CalendarDays className="h-8 w-8 text-green-500" />,
+  },
+  {
+    label: '$240 Yearly',
+    price: 240,
+    duration: 'per year',
+    durationMinutes: 525600,
+    paystackAmount: 240,
+    highlight: false,
+    icon: <Calendar className="h-8 w-8 text-purple-500" />,
+  },
 ];
-
-const YEARLY_PLAN = {
-  label: '$50/year',
-  price: 50,
-  duration: 'per year',
-  durationMinutes: 525600,
-  paystackAmount: 50,
-  highlight: false,
-  icon: <Calendar className="h-8 w-8 text-purple-500" />,
-};
 
 const Payment: React.FC = () => {
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, hasEverHadSubscription, subscriptionInfo, updateTrialInfo, isLoading } = useTrial();
@@ -105,7 +105,6 @@ const Payment: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Auto-populate email from logged-in user
@@ -783,83 +782,27 @@ const Payment: React.FC = () => {
 
 
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
-        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose the plan that fits your needs. All plans include essential features to get you started, with options to scale as you grow. No hidden fees and the flexibility to change anytime.</p>
-
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <button
-            className={`px-6 py-2 rounded-full font-semibold transition-colors ${billing === 'monthly' ? 'bg-blue-500 text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            onClick={() => setBilling('monthly')}
-          >
-            Monthly
-          </button>
-          <button
-            className={`px-6 py-2 rounded-full font-semibold transition-colors ${billing === 'yearly' ? 'bg-blue-500 text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            onClick={() => setBilling('yearly')}
-          >
-            Yearly
-          </button>
-        </div>
-
-        {billing === 'yearly' && (
-          <div className="text-blue-500 text-sm font-medium bg-yellow-50 px-4 py-2 rounded-full inline-block">
-            Save with annual billing!
-          </div>
-        )}
+        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose the plan that fits your needs. Start with one free 7-day meal plan, then subscribe from $10/week. No hidden fees — change anytime.</p>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6 sm:gap-8 justify-center items-stretch w-full max-w-6xl mx-auto">
-        {billing === 'monthly' ? (
-          MONTHLY_PLANS.map((plan) => (
-            <Card
-              key={plan.label}
-              className={`flex-1 flex flex-col justify-between items-center p-6 sm:p-8 bg-white shadow-xl rounded-xl sm:rounded-2xl border border-gray-200 relative transform transition-all duration-300 hover:scale-105 hover:shadow-2xl ${plan.highlight ? 'ring-2 ring-yellow-400 shadow-2xl' : ''}`}
-            >
-              {plan.highlight && (
-                <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-blue-500 text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg">
-                  Most Popular
-                </div>
-              )}
-
-              <div className="mb-6 text-center">
-                <div className="mb-4">{plan.icon}</div>
-                <div className="text-3xl font-bold text-gray-900 mb-2">{plan.label}</div>
-                <div className="text-gray-500 text-sm mb-4">Billed {plan.duration}</div>
-                <div className="text-4xl font-bold text-blue-500 mb-2">
-                  ${plan.price.toLocaleString()}
-                </div>
-              </div>
-
-              <ul className="mb-8 w-full text-gray-700 text-left space-y-3">
-                {FEATURES.map((feature, i) => (
-                  <li key={i} className="flex items-center gap-3">
-                    <span className="inline-block w-5 h-5 rounded-full bg-green-400 mr-3 flex-shrink-0 flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </span>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              <Button
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 text-lg font-semibold rounded-lg py-4 mt-auto shadow-lg transform transition-all duration-200 hover:scale-105"
-                onClick={() => openPaymentModal(plan)}
-              >
-                Select Plan
-              </Button>
-            </Card>
-          ))
-        ) : (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 justify-center items-stretch w-full max-w-6xl mx-auto">
+        {PLANS.map((plan) => (
           <Card
-            className="flex-1 flex flex-col justify-between items-center p-6 sm:p-8 bg-white shadow-xl rounded-xl sm:rounded-2xl border border-gray-200 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+            key={plan.label}
+            className={`flex flex-col justify-between items-center p-6 sm:p-8 bg-white shadow-xl rounded-xl sm:rounded-2xl border border-gray-200 relative transform transition-all duration-300 hover:scale-105 hover:shadow-2xl ${plan.highlight ? 'ring-2 ring-yellow-400 shadow-2xl' : ''}`}
           >
+            {plan.highlight && (
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-blue-500 text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg">
+                Most Popular
+              </div>
+            )}
+
             <div className="mb-6 text-center">
-              <div className="mb-4">{YEARLY_PLAN.icon}</div>
-              <div className="text-3xl font-bold text-gray-900 mb-2">{YEARLY_PLAN.label}</div>
-              <div className="text-gray-500 text-sm mb-4">Billed {YEARLY_PLAN.duration}</div>
+              <div className="mb-4">{plan.icon}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{plan.label}</div>
+              <div className="text-gray-500 text-sm mb-4">Billed {plan.duration}</div>
               <div className="text-4xl font-bold text-blue-500 mb-2">
-                ${YEARLY_PLAN.price.toLocaleString()}
+                ${plan.price.toLocaleString()}
               </div>
             </div>
 
@@ -878,12 +821,12 @@ const Payment: React.FC = () => {
 
             <Button
               className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 text-lg font-semibold rounded-lg py-4 mt-auto shadow-lg transform transition-all duration-200 hover:scale-105"
-              onClick={() => openPaymentModal(YEARLY_PLAN)}
+              onClick={() => openPaymentModal(plan)}
             >
               Select Plan
             </Button>
           </Card>
-        )}
+        ))}
       </div>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>

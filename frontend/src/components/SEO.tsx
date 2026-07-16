@@ -12,7 +12,7 @@ interface SEOProps {
 
 const SEO: React.FC<SEOProps> = ({
     title = 'MealLensAI - AI-Powered Meal Planning for Chronic Conditions | Diabetes, Hypertension & More',
-    description = 'Transform your health with MealLensAI - AI-powered personalized meal planning for chronic conditions like diabetes, hypertension, and heart disease. Get food recommendations that maintain and improve your health. 7-day free trial.',
+    description = 'Transform your health with MealLensAI - AI-powered personalized meal planning for chronic conditions like diabetes, hypertension, and heart disease. Get food recommendations that maintain and improve your health. One free 7-day meal plan, plans from $10/week.',
     keywords = 'chronic condition meal planning, AI nutrition diabetes, personalized diet planner, food for chronic diseases, AI meal planning, diabetes diet, hypertension nutrition, health condition food recommendations, nutritionist tools, dietitian software, automated meal planning',
     canonicalUrl = 'https://healthassistant.meallensai.com',
     ogImage = 'https://healthassistant.meallensai.com/assets/og-image.jpg',
@@ -66,7 +66,7 @@ const SEO: React.FC<SEOProps> = ({
                 operatingSystem: 'Web',
                 offers: {
                     '@type': 'Offer',
-                    price: '5.00',
+                    price: '20.00',
                     priceCurrency: 'USD',
                     priceValidUntil: '2027-12-31'
                 },
@@ -116,7 +116,7 @@ const SEO: React.FC<SEOProps> = ({
                         name: 'How much does MealLensAI cost?',
                         acceptedAnswer: {
                             '@type': 'Answer',
-                            text: 'MealLensAI offers a 7-day free trial, then $5/month for full access. We also offer weekly ($1.25/week) and yearly ($50/year) plans. No credit card required for the free trial.'
+                            text: 'MealLensAI offers one free 7-day meal plan, then paid plans starting at $10/week. Choose 1 Week ($10), 1 Month ($20), 6 Months ($120), or 1 Year ($240). No credit card required for your free meal plan.'
                         }
                     }
                 ]

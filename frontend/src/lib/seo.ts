@@ -7,8 +7,8 @@ type MetaConfig = {
 }
 
 const DEFAULTS: MetaConfig = {
-    title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $5/month',
-    description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. 7-day free trial, then $5/month. Budget & location-based plans. One subscription unlocks Cooking + Health.',
+    title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $20/month',
+    description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. One free 7-day meal plan, then plans from $10/week. Budget & location-based plans. One subscription unlocks Cooking + Health.',
     keywords: buildKeywords(),
     url: (typeof window !== 'undefined' ? window.location.origin : '') || (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_PUBLIC_URL) || '',
     image: '/assets/images/share-image.png'
@@ -16,12 +16,12 @@ const DEFAULTS: MetaConfig = {
 
 export const ROUTE_SEO: Record<string, Partial<MetaConfig>> = {
     '/': {
-        title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $5/month',
-        description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. 7-day free trial, then $5/month. Budget & location-based plans. One subscription unlocks Cooking + Health.',
+        title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $20/month',
+        description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. One free 7-day meal plan, then plans from $10/week. Budget & location-based plans. One subscription unlocks Cooking + Health.',
     },
     '/landing': {
-        title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $5/month',
-        description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. 7-day free trial, then $5/month. Budget & location-based plans. One subscription unlocks Cooking + Health.',
+        title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $20/month',
+        description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. One free 7-day meal plan, then plans from $10/week. Budget & location-based plans. One subscription unlocks Cooking + Health.',
     },
     '/login': {
         title: 'Login - MealLensAI',
@@ -48,8 +48,8 @@ export const ROUTE_SEO: Record<string, Partial<MetaConfig>> = {
         description: 'Review your detected ingredients and saved recipes.'
     },
     '/payment': {
-        title: 'Subscribe – MealLensAI | $5/month Plan',
-        description: 'Start your 7-day free trial. Then $5/month for full access to AI recipes, meal plans, and chronic-condition meal planning. Cancel anytime.'
+        title: 'Subscribe – MealLensAI | Plans from $10/week',
+        description: 'Get one free 7-day meal plan, then choose 1 Week ($10), 1 Month ($20), 6 Months ($120), or 1 Year ($240). Cancel anytime.'
     },
     '/profile': {
         title: 'Profile - MealLensAI',
@@ -141,7 +141,7 @@ function ensureJsonLd() {
                 name: 'MealLensAI',
                 url: baseUrl,
                 logo: baseUrl + '/assets/images/logo.svg',
-                description: 'AI-powered recipe finder and meal planning for chronic conditions. $5/month after free trial.',
+                description: 'AI-powered recipe finder and meal planning for chronic conditions. Plans from $10/week after free meal plan.',
                 sameAs: ['https://x.com/MealLensAI']
             })
             document.head.appendChild(script)
@@ -158,7 +158,7 @@ function ensureJsonLd() {
                 '@type': 'WebSite',
                 name: 'MealLensAI',
                 url: baseUrl,
-                description: 'Snap ingredients, get recipes. AI meal plans for diabetes, hypertension, PCOS and more. 7-day free trial, then $5/month.',
+                description: 'Snap ingredients, get recipes. AI meal plans for diabetes, hypertension, PCOS and more. One free 7-day meal plan, then plans from $10/week.',
                 potentialAction: {
                     '@type': 'SearchAction',
                     target: baseUrl + '/search?q={search_term_string}',
@@ -181,10 +181,10 @@ function ensureJsonLd() {
                 applicationCategory: 'HealthApplication',
                 operatingSystem: 'Web',
                 url: baseUrl,
-                description: 'AI ingredient recognition, step-by-step recipes, and personalized 7-day meal plans for chronic conditions. Budget and location-based plans. 7-day free trial, then $5/month.',
+                description: 'AI ingredient recognition, step-by-step recipes, and personalized 7-day meal plans for chronic conditions. Budget and location-based plans. One free 7-day meal plan, then plans from $10/week.',
                 offers: {
                     '@type': 'Offer',
-                    price: '5',
+                    price: '20',
                     priceCurrency: 'USD',
                     priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
                     availability: 'https://schema.org/InStock',

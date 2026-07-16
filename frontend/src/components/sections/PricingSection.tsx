@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Check, Zap, Clock, CalendarDays, Heart, Calendar } from "lucide-react";
+import { Check, Zap, Clock, Heart, CalendarDays, Calendar } from "lucide-react";
 
 const PRICING_CARDS = [
   {
@@ -22,8 +22,8 @@ const PRICING_CARDS = [
   },
   {
     id: "weekly",
-    name: "Weekly",
-    price: "$1.25",
+    name: "1 Week",
+    price: "$10",
     period: "per week",
     description: "Flexible short-term access",
     features: [
@@ -37,27 +37,11 @@ const PRICING_CARDS = [
     icon: Clock,
   },
   {
-    id: "two_weeks",
-    name: "Two Weeks",
-    price: "$2.50",
-    period: "per 2 weeks",
-    description: "Two weeks of full access",
-    features: [
-      "Everything in Free",
-      "Unlimited meal plans",
-      "Unlimited health meal generations",
-      "Cancel anytime",
-    ],
-    cta: "Get Started",
-    highlight: false,
-    icon: CalendarDays,
-  },
-  {
     id: "monthly",
-    name: "Monthly",
-    price: "$5",
+    name: "1 Month",
+    price: "$20",
     period: "per month",
-    description: "Unlimited plans after your free one",
+    description: "Best for building a lasting habit",
     features: [
       "Everything in Free",
       "Unlimited meal plans",
@@ -70,16 +54,32 @@ const PRICING_CARDS = [
     icon: Heart,
   },
   {
-    id: "yearly",
-    name: "Yearly",
-    price: "$50",
-    period: "per year",
-    description: "Best value — save vs monthly",
+    id: "six_months",
+    name: "6 Months",
+    price: "$120",
+    period: "per 6 months",
+    description: "Commit for half a year — better value",
     features: [
       "Everything in Monthly",
-      "2 months free",
+      "Unlimited meal plans",
+      "Priority support",
       "Advanced health tracking",
-      "Same $5/month features",
+    ],
+    cta: "Get Started",
+    highlight: false,
+    icon: CalendarDays,
+  },
+  {
+    id: "yearly",
+    name: "1 Year",
+    price: "$240",
+    period: "per year",
+    description: "Best value — a full year of access",
+    features: [
+      "Everything in Monthly",
+      "Best long-term value",
+      "Priority support",
+      "Advanced health tracking",
     ],
     cta: "Get Started",
     highlight: false,
@@ -98,7 +98,7 @@ const PricingSection = () => {
             Simple, transparent pricing
           </h2>
           <p className="text-lg text-muted-foreground">
-            Get one free 7-day meal plan when you sign up. After that, just $5/month for unlimited plans. One payment unlocks Cooking and Health features.
+            Get one free 7-day meal plan when you sign up. Then choose a plan that fits — from $10/week to $240/year. One payment unlocks Cooking and Health features.
           </p>
         </div>
 
@@ -148,7 +148,7 @@ const PricingSection = () => {
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-8">
-          No credit card required for trial. Cancel anytime.
+          No credit card required for your free meal plan. Cancel anytime.
         </p>
       </div>
     </section>
