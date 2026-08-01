@@ -20,11 +20,12 @@ const ProblemSection = () => {
               You just can&apos;t do it consistently. Not because you
               don&apos;t care, but because changing habits is hard. Meal plans
               feel like chores when cooking takes time and energy you
-              don&apos;t have.
+              don&apos;t have, and every day still starts with the same
+              question: what should I eat for my condition?
             </p>
             <p className="text-foreground font-medium">
               The issue isn&apos;t discipline. It&apos;s that nothing made
-              eating right easy.
+              knowing what to eat, and actually doing it, easy.
             </p>
           </div>
 
@@ -32,6 +33,10 @@ const ProblemSection = () => {
             <p className="font-display text-2xl sm:text-3xl tracking-tight text-foreground">
               Hospitals don&apos;t solve adherence.{" "}
               <span className="text-primary">MealLensAI does.</span>
+            </p>
+            <p className="mt-4 text-muted-foreground leading-relaxed max-w-xl mx-auto">
+              Food for you turns “what should I eat?” into meals that fit your
+              health, wherever you live.
             </p>
           </div>
         </div>

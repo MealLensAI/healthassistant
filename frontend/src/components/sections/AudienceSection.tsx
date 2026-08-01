@@ -2,9 +2,9 @@ const AUDIENCES = [
   {
     title: "People with chronic conditions",
     description:
-      "Share your condition and health data. MealLensAI figures out what your body needs and recommends food you can cook yourself, so managing diabetes, ulcers, high blood pressure, and more becomes part of daily life, not another chore.",
+      "When you need to know what to eat for your condition, MealLensAI is the first place to look. Share your health data, open Food for you, and get meals you can cook yourself, so managing diabetes, ulcers, high blood pressure, and more becomes part of daily life, not another chore.",
     highlights: [
-      "Personalized meal recommendations",
+      "Food for you, meals that fit your health",
       "Recipes with clear cooking instructions",
       "Plans that fit your budget and location",
     ],

@@ -12,11 +12,11 @@ const CTASection = () => {
       <div className="container mx-auto px-4 lg:px-8 relative">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="font-display text-3xl lg:text-5xl tracking-tight mb-5">
-            Make eating right the easy part
+            Make “what should I eat?” the easy part
           </h2>
           <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto leading-relaxed">
-            Start with one free 7-day meal plan. Cook and plan meals that fit
-            your health, your budget, and your real life.
+            Start free. Open Food for you for meals that fit your condition,
+            then cook, plan, and stay consistent wherever you are.
           </p>
 
           <Button

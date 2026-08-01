@@ -9,18 +9,17 @@ const STEPS = [
   },
   {
     number: "02",
-    title: "Get food that fits your body",
+    title: "Get food for you",
     description:
-      "We calculate BMI, BMR, obesity level, and the nutrients your body needs, then recommend meals that help you manage your health.",
-    image: "/assets/how-it-works-meal-plans.png",
+      "Open Food for you and see meals matched to your condition, wherever you are. When you wonder what to eat for your health, this is the answer.",
+    image: "/assets/how-it-works-food-for-you.png",
   },
   {
     number: "03",
     title: "Cook with clear instructions",
     description:
-      "Follow simple cooking steps for personalized recipes that fit your condition. Stay consistent without the friction.",
-    image:
-      "/assets/Screenshot_2025-12-14_at_11.08.28-2519680c-28ad-4b35-8caa-4fc0a4317ab5.png",
+      "Tap any dish for simple cooking steps. Stay consistent without the friction, with personalized recipes you can actually follow.",
+    image: "/assets/how-it-works-cooking-instructions.png",
   },
 ];
 
@@ -36,7 +35,8 @@ const HowItWorksSection = () => {
             From your health data to meals you can actually follow
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Personalized food recommendations in three simple steps.
+            From “what should I eat?” to food on your plate, in three simple
+            steps.
           </p>
         </div>
 

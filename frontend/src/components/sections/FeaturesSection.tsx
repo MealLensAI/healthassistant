@@ -1,6 +1,12 @@
-import { ScanLine, CalendarDays, Wallet, ChefHat } from "lucide-react";
+import { UtensilsCrossed, ScanLine, CalendarDays, Wallet, ChefHat } from "lucide-react";
 
 const FEATURES = [
+  {
+    icon: UtensilsCrossed,
+    title: "Food for you",
+    description:
+      "The first place to look when you have a chronic condition and need to know what to eat. Get meals that support your health, wherever you are, ready to cook.",
+  },
   {
     icon: ScanLine,
     title: "Scan ingredients",
@@ -39,8 +45,9 @@ const FeaturesSection = () => {
             Everything you need to eat right, without the overwhelm
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Scan, plan, and cook in one place. Built to help you manage your
-            health through food, with AI that feels like a helping hand.
+            Start with Food for you when you need meals that fit your
+            condition. Then scan, plan, and cook in one place, built so
+            managing health through food feels easy.
           </p>
         </div>
 

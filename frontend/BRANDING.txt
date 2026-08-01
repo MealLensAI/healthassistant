@@ -2,9 +2,11 @@ Super food app for people with chronic conditions like Diabetic, ulcers, high bl
 Doctors tell you to eat healthy and cut sugar. You know what to eat, you just can't do it consistently. Not because you don't care, but because changing habits is hard. Following meal plans feel like a chore when cooking takes time and energy you don't have.
 The issue isn't discipline it's that no solution makes eating right to manage health easy.
 Hospitals don't solve adherence. MealLensAI does.
-MealLensAI is your all in one food app for eating right, effortlessly: order health supporting meals, cook personalized recipes, generate condition friendly weekly meal plans, scan ingredients and get better food choices, get cooking instructions, enter your budget and location to get meal recommendations that fit both.
+MealLensAI is your all in one food app for eating right, effortlessly: when someone with a chronic condition wonders what to eat, wherever they are, MealLensAI is the first place they think of. Get Food for you (meals matched to your health), cook personalized recipes, generate condition friendly weekly meal plans, scan ingredients and get better food choices, get cooking instructions, enter your budget and location to get meal recommendations that fit both.
 Manage your health through food with ease, powered by AI.
+Positioning: The answer to “what should I eat for my condition?”, anywhere.
 Features:
+Food for you: Open and see meals matched to your condition and health needs, wherever you are. Tap any dish for cooking instructions.
 Order Meals: Enter your location and order meals tailored to your health.
 Scan Ingredients: Snap a photo of your fridge or ingredients and get meal ideas with cooking instructions, or just order instead.
 Weekly Meal Plans: Generate condition friendly meal plans by scanning or typing ingredients, or auto-generate based on your health profile, complete with cooking instructions, or order the food directly.
