@@ -19,6 +19,7 @@ import Payment from "./pages/Payment";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import LocationBudgetPage from "./pages/LocationBudgetPage";
+import FoodForYouPage from "./pages/FoodForYouPage";
 import TrialBlocker from "./components/TrialBlocker";
 import WelcomePage from "./pages/WelcomePage";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -161,6 +162,18 @@ const router = createBrowserRouter([
         <TrialBlocker>
           <MainLayout>
             <LocationBudgetPage />
+          </MainLayout>
+        </TrialBlocker>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/food-for-you",
+    element: (
+      <ProtectedRoute>
+        <TrialBlocker>
+          <MainLayout>
+            <FoodForYouPage />
           </MainLayout>
         </TrialBlocker>
       </ProtectedRoute>

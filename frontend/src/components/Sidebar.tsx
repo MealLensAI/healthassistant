@@ -39,6 +39,7 @@ const Sidebar = () => {
   }
 
   const navItems = [
+    { label: "Food for you", path: "/food-for-you" },
     { label: "Scan/type ingredients", path: "/health-meals" },
     { label: "Meal plans", path: "/planner" },
     { label: "Meals with location and budget", path: "/location-budget" },

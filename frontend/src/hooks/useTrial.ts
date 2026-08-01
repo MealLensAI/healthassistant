@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { TrialService, TrialInfo, SubscriptionInfo } from '@/lib/trialService';
+import { TrialService, TrialInfo, SubscriptionInfo, isLocalFreeGenerationUsed } from '@/lib/trialService';
 import { safeGetItem, safeRemoveItem } from '@/lib/utils';
 
 // LocalStorage cache keys
@@ -80,9 +80,15 @@ export const useTrial = () => {
       const info = trialData ? (() => {
         const mealPlansUsed = Number(trialData.meal_plans_used ?? trialData.mealPlansUsed ?? 0);
         const mealPlansLimit = Number(trialData.meal_plans_limit ?? trialData.mealPlansLimit ?? 1);
+        // Backend free_meal_plan_used is meal-plan-count based; also honor
+        // user_trials.is_used and the local flag set after Food for you / mark-trial-used.
         const freeMealPlanUsed = Boolean(
-          trialData.free_meal_plan_used ?? trialData.freeMealPlanUsed ?? mealPlansUsed >= mealPlansLimit
-        );
+          trialData.free_meal_plan_used ??
+            trialData.freeMealPlanUsed ??
+            trialData.is_used ??
+            trialData.isUsed ??
+            mealPlansUsed >= mealPlansLimit
+        ) || isLocalFreeGenerationUsed();
         return {
           isActive: !freeMealPlanUsed,
           startDate: new Date(trialData.startDate || trialData.start_date || Date.now()),

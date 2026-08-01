@@ -27,7 +27,30 @@ export interface SubscriptionInfo {
 }
 
 import { APP_CONFIG } from '@/lib/config';
-import { safeGetItem } from '@/lib/utils';
+import { safeGetItem, safeSetItem, safeRemoveItem } from '@/lib/utils';
+
+/** Set when a free generation is consumed without saving a meal plan (e.g. Food for you). */
+export const FREE_GENERATION_USED_KEY = 'meallensai_free_generation_used_v1';
+
+export function isLocalFreeGenerationUsed(): boolean {
+  try {
+    return safeGetItem(FREE_GENERATION_USED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markLocalFreeGenerationUsed(): void {
+  try {
+    safeSetItem(FREE_GENERATION_USED_KEY, '1');
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearLocalFreeGenerationUsed(): void {
+  safeRemoveItem(FREE_GENERATION_USED_KEY);
+}
 
 export class TrialService {
   // Trial duration. For production use 24 * 60 * 60 * 1000.
@@ -152,8 +175,12 @@ export class TrialService {
         const mealPlansUsed = Number(trial.meal_plans_used ?? trial.mealPlansUsed ?? 0);
         const mealPlansLimit = Number(trial.meal_plans_limit ?? trial.mealPlansLimit ?? 1);
         const freeMealPlanUsed = Boolean(
-          trial.free_meal_plan_used ?? trial.freeMealPlanUsed ?? mealPlansUsed >= mealPlansLimit
-        );
+          trial.free_meal_plan_used ??
+            trial.freeMealPlanUsed ??
+            trial.is_used ??
+            trial.isUsed ??
+            mealPlansUsed >= mealPlansLimit
+        ) || isLocalFreeGenerationUsed();
 
         const startDate = trial.start_date ? new Date(trial.start_date) : new Date();
         const endDate = trial.end_date ? new Date(trial.end_date) : new Date();
@@ -200,8 +227,12 @@ export class TrialService {
       const trial = backendResult.trialInfo as any;
       if (!trial) return true; // no trial info yet — let the backend decide
       const freeUsed = Boolean(
-        trial.free_meal_plan_used ?? trial.freeMealPlanUsed ?? false
-      );
+        trial.free_meal_plan_used ??
+          trial.freeMealPlanUsed ??
+          trial.is_used ??
+          trial.isUsed ??
+          false
+      ) || isLocalFreeGenerationUsed();
       return !freeUsed;
     } catch (error) {
       console.error('Error checking meal plan generation access:', error);
