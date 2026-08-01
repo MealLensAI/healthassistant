@@ -11,14 +11,14 @@ const STEPS = [
     number: "02",
     title: "Get food for you",
     description:
-      "Open Food for you and see meals matched to your condition — wherever you are. When you wonder what to eat for your health, this is the answer.",
+      "Open Food for you and see meals matched to your condition, wherever you are. When you wonder what to eat for your health, this is the answer.",
     image: "/assets/how-it-works-food-for-you.png",
   },
   {
     number: "03",
     title: "Cook with clear instructions",
     description:
-      "Tap any dish for simple cooking steps. Stay consistent without the friction — personalized recipes you can actually follow.",
+      "Tap any dish for simple cooking steps. Stay consistent without the friction, with personalized recipes you can actually follow.",
     image:
       "/assets/Screenshot_2025-12-14_at_11.08.28-2519680c-28ad-4b35-8caa-4fc0a4317ab5.png",
   },
@@ -36,7 +36,7 @@ const HowItWorksSection = () => {
             From your health data to meals you can actually follow
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            From “what should I eat?” to food on your plate — in three simple
+            From “what should I eat?” to food on your plate, in three simple
             steps.
           </p>
         </div>
