@@ -132,52 +132,47 @@ const MealCard: React.FC<{ meal: HealthMeal; onViewDetails: () => void }> = ({ m
             onError={() => setFoodImage("")}
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 flex flex-col items-center justify-center text-blue-500">
-            <span className="text-2xl mb-1">🍽️</span>
+          <div className="w-full h-full bg-gradient-to-br from-[hsl(213_55%_94%)] to-[hsl(213_45%_88%)] flex items-center justify-center text-primary">
             <span className="text-[10px] font-medium opacity-80">No image available</span>
           </div>
         )}
         {/* Calorie Badge */}
-        <div className="absolute bottom-2 right-2 bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
-          🔥 {meal.calories}kcal
+        <div className="absolute bottom-2 right-2 bg-leaf text-white px-2.5 py-0.5 rounded-full text-xs font-semibold">
+          {meal.calories} kcal
         </div>
       </div>
 
       {/* Meal Info */}
       <div className="p-4">
-        <h4 className="font-semibold text-gray-800 text-[14px] mb-3 line-clamp-2 leading-tight">
+        <h4 className="font-semibold text-foreground text-[14px] mb-3 line-clamp-2 leading-tight">
           {meal.food_suggestions?.[0] || "Health Meal"}
         </h4>
 
         {/* Nutrition Info - Compact */}
-        <div className="flex gap-1.5 sm:gap-2 mb-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
-          <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[8px] sm:rounded-[10px] p-1.5 sm:p-2 text-center flex flex-col items-center justify-center gap-[2px] flex-shrink-0">
-            <span className="text-xs sm:text-sm">🍖</span>
-            <p className="font-bold text-gray-800 text-[11px] sm:text-[13px]">{meal.protein}g</p>
-            <p className="text-[9px] sm:text-[10px] text-gray-500">Protein</p>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="rounded-xl bg-secondary border border-border px-2 py-2.5 text-center">
+            <p className="font-bold text-foreground text-[13px]">{meal.protein}g</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Protein</p>
           </div>
-          <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[8px] sm:rounded-[10px] p-1.5 sm:p-2 text-center flex flex-col items-center justify-center gap-[2px] flex-shrink-0">
-            <span className="text-xs sm:text-sm">🌾</span>
-            <p className="font-bold text-gray-800 text-[11px] sm:text-[13px]">{meal.carbs}g</p>
-            <p className="text-[9px] sm:text-[10px] text-gray-500">Carbs</p>
+          <div className="rounded-xl bg-secondary border border-border px-2 py-2.5 text-center">
+            <p className="font-bold text-foreground text-[13px]">{meal.carbs}g</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Carbs</p>
           </div>
-          <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[8px] sm:rounded-[10px] p-1.5 sm:p-2 text-center flex flex-col items-center justify-center gap-[2px] flex-shrink-0">
-            <span className="text-xs sm:text-sm">💧</span>
-            <p className="font-bold text-gray-800 text-[11px] sm:text-[13px]">{meal.fat}g</p>
-            <p className="text-[9px] sm:text-[10px] text-gray-500">Fats</p>
+          <div className="rounded-xl bg-secondary border border-border px-2 py-2.5 text-center">
+            <p className="font-bold text-foreground text-[13px]">{meal.fat}g</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Fats</p>
           </div>
         </div>
 
         {/* Health Benefit */}
-        <div className="flex items-start gap-1.5 mb-3">
-          <span className="text-green-500 text-sm">✓</span>
-          <p className="text-[12px] text-orange-500 line-clamp-2 leading-relaxed">{meal.health_benefit}</p>
-        </div>
+        <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed mb-3">
+          {(meal.health_benefit || '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim()}
+        </p>
 
         {/* View Details Button */}
         <button
           onClick={onViewDetails}
-          className="w-full py-2.5 border-[1.5px] border-[#1A76E3] text-[#1A76E3] rounded-[10px] text-[13px] font-semibold hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
+          className="w-full py-2.5 border-[1.5px] border-primary text-primary rounded-[10px] text-[13px] font-semibold hover:bg-primary hover:text-white transition-all duration-200"
         >
           View Meal Details
         </button>
@@ -235,7 +230,7 @@ const AIResponsePage: FC = () => {
       showCancelButton: true,
       confirmButtonText: 'Subscribe',
       cancelButtonText: 'Maybe later',
-      confirmButtonColor: '#1A76E3',
+      confirmButtonColor: '#0E3E77',
     })
     if (result.isConfirmed) {
       navigate('/payment')
@@ -304,7 +299,7 @@ const AIResponsePage: FC = () => {
         icon: 'warning',
         title: 'No Image Selected',
         text: 'Please upload or capture an image first.',
-        confirmButtonColor: '#1A76E3'
+        confirmButtonColor: '#0E3E77'
       })
       return
     }
@@ -314,7 +309,7 @@ const AIResponsePage: FC = () => {
         icon: 'warning',
         title: 'No Ingredients',
         text: 'Please enter your ingredients.',
-        confirmButtonColor: '#1A76E3'
+        confirmButtonColor: '#0E3E77'
       })
       return
     }
@@ -324,7 +319,7 @@ const AIResponsePage: FC = () => {
         icon: 'info',
         title: 'Health Profile Required',
         text: 'Please complete your health profile in Settings first.',
-        confirmButtonColor: '#1A76E3'
+        confirmButtonColor: '#0E3E77'
       })
       return
     }
@@ -372,7 +367,7 @@ const AIResponsePage: FC = () => {
           icon: 'error',
           title: 'Error',
           text: data.error,
-          confirmButtonColor: '#1A76E3'
+          confirmButtonColor: '#0E3E77'
         })
         return
       }
@@ -391,7 +386,7 @@ const AIResponsePage: FC = () => {
           icon: 'warning',
           title: 'No Ingredients Detected',
           text: 'Could not detect any ingredients from the input. Please try again.',
-          confirmButtonColor: '#1A76E3'
+          confirmButtonColor: '#0E3E77'
         })
         setIsLoading(false)
         return
@@ -435,7 +430,7 @@ const AIResponsePage: FC = () => {
         icon: 'error',
         title: 'Detection Failed',
         text: 'Failed to detect ingredients. Please try again.',
-        confirmButtonColor: '#1A76E3'
+        confirmButtonColor: '#0E3E77'
       })
     } finally {
       setIsLoading(false)
@@ -599,28 +594,21 @@ const AIResponsePage: FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header 
-        className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[105px] flex items-center border-b"
-        style={{ 
-          backgroundColor: '#F9FBFE',
-          borderColor: '#F6FAFE',
-          boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
-        }}
-      >
+      <header className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[88px] flex items-center border-b bg-card border-border">
         <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
-          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%] truncate" style={{ fontFamily: "'Work Sans', sans-serif" }}>
-            Ingredients Detector
+          <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-foreground tracking-tight truncate">
+            Scan ingredients
           </h1>
           
           {/* Profile Dropdown */}
           <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[36px] sm:h-[40px] md:h-[56px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-[10px] sm:rounded-[12px] md:rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+              className="flex items-center h-[36px] sm:h-[40px] md:h-[48px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-full border border-border bg-card hover:bg-secondary transition-colors"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-[10px] sm:text-xs md:text-sm border border-blue-100">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-leaf-soft rounded-full flex items-center justify-center text-primary font-semibold text-[10px] sm:text-xs md:text-sm border border-border">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
               </div>
               <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
@@ -672,7 +660,7 @@ const AIResponsePage: FC = () => {
                 className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 p-6 sm:p-8 md:p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
               >
                 <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
-                  <Upload className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 text-blue-500 group-hover:scale-110 transition-transform" />
+                  <Upload className="w-8 h-8 sm:w-9 sm:h-9 md:w-9 md:h-9 text-primary group-hover:scale-110 transition-transform" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Upload image</h3>
                 <p className="text-gray-500 text-xs sm:text-sm">Choose an Existing photo<br/>from your device</p>
@@ -684,7 +672,7 @@ const AIResponsePage: FC = () => {
                 className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 p-6 sm:p-8 md:p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
               >
                 <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
-                  <svg className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 text-gray-600 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-8 h-8 sm:w-9 sm:h-9 md:w-9 md:h-9 text-gray-600 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
@@ -711,13 +699,13 @@ const AIResponsePage: FC = () => {
             <div className="flex items-center justify-between mb-6">
               <h2 
                 className="text-[24px] font-medium tracking-[0.03em] leading-[130%]"
-                style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+                style={{ color: '#414141' }}
               >
                 Detected Ingredients
               </h2>
               <button
                 onClick={handleNewDetection}
-                className="px-6 py-3 bg-[#1A76E3] text-white rounded-[15px] font-semibold hover:bg-blue-600 transition-colors"
+                className="px-6 py-3 bg-primary text-white rounded-[15px] font-semibold hover:bg-blue-deep transition-colors"
               >
                 Detect Ingredient
               </button>
@@ -776,7 +764,7 @@ const AIResponsePage: FC = () => {
             <div>
               <h3 
                 className="text-[20px] font-semibold mb-5 text-left"
-                style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+                style={{ color: '#414141' }}
               >
                 Suggested Meals ({healthMeals.length})
               </h3>
@@ -836,7 +824,7 @@ const AIResponsePage: FC = () => {
             <button
               onClick={() => handleDetect("image")}
               disabled={!selectedImage}
-              className="w-full py-4 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-primary text-white rounded-xl font-semibold hover:bg-blue-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Detect
             </button>
@@ -878,7 +866,7 @@ const AIResponsePage: FC = () => {
             <button
               onClick={() => handleDetect("ingredient_list")}
               disabled={!ingredientList.trim()}
-              className="w-full py-4 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-primary text-white rounded-xl font-semibold hover:bg-blue-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Detect
             </button>

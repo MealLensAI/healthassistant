@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/utils';
-import { APP_CONFIG } from '@/lib/config';
+import { api, APIError } from '@/lib/api';
 
 interface MealTrackingStatus {
   cooked_at: string | null;
@@ -32,25 +32,6 @@ interface UseMealTrackingReturn {
   refreshTracking: () => Promise<void>;
 }
 
-const API_BASE_URL = APP_CONFIG.api.base_url ? `${APP_CONFIG.api.base_url}/api` : '/api';
-
-const log = (...args: unknown[]) => {
-  if (typeof window !== 'undefined' && (window as unknown as { __MEAL_TRACKING_DEBUG__?: boolean }).__MEAL_TRACKING_DEBUG__) {
-    // eslint-disable-next-line no-console
-    console.log('[useMealTracking]', ...args);
-  }
-};
-
-async function parseJsonSafe(response: Response): Promise<any> {
-  const text = await response.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { status: 'error', message: text.slice(0, 300) };
-  }
-}
-
 function deriveProgressDelta(progress: WeekProgress | null, delta: number): WeekProgress | null {
   if (!progress) return progress;
   const total = progress.total_meals || 0;
@@ -64,6 +45,16 @@ function deriveProgressDelta(progress: WeekProgress | null, delta: number): Week
   };
 }
 
+function isStaleReadbackError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('stale data') ||
+    lower.includes('row-level security') ||
+    lower.includes('42501') ||
+    lower.includes('tracking_persist_failed')
+  );
+}
+
 export function useMealTracking(mealPlanId: string | null): UseMealTrackingReturn {
   const { token } = useAuth();
   const [tracking, setTracking] = useState<TrackingData>({});
@@ -71,7 +62,6 @@ export function useMealTracking(mealPlanId: string | null): UseMealTrackingRetur
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Keep latest values available inside async callbacks without causing re-renders.
   const trackingRef = useRef<TrackingData>({});
   const progressRef = useRef<WeekProgress | null>(null);
 
@@ -83,65 +73,50 @@ export function useMealTracking(mealPlanId: string | null): UseMealTrackingRetur
     progressRef.current = progress;
   }, [progress]);
 
-  const getAuthHeaders = useCallback(() => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    return headers;
-  }, [token]);
-
-  const fetchTracking = useCallback(async () => {
-    if (!mealPlanId || !token) return;
+  const fetchTracking = useCallback(async (): Promise<TrackingData> => {
+    if (!mealPlanId || !token) return {};
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/meal_tracking/${mealPlanId}`, {
-        headers: getAuthHeaders(),
-      });
+      const data = await api.get<{ status: string; tracking?: TrackingData; message?: string }>(
+        `/meal_tracking/${mealPlanId}`,
+        { timeout: 20000 }
+      );
 
-      if (!response.ok) {
-        const body = await parseJsonSafe(response);
-        throw new Error(body?.message || `Failed to fetch tracking (HTTP ${response.status})`);
-      }
-
-      const data = await response.json();
       if (data.status === 'success') {
-        setTracking(data.tracking || {});
+        const next = data.tracking || {};
+        setTracking(next);
+        return next;
       }
+
+      throw new Error(data.message || 'Failed to fetch tracking');
     } catch (err) {
       console.error('[useMealTracking] fetchTracking failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch tracking');
+      return trackingRef.current;
     } finally {
       setLoading(false);
     }
-  }, [mealPlanId, token, getAuthHeaders]);
+  }, [mealPlanId, token]);
 
   const fetchProgress = useCallback(async () => {
     if (!mealPlanId || !token) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/meal_tracking/week_progress/${mealPlanId}`, {
-        headers: getAuthHeaders(),
-      });
+      const data = await api.get<{ status: string; progress?: WeekProgress; message?: string }>(
+        `/meal_tracking/week_progress/${mealPlanId}`,
+        { timeout: 20000 }
+      );
 
-      if (!response.ok) {
-        const body = await parseJsonSafe(response);
-        throw new Error(body?.message || `Failed to fetch progress (HTTP ${response.status})`);
-      }
-
-      const data = await response.json();
       if (data.status === 'success') {
-        setProgress(data.progress);
+        setProgress(data.progress || null);
       }
     } catch (err) {
       console.error('[useMealTracking] fetchProgress failed:', err);
     }
-  }, [mealPlanId, token, getAuthHeaders]);
+  }, [mealPlanId, token]);
 
   const refreshTracking = useCallback(async () => {
     await Promise.all([fetchTracking(), fetchProgress()]);
@@ -157,7 +132,6 @@ export function useMealTracking(mealPlanId: string | null): UseMealTrackingRetur
     const previousProgress = progressRef.current;
     const wasCooked = !!previousTracking[day]?.[mealType]?.cooked_at;
 
-    // Optimistic UI update so the bar and check mark move instantly.
     const optimisticCookedAt = new Date().toISOString();
     setTracking(prev => ({
       ...prev,
@@ -176,25 +150,24 @@ export function useMealTracking(mealPlanId: string | null): UseMealTrackingRetur
     }
 
     try {
-      log('mark_cooked →', { mealPlanId, day, mealType, url: `${API_BASE_URL}/meal_tracking/mark_cooked` });
-      const response = await fetch(`${API_BASE_URL}/meal_tracking/mark_cooked`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
+      const data = await api.post<{
+        status: string;
+        message?: string;
+        data?: { cooked_at?: string };
+      }>(
+        '/meal_tracking/mark_cooked',
+        {
           meal_plan_id: mealPlanId,
           day,
           meal_type: mealType,
-        }),
-      });
+        },
+        { timeout: 45000 }
+      );
 
-      const data = await parseJsonSafe(response);
-      log('mark_cooked ←', response.status, data);
-
-      if (!response.ok || data?.status !== 'success') {
-        throw new Error(data?.message || `Failed to mark as cooked (HTTP ${response.status})`);
+      if (data?.status !== 'success') {
+        throw new Error(data?.message || 'Failed to mark as cooked');
       }
 
-      // Align local state with what the server actually saved.
       const serverCookedAt = data?.data?.cooked_at || optimisticCookedAt;
       setTracking(prev => ({
         ...prev,
@@ -209,19 +182,39 @@ export function useMealTracking(mealPlanId: string | null): UseMealTrackingRetur
         },
       }));
 
-      // Confirm the bar with the canonical server count.
       void fetchProgress();
       setError(null);
       return true;
     } catch (err) {
+      const message =
+        err instanceof APIError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Failed to mark as cooked';
+
+      // Some API responses report a verify/RLS failure even when the cook
+      // write already landed. Re-read tracking and trust the server state.
+      if (isStaleReadbackError(message)) {
+        try {
+          const latest = await fetchTracking();
+          if (latest?.[day]?.[mealType]?.cooked_at) {
+            void fetchProgress();
+            setError(null);
+            return true;
+          }
+        } catch {
+          // fall through to rollback
+        }
+      }
+
       console.error('[useMealTracking] mark_cooked failed:', err);
-      // Roll back optimistic state.
       setTracking(previousTracking);
       setProgress(previousProgress);
-      setError(err instanceof Error ? err.message : 'Failed to mark as cooked');
-      throw err instanceof Error ? err : new Error('Failed to mark as cooked');
+      setError(message);
+      throw err instanceof Error ? err : new Error(message);
     }
-  }, [mealPlanId, token, getAuthHeaders, fetchProgress]);
+  }, [mealPlanId, token, fetchProgress, fetchTracking]);
 
   const unmarkAsCooked = useCallback(async (day: string, mealType: string): Promise<boolean> => {
     if (!mealPlanId || !token) {
@@ -250,42 +243,57 @@ export function useMealTracking(mealPlanId: string | null): UseMealTrackingRetur
     }
 
     try {
-      log('unmark_cooked →', { mealPlanId, day, mealType });
-      const response = await fetch(`${API_BASE_URL}/meal_tracking/unmark_cooked`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
+      const data = await api.post<{ status: string; message?: string }>(
+        '/meal_tracking/unmark_cooked',
+        {
           meal_plan_id: mealPlanId,
           day,
           meal_type: mealType,
-        }),
-      });
+        },
+        { timeout: 30000 }
+      );
 
-      const data = await parseJsonSafe(response);
-      log('unmark_cooked ←', response.status, data);
-
-      if (!response.ok || data?.status !== 'success') {
-        throw new Error(data?.message || `Failed to unmark meal (HTTP ${response.status})`);
+      if (data?.status !== 'success') {
+        throw new Error(data?.message || 'Failed to unmark meal');
       }
 
       void fetchProgress();
       setError(null);
       return true;
     } catch (err) {
+      const message =
+        err instanceof APIError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Failed to unmark meal';
+
+      if (isStaleReadbackError(message)) {
+        try {
+          const latest = await fetchTracking();
+          if (!latest?.[day]?.[mealType]?.cooked_at) {
+            void fetchProgress();
+            setError(null);
+            return true;
+          }
+        } catch {
+          // fall through
+        }
+      }
+
       console.error('[useMealTracking] unmark_cooked failed:', err);
       setTracking(previousTracking);
       setProgress(previousProgress);
-      setError(err instanceof Error ? err.message : 'Failed to unmark meal');
-      throw err instanceof Error ? err : new Error('Failed to unmark meal');
+      setError(message);
+      throw err instanceof Error ? err : new Error(message);
     }
-  }, [mealPlanId, token, getAuthHeaders, fetchProgress]);
+  }, [mealPlanId, token, fetchProgress, fetchTracking]);
 
   const isMealCooked = useCallback((day: string, mealType: string): boolean => {
     return !!tracking[day]?.[mealType]?.cooked_at;
   }, [tracking]);
 
   useEffect(() => {
-    // Reset plan-specific state whenever user switches meal plans.
     setTracking({});
     setProgress(null);
     setError(null);

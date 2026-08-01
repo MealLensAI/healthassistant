@@ -237,18 +237,11 @@ export function HistoryPage() {
   })
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header 
-        className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[105px] flex items-center border-b"
-        style={{ 
-          backgroundColor: '#F9FBFE',
-          borderColor: '#F6FAFE',
-          boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
-        }}
-      >
+      <header className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[88px] flex items-center border-b bg-card border-border">
         <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
-          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%] truncate" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+          <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-foreground tracking-tight truncate">
             History
           </h1>
           
@@ -256,9 +249,9 @@ export function HistoryPage() {
           <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[36px] sm:h-[40px] md:h-[56px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-[10px] sm:rounded-[12px] md:rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+              className="flex items-center h-[36px] sm:h-[40px] md:h-[48px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-full border border-border bg-card hover:bg-secondary transition-colors"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-[10px] sm:text-xs md:text-sm border border-blue-100">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-leaf-soft rounded-full flex items-center justify-center text-primary font-semibold text-[10px] sm:text-xs md:text-sm border border-border">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
               </div>
               <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
@@ -293,10 +286,9 @@ export function HistoryPage() {
               onClick={() => setActiveFilter("ingredient_detection")}
               className={`flex-1 sm:flex-none px-2 sm:px-[10px] py-2 sm:py-[10px] rounded-[8px] sm:rounded-[10px] text-xs sm:text-[14px] font-medium transition-all duration-200 border-2 ${
                 activeFilter === "ingredient_detection"
-                  ? 'bg-[#F6FAFE] text-[#1A76E3] border-[#1A76E3]'
+                  ? 'bg-accent text-primary border-primary'
                   : 'text-gray-500 hover:text-gray-700 border-transparent'
               }`}
-              style={{ fontFamily: "'Work Sans', sans-serif" }}
             >
               Ingredient Detections
             </button>
@@ -304,10 +296,9 @@ export function HistoryPage() {
               onClick={() => setActiveFilter("health_history")}
               className={`flex-1 sm:flex-none px-2 sm:px-[10px] py-2 sm:py-[10px] rounded-[8px] sm:rounded-[10px] text-xs sm:text-[14px] font-medium transition-all duration-200 border-2 ${
                 activeFilter === "health_history"
-                  ? 'bg-[#F6FAFE] text-[#1A76E3] border-[#1A76E3]'
+                  ? 'bg-accent text-primary border-primary'
                   : 'text-gray-500 hover:text-gray-700 border-transparent'
               }`}
-              style={{ fontFamily: "'Work Sans', sans-serif" }}
             >
               Health History
             </button>
@@ -346,7 +337,6 @@ export function HistoryPage() {
                         className="text-left"
                         style={{ 
                           padding: '10px 12px',
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -360,7 +350,6 @@ export function HistoryPage() {
                         className="text-left"
                         style={{ 
                           padding: '10px 12px',
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -374,7 +363,6 @@ export function HistoryPage() {
                         className="text-left"
                         style={{ 
                           padding: '10px 12px',
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -388,7 +376,6 @@ export function HistoryPage() {
                         className="text-left"
                         style={{ 
                           padding: '10px 12px',
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -405,7 +392,6 @@ export function HistoryPage() {
                         className="text-left"
                         style={{ 
                           padding: '10px 12px',
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -419,7 +405,6 @@ export function HistoryPage() {
                         className="text-left"
                         style={{ 
                           padding: '10px 12px',
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -433,7 +418,6 @@ export function HistoryPage() {
                         className="text-left"
                         style={{ 
                           padding: '10px 12px',
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -447,7 +431,6 @@ export function HistoryPage() {
                         className="text-left"
                         style={{ 
                           padding: '10px 12px',
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -471,7 +454,6 @@ export function HistoryPage() {
                       <span 
                         className="text-gray-800"
                         style={{ 
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -486,7 +468,6 @@ export function HistoryPage() {
                       <span 
                         className="text-gray-600"
                         style={{ 
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -500,7 +481,6 @@ export function HistoryPage() {
                       <span 
                         className="text-gray-600"
                         style={{ 
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -513,9 +493,8 @@ export function HistoryPage() {
                     <td style={{ padding: '10px 12px' }}>
                       <button
                         onClick={() => navigate(`/history/${item.id}`)}
-                        className="flex items-center gap-2 text-[#1A76E3] font-medium hover:underline"
+                        className="flex items-center gap-2 text-primary font-medium hover:underline"
                         style={{ 
-                          fontFamily: "'Work Sans', sans-serif",
                           fontSize: '16px',
                           fontWeight: 400,
                           lineHeight: '130%',
@@ -564,7 +543,6 @@ export function HistoryPage() {
                         <span 
                           className="text-gray-600"
                           style={{ 
-                            fontFamily: "'Work Sans', sans-serif",
                             fontSize: '16px',
                             fontWeight: 400,
                             lineHeight: '130%',
@@ -607,8 +585,8 @@ export function HistoryPage() {
                             }
                           }
                         }}>
-                          <summary className="text-[#1A76E3] hover:text-blue-800 text-sm font-medium flex items-center gap-1.5 list-none cursor-pointer">
-                            <ChevronDown className="h-4 w-4 text-[#1A76E3] transition-transform" />
+                          <summary className="text-primary hover:text-blue-800 text-sm font-medium flex items-center gap-1.5 list-none cursor-pointer">
+                            <ChevronDown className="h-4 w-4 text-primary transition-transform" />
                             View details
                           </summary>
                           <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-2">
@@ -706,7 +684,7 @@ export function HistoryPage() {
                   </div>
                   <button
                     onClick={() => navigate(`/history/${item.id}`)}
-                    className="w-full flex items-center justify-center gap-2 text-[#1A76E3] font-medium py-2 border border-[#1A76E3] rounded-lg hover:bg-[#1A76E3] hover:text-white transition-colors"
+                    className="w-full flex items-center justify-center gap-2 text-primary font-medium py-2 border border-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
                   >
                     View Details
                     <ArrowRight className="w-4 h-4" />
@@ -770,8 +748,8 @@ export function HistoryPage() {
                     </div>
                     <div>
                       <details className="cursor-pointer">
-                        <summary className="text-[#1A76E3] hover:text-blue-800 text-sm font-medium flex items-center gap-1.5 list-none cursor-pointer">
-                          <ChevronDown className="h-4 w-4 text-[#1A76E3] transition-transform" />
+                        <summary className="text-primary hover:text-blue-800 text-sm font-medium flex items-center gap-1.5 list-none cursor-pointer">
+                          <ChevronDown className="h-4 w-4 text-primary transition-transform" />
                           View details
                         </summary>
                         <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-2">

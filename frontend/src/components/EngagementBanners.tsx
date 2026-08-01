@@ -1,4 +1,3 @@
-import { MessageCircle, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 const QUOTES = [
@@ -19,32 +18,29 @@ export default function EngagementBanners() {
 
   const whatsappNumber = "254748703778";
   const whatsappMessage = encodeURIComponent(
-    "Hello Daniel, I am reaching out from MealLensAI for consultation, doctor follow-up, or feedback."
+    "Hello, I am reaching out from MealLensAI for consultation or feedback."
   );
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
 
   return (
     <div className="mx-4 sm:mx-6 md:mx-8 mt-4 space-y-3">
       {showMotivation && (
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#3B6FD4] via-[#4B7FE2] to-[#5E93ED] px-6 sm:px-8 py-5 sm:py-7 text-white shadow-lg">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white/15 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-amber-300" />
-            </div>
+        <div className="relative rounded-2xl bg-leaf-soft border border-leaf/15 px-5 sm:px-7 py-5 sm:py-6">
+          <div className="flex items-start gap-4">
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-xs sm:text-sm font-bold tracking-[0.15em] uppercase opacity-90 mb-1">
-                Daily Motivation
+              <p className="text-xs font-semibold tracking-[0.12em] uppercase text-leaf mb-2">
+                A thought for today
               </p>
-              <p className="text-[15px] sm:text-[18px] font-medium leading-snug italic opacity-95">
+              <p className="text-[15px] sm:text-lg font-medium leading-snug text-foreground">
                 &ldquo;{dailyQuote}&rdquo;
               </p>
             </div>
             <button
               onClick={() => setShowMotivation(false)}
-              className="flex-shrink-0 p-1 rounded-md hover:bg-white/20 transition-colors"
-              aria-label="Dismiss motivation"
+              className="flex-shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Dismiss"
             >
-              <span className="text-lg leading-none opacity-70 hover:opacity-100">×</span>
+              <span className="text-lg leading-none">×</span>
             </button>
           </div>
         </div>
@@ -54,27 +50,19 @@ export default function EngagementBanners() {
         href={whatsappLink}
         target="_blank"
         rel="noopener noreferrer"
-        className="group block rounded-lg border border-green-200 bg-gradient-to-r from-green-50 via-white to-green-50 p-3 sm:p-4 shadow-sm hover:shadow-md animate-notice-zoom"
+        className="block rounded-2xl border border-border bg-card px-5 sm:px-6 py-4 hover:border-primary/30 transition-colors"
         aria-label="Reach out on WhatsApp"
       >
-        <div className="flex items-start sm:items-center gap-3">
-          <div className="relative flex-shrink-0">
-            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-green-500 flex items-center justify-center text-white shadow-sm">
-              <MessageCircle className="h-5 w-5" />
-            </div>
-            <span className="absolute -right-1 -top-1 inline-flex h-2.5 w-2.5 rounded-full bg-green-500 animate-ping" />
-          </div>
-          <div className="min-w-0 flex-1 text-left">
-            <p className="text-[10px] sm:text-[11px] font-bold tracking-[0.1em] uppercase text-green-700">
-              WhatsApp Support
-            </p>
-            <p className="text-xs sm:text-sm font-semibold text-gray-900">
-              Need consultation, personal follow-up, or feedback?
-            </p>
-            <p className="text-[11px] sm:text-xs text-gray-600 mt-0.5">
-              Message us on WhatsApp: +254 748 703 778
-            </p>
-          </div>
+        <div className="text-left">
+          <p className="text-xs font-semibold tracking-[0.12em] uppercase text-primary mb-1">
+            Need a hand?
+          </p>
+          <p className="text-sm sm:text-[15px] font-semibold text-foreground">
+            Message us on WhatsApp for consultation or feedback
+          </p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            +254 748 703 778
+          </p>
         </div>
       </a>
     </div>

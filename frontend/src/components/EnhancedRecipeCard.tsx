@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Flame, Check, ChefHat, Loader2, Utensils } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { imageCache } from '@/lib/imageCache';
-
-const MAX_IMAGE_RETRIES = 3;
 import confetti from 'canvas-confetti';
 import Swal from 'sweetalert2';
+
+const MAX_IMAGE_RETRIES = 3;
 
 interface EnhancedRecipeCardProps {
     mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -22,6 +22,12 @@ interface EnhancedRecipeCardProps {
     onMarkCooked?: () => Promise<void>;
     onUnmarkCooked?: () => Promise<void>;
 }
+
+const stripEmoji = (value: string) =>
+    value
+        .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 
 const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
     mealType,
@@ -42,11 +48,6 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
     const [cookingLoading, setCookingLoading] = useState(false);
     const retryCountRef = useRef(0);
 
-    // Always look the image up via the trusted upstream image API
-    // (configured via VITE_IMAGES_API_URL in .env, proxied at
-    // /image-api/image to avoid CORS). There is no DB-stored URL fallback
-    // and no Unsplash fallback — if the API can't return a usable
-    // image, we render a styled placeholder div instead.
     const fetchFoodImage = async (foodName: string, forceRefresh = false) => {
         setImageLoading(true);
         try {
@@ -67,9 +68,6 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
         fetchFoodImage(name);
     }, [name]);
 
-    // Retry-with-backoff when the browser fails to load the <img> src.
-    // Strategy: invalidate the cached URL (since it's clearly broken) and
-    // refetch with small variations, up to MAX_IMAGE_RETRIES times.
     const handleImageError = () => {
         const attempt = retryCountRef.current;
         if (attempt >= MAX_IMAGE_RETRIES) {
@@ -92,20 +90,20 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
 
     const getMealTypeBadge = () => {
         const badges: Record<string, { bg: string; text: string }> = {
-            breakfast: { bg: 'bg-amber-500', text: 'Breakfast' },
-            lunch: { bg: 'bg-green-500', text: 'Lunch' },
-            dinner: { bg: 'bg-blue-500', text: 'Dinner' },
-            snack: { bg: 'bg-purple-500', text: 'Desert' },
+            breakfast: { bg: 'bg-amber-600/90', text: 'Breakfast' },
+            lunch: { bg: 'bg-leaf', text: 'Lunch' },
+            dinner: { bg: 'bg-primary', text: 'Dinner' },
+            snack: { bg: 'bg-foreground/70', text: 'Snack' },
         };
         return badges[mealType] || badges.dinner;
     };
 
     const getPlaceholderStyle = () => {
         const styles: Record<string, string> = {
-            breakfast: 'from-amber-100 to-amber-200 text-amber-500',
-            lunch: 'from-green-100 to-green-200 text-green-500',
-            dinner: 'from-blue-100 to-blue-200 text-blue-500',
-            snack: 'from-purple-100 to-purple-200 text-purple-500',
+            breakfast: 'from-amber-50 to-amber-100 text-amber-700',
+            lunch: 'from-[hsl(152_30%_94%)] to-[hsl(152_25%_88%)] text-leaf',
+            dinner: 'from-[hsl(213_55%_94%)] to-[hsl(213_45%_88%)] text-primary',
+            snack: 'from-secondary to-muted text-muted-foreground',
         };
         return styles[mealType] || styles.dinner;
     };
@@ -113,6 +111,7 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
     const badge = getMealTypeBadge();
     const hasNutritionData = calories !== undefined && protein !== undefined;
     const showTrackingButton = mealPlanId && day && !!onMarkCooked;
+    const cleanBenefit = benefit ? stripEmoji(benefit) : '';
 
     const [triggerPop, setTriggerPop] = useState(false);
 
@@ -134,18 +133,18 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                 await onMarkCooked();
 
                 confetti({
-                    particleCount: 100,
-                    spread: 70,
+                    particleCount: 80,
+                    spread: 60,
                     origin: { y: 0.6 },
                 });
 
                 Swal.fire({
-                    title: 'Congratulations!',
-                    text: `You cooked ${name}!`,
+                    title: 'Nice work',
+                    text: `You cooked ${name}.`,
                     icon: 'success',
-                    confirmButtonText: 'Awesome!',
-                    confirmButtonColor: '#4CAF50',
-                    timer: 3000,
+                    confirmButtonText: 'Continue',
+                    confirmButtonColor: '#0E3E77',
+                    timer: 2500,
                     timerProgressBar: true,
                 });
             }
@@ -157,7 +156,7 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                 text: message,
                 icon: 'error',
                 confirmButtonText: 'OK',
-                confirmButtonColor: '#EF4444',
+                confirmButtonColor: '#0E3E77',
             });
         } finally {
             setCookingLoading(false);
@@ -166,23 +165,14 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
 
     return (
         <div
-            className={`bg-white rounded-2xl overflow-hidden cursor-pointer group border shadow-sm hover:shadow-xl transition-all duration-300 ${
-                isCooked ? 'border-green-300 ring-2 ring-green-100' : 'border-gray-100'
+            className={`bg-card rounded-2xl overflow-hidden cursor-pointer group border shadow-soft hover:shadow-card transition-all duration-300 ${
+                isCooked ? 'border-leaf/40 ring-1 ring-leaf/20' : 'border-border'
             }`}
             onClick={onClick}
         >
-            <style>{`
-                @keyframes heartbeat {
-                    0%, 100% { transform: scale(1); }
-                    50% { transform: scale(1.1); }
-                }
-                .animate-heartbeat {
-                    animation: heartbeat 2s infinite ease-in-out;
-                }
-            `}</style>
             <div className="relative h-36 sm:h-40 md:h-44">
                 {imageLoading ? (
-                    <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-muted via-secondary to-muted animate-pulse" />
                 ) : foodImage ? (
                     <img
                         src={foodImage}
@@ -191,36 +181,33 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                         onError={handleImageError}
                     />
                 ) : (
-                    <div className={`w-full h-full bg-gradient-to-br ${getPlaceholderStyle()} flex flex-col items-center justify-center`}>
-                        <Utensils className="w-10 h-10 mb-1 opacity-70" />
+                    <div className={`w-full h-full bg-gradient-to-br ${getPlaceholderStyle()} flex items-center justify-center`}>
                         <span className="text-xs font-medium opacity-70">No image available</span>
                     </div>
                 )}
                 {!imageLoading && (
                     <>
-                        <div className={`absolute top-3 left-3 ${badge.bg} text-white text-xs font-semibold px-3 py-1.5 rounded-md`}>
+                        <div className={`absolute top-3 left-3 ${badge.bg} text-white text-xs font-semibold px-3 py-1.5 rounded-full`}>
                             {badge.text}
                         </div>
-                        {hasNutritionData && calories && (
-                            <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1.5 rounded-md flex items-center gap-1">
-                                <Flame className="h-3 w-3" />
-                                {calories}kcal
+                        {hasNutritionData && calories !== undefined && (
+                            <div className="absolute bottom-3 left-3 bg-foreground/70 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1.5 rounded-full">
+                                {calories} kcal
                             </div>
                         )}
 
-                        {/* Floating Action Button for Cooking */}
                         {showTrackingButton && (
                             <button
                                 onClick={handleCookToggle}
                                 disabled={cookingLoading || isCooked}
-                                className={`absolute bottom-3 right-3 shadow-xl flex items-center justify-center gap-1.5 px-4 py-2 rounded-full font-bold text-sm transition-all duration-300 z-10 ${
+                                className={`absolute bottom-3 right-3 shadow-card flex items-center justify-center gap-1.5 px-4 py-2 rounded-full font-semibold text-sm transition-all duration-300 z-10 ${
                                     triggerPop
-                                        ? 'scale-125 bg-green-500 text-white ring-4 ring-green-200'
+                                        ? 'scale-110 bg-leaf text-white'
                                         : isCooked
-                                            ? 'bg-green-500 text-white ring-2 ring-white cursor-default'
-                                            : 'animate-heartbeat hover:animate-none hover:scale-110 bg-white text-gray-800 hover:text-green-600 ring-2 ring-green-100'
+                                            ? 'bg-leaf text-white cursor-default'
+                                            : 'bg-card text-foreground hover:text-leaf border border-border'
                                 } ${cookingLoading ? 'opacity-70 cursor-wait' : ''}`}
-                                title={isCooked ? 'You already cooked this meal!' : 'Mark cooked'}
+                                title={isCooked ? 'Already cooked' : 'Mark cooked'}
                             >
                                 {cookingLoading ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -230,10 +217,7 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                                         <span>Cooked</span>
                                     </>
                                 ) : (
-                                    <>
-                                        <ChefHat className="w-4 h-4" />
-                                        <span>Mark cooked</span>
-                                    </>
+                                    <span>Mark cooked</span>
                                 )}
                             </button>
                         )}
@@ -242,43 +226,38 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
             </div>
 
             <div className="p-4 sm:p-5">
-                <h3 className="text-sm sm:text-[15px] font-bold text-gray-900 mb-3 sm:mb-4 line-clamp-2 leading-snug">{name}</h3>
+                <h3 className="text-sm sm:text-[15px] font-bold text-foreground mb-3 sm:mb-4 line-clamp-2 leading-snug">
+                    {name}
+                </h3>
 
                 {hasNutritionData && (
-                    <div className="flex gap-2 sm:gap-3 mb-4 overflow-x-auto scrollbar-hide -mx-1 px-1">
-                        {/* Protein */}
-                        <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] rounded-[8px] sm:rounded-[10px] p-2 sm:p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC] flex-shrink-0">
-                            <div className="text-sm sm:text-base">🍖</div>
-                            <div className="text-xs sm:text-sm font-bold text-gray-800">{protein}g</div>
-                            <div className="text-[10px] sm:text-xs text-gray-500">Protein</div>
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                        <div className="rounded-xl bg-secondary border border-border px-2 py-2.5 text-center">
+                            <div className="text-sm font-bold text-foreground">{protein}g</div>
+                            <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Protein</div>
                         </div>
-                        {/* Carbs */}
-                        <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] rounded-[8px] sm:rounded-[10px] p-2 sm:p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC] flex-shrink-0">
-                            <div className="text-sm sm:text-base">🌾</div>
-                            <div className="text-xs sm:text-sm font-bold text-gray-800">{carbs}g</div>
-                            <div className="text-[10px] sm:text-xs text-gray-500">Carbs</div>
+                        <div className="rounded-xl bg-secondary border border-border px-2 py-2.5 text-center">
+                            <div className="text-sm font-bold text-foreground">{carbs}g</div>
+                            <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Carbs</div>
                         </div>
-                        {/* Fats */}
-                        <div className="w-[55px] min-w-[55px] sm:w-[69px] sm:min-w-[69px] h-[65px] sm:h-[75px] bg-[#FEF5EF] rounded-[8px] sm:rounded-[10px] p-2 sm:p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC] flex-shrink-0">
-                            <div className="text-sm sm:text-base">💧</div>
-                            <div className="text-xs sm:text-sm font-bold text-gray-800">{fat}g</div>
-                            <div className="text-[10px] sm:text-xs text-gray-500">Fats</div>
+                        <div className="rounded-xl bg-secondary border border-border px-2 py-2.5 text-center">
+                            <div className="text-sm font-bold text-foreground">{fat}g</div>
+                            <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Fats</div>
                         </div>
                     </div>
                 )}
 
-                {benefit && (
-                    <div className="mb-3 sm:mb-4 flex items-start gap-2 text-xs sm:text-sm text-orange-600">
-                        <span className="flex-shrink-0">🚀</span>
-                        <span className="line-clamp-2 leading-snug">{benefit}</span>
-                    </div>
+                {cleanBenefit && (
+                    <p className="mb-3 sm:mb-4 text-xs sm:text-sm text-muted-foreground line-clamp-2 leading-snug">
+                        {cleanBenefit}
+                    </p>
                 )}
 
                 <button
                     onClick={(e) => { e.stopPropagation(); onClick(); }}
-                    className="text-xs font-medium text-blue-500 hover:text-blue-600 hover:underline transition-colors"
+                    className="text-xs font-medium text-primary hover:underline transition-colors"
                 >
-                    View Recipe Details
+                    View recipe details
                 </button>
             </div>
         </div>

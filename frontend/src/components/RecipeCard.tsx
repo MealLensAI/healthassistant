@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check, ChefHat, Loader2, Utensils } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { imageCache } from '@/lib/imageCache';
 
 const MAX_IMAGE_RETRIES = 3;
@@ -96,20 +96,20 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
 
   const getMealTypeBadge = () => {
     const badges: Record<string, { bg: string; text: string }> = {
-      breakfast: { bg: 'bg-amber-500', text: 'Breakfast' },
-      lunch: { bg: 'bg-green-500', text: 'Lunch' },
-      dinner: { bg: 'bg-blue-500', text: 'Dinner' },
-      snack: { bg: 'bg-purple-500', text: 'Desert' },
+      breakfast: { bg: 'bg-amber-600/90', text: 'Breakfast' },
+      lunch: { bg: 'bg-leaf', text: 'Lunch' },
+      dinner: { bg: 'bg-primary', text: 'Dinner' },
+      snack: { bg: 'bg-foreground/70', text: 'Snack' },
     };
     return badges[mealType] || badges.dinner;
   };
 
   const getPlaceholderStyle = () => {
     const styles: Record<string, string> = {
-      breakfast: 'from-amber-100 to-amber-200 text-amber-500',
-      lunch: 'from-green-100 to-green-200 text-green-500',
-      dinner: 'from-blue-100 to-blue-200 text-blue-500',
-      snack: 'from-purple-100 to-purple-200 text-purple-500',
+      breakfast: 'from-amber-50 to-amber-100 text-amber-600',
+      lunch: 'from-[hsl(152_30%_94%)] to-[hsl(152_25%_88%)] text-leaf',
+      dinner: 'from-[hsl(213_55%_94%)] to-[hsl(213_45%_88%)] text-primary',
+      snack: 'from-secondary to-muted text-muted-foreground',
     };
     return styles[mealType] || styles.dinner;
   };
@@ -169,8 +169,8 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
 
   return (
     <div
-      className={`bg-white rounded-2xl overflow-hidden cursor-pointer group border shadow-sm hover:shadow-xl transition-all duration-300 ${
-        isCooked ? 'border-green-300 ring-2 ring-green-100' : 'border-gray-100'
+      className={`bg-card rounded-2xl overflow-hidden cursor-pointer group border shadow-soft hover:shadow-card transition-all duration-300 ${
+        isCooked ? 'border-leaf/40 ring-1 ring-leaf/20' : 'border-border'
       }`}
       onClick={onClick}
     >
@@ -195,27 +195,25 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
           />
         ) : (
           <div className={`w-full h-full bg-gradient-to-br ${getPlaceholderStyle()} flex flex-col items-center justify-center`}>
-            <Utensils className="w-10 h-10 mb-1 opacity-70" />
             <span className="text-xs font-medium opacity-70">No image available</span>
           </div>
         )}
         {!imageLoading && (
           <>
-            <div className={`absolute top-3 left-3 ${badge.bg} text-white text-xs font-semibold px-3 py-1.5 rounded-md`}>
+            <div className={`absolute top-3 left-3 ${badge.bg} text-white text-xs font-semibold px-3 py-1.5 rounded-full`}>
               {badge.text}
             </div>
 
-            {/* Floating Action Button for Cooking */}
             {showTrackingButton && (
               <button
                 onClick={handleCookToggle}
                 disabled={cookingLoading || isCooked}
-                className={`absolute bottom-3 right-3 shadow-xl flex items-center justify-center gap-1.5 px-4 py-2 rounded-full font-bold text-sm transition-all duration-300 z-10 ${
+                className={`absolute bottom-3 right-3 shadow-card flex items-center justify-center gap-1.5 px-4 py-2 rounded-full font-semibold text-sm transition-all duration-300 z-10 ${
                   triggerPop
-                    ? 'scale-125 bg-green-500 text-white ring-4 ring-green-200'
+                    ? 'scale-110 bg-leaf text-white'
                     : isCooked
-                      ? 'bg-green-500 text-white ring-2 ring-white cursor-default'
-                      : 'animate-heartbeat hover:animate-none hover:scale-110 bg-white text-gray-800 hover:text-green-600 ring-2 ring-green-100'
+                      ? 'bg-leaf text-white cursor-default'
+                      : 'bg-card text-foreground hover:text-leaf border border-border'
                 } ${cookingLoading ? 'opacity-70 cursor-wait' : ''}`}
                 title={isCooked ? 'You already cooked this meal!' : 'Mark cooked'}
               >
@@ -227,10 +225,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
                     <span>Cooked</span>
                   </>
                 ) : (
-                  <>
-                    <ChefHat className="w-4 h-4" />
-                    <span>Mark cooked</span>
-                  </>
+                  <span>Mark cooked</span>
                 )}
               </button>
             )}
@@ -239,15 +234,15 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       </div>
 
       <div className="p-4 sm:p-5">
-        <h3 className="text-sm sm:text-[15px] font-bold text-gray-900 mb-2 line-clamp-2 leading-snug">
+        <h3 className="text-sm sm:text-[15px] font-bold text-foreground mb-2 line-clamp-2 leading-snug">
           {originalTitle || title}
         </h3>
 
         <button
           onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-          className="text-xs font-medium text-blue-500 hover:text-blue-600 hover:underline transition-colors"
+          className="text-xs font-medium text-primary hover:underline transition-colors"
         >
-          View Recipe Details
+          View recipe details
         </button>
       </div>
     </div>

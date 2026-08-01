@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Flame, Drumstick, Wheat, Droplet, Check, ChefHat } from 'lucide-react';
+import { ChevronDown, ChevronRight, Check } from 'lucide-react';
 import { useMealTracking } from '@/hooks/useMealTracking';
 
 interface MealPlan {
@@ -262,8 +262,8 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
           flex items-center gap-1 px-2 py-1 rounded-full text-[9px] sm:text-xs font-medium
           transition-all duration-200 transform hover:scale-105
           ${isCooked 
-            ? 'bg-green-500 text-white shadow-md' 
-            : 'bg-gray-100 text-gray-600 hover:bg-green-100 hover:text-green-700 border border-gray-200'
+            ? 'bg-leaf text-white' 
+            : 'bg-secondary text-muted-foreground hover:bg-leaf-soft hover:text-leaf border border-border'
           }
           ${isLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer'}
           ${!mealPlanId ? 'opacity-30 cursor-not-allowed' : ''}
@@ -274,10 +274,8 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
           <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
         ) : isCooked ? (
           <Check className="w-3 h-3" />
-        ) : (
-          <ChefHat className="w-3 h-3" />
-        )}
-        <span>{isCooked ? 'Cooked' : 'Mark Cooked'}</span>
+        ) : null}
+        <span>{isCooked ? 'Cooked' : 'Mark cooked'}</span>
       </button>
     );
   };
@@ -336,7 +334,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
               <div
                 onClick={() => handleDayClick(day)}
                 className={`flex items-center py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg cursor-pointer transition-colors ${expandedDay === day
-                  ? 'bg-[#FF6B6B] text-white'
+                  ? 'bg-primary text-white'
                   : 'text-[#2D3436] hover:bg-[#f8f9fa]'
                   }`}
               >
@@ -383,9 +381,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                               onError={() => handleThumbnailError(mealPreview.breakfast.name)}
                             />
                           ) : (
-                            <div className="w-full h-full bg-yellow-200 flex items-center justify-center text-[10px] sm:text-xs">
-                              🥞
-                            </div>
+                            <div className="w-full h-full bg-muted"></div>
                           )}
                         </div>
                         <span className="text-[#1e293b] font-medium truncate text-[10px] sm:text-xs">{mealPreview.breakfast.name}</span>
@@ -394,22 +390,10 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                     </div>
                     {mealPreview.breakfast.calories && (
                       <div className="flex items-center gap-1.5 sm:gap-3 text-[9px] sm:text-xs text-gray-600">
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Flame className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-500" />
-                          <span>{mealPreview.breakfast.calories}</span>
-                        </div>
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Drumstick className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-500" />
-                          <span>{mealPreview.breakfast.protein}g</span>
-                        </div>
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Wheat className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-500" />
-                          <span>{mealPreview.breakfast.carbs}g</span>
-                        </div>
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Droplet className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-yellow-500" />
-                          <span>{mealPreview.breakfast.fat}g</span>
-                        </div>
+                        <span>{mealPreview.breakfast.calories}</span>
+                        <span>{mealPreview.breakfast.protein}g</span>
+                        <span>{mealPreview.breakfast.carbs}g</span>
+                        <span>{mealPreview.breakfast.fat}g</span>
                       </div>
                     )}
                     {mealPreview.breakfast.benefit && (
@@ -427,29 +411,17 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                   }`}>
                     <div className="flex items-center justify-between mb-0.5 sm:mb-1">
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
-                        <span className="text-[#FF6B6B] text-sm sm:text-base">🍽️</span>
+                        <span className="text-[#FF6B6B] text-sm sm:text-base"></span>
                         <span className="text-[#1e293b] font-medium truncate text-[10px] sm:text-xs">{mealPreview.lunch.name}</span>
                       </div>
                       <CookedButton day={day} mealType="lunch" />
                     </div>
                     {mealPreview.lunch.calories && (
                       <div className="flex items-center gap-1.5 sm:gap-3 text-[9px] sm:text-xs text-gray-600">
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Flame className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-500" />
-                          <span>{mealPreview.lunch.calories}</span>
-                        </div>
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Drumstick className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-500" />
-                          <span>{mealPreview.lunch.protein}g</span>
-                        </div>
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Wheat className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-500" />
-                          <span>{mealPreview.lunch.carbs}g</span>
-                        </div>
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Droplet className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-yellow-500" />
-                          <span>{mealPreview.lunch.fat}g</span>
-                        </div>
+                        <span>{mealPreview.lunch.calories}</span>
+                        <span>{mealPreview.lunch.protein}g</span>
+                        <span>{mealPreview.lunch.carbs}g</span>
+                        <span>{mealPreview.lunch.fat}g</span>
                       </div>
                     )}
                     {mealPreview.lunch.benefit && (
@@ -474,22 +446,10 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                     </div>
                     {mealPreview.dinner.calories && (
                       <div className="flex items-center gap-1.5 sm:gap-3 text-[9px] sm:text-xs text-gray-600">
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Flame className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-500" />
-                          <span>{mealPreview.dinner.calories}</span>
-                        </div>
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Drumstick className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-500" />
-                          <span>{mealPreview.dinner.protein}g</span>
-                        </div>
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Wheat className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-500" />
-                          <span>{mealPreview.dinner.carbs}g</span>
-                        </div>
-                        <div className="flex items-center gap-0.5 sm:gap-1">
-                          <Droplet className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-yellow-500" />
-                          <span>{mealPreview.dinner.fat}g</span>
-                        </div>
+                        <span>{mealPreview.dinner.calories}</span>
+                        <span>{mealPreview.dinner.protein}g</span>
+                        <span>{mealPreview.dinner.carbs}g</span>
+                        <span>{mealPreview.dinner.fat}g</span>
                       </div>
                     )}
                     {mealPreview.dinner.benefit && (
@@ -504,7 +464,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                     <div className={`p-1.5 sm:p-2 border rounded transition-all ${
                       isMealCooked(day, 'snack') 
                         ? 'bg-green-50 border-green-300' 
-                        : 'bg-purple-50 border-purple-200'
+                        : 'bg-secondary border-border'
                     }`}>
                       <div className="flex items-center justify-between mb-0.5 sm:mb-1">
                         <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
@@ -515,22 +475,10 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                       </div>
                       {mealPreview.snack.calories && (
                         <div className="flex items-center gap-1.5 sm:gap-3 text-[9px] sm:text-xs text-gray-600">
-                          <div className="flex items-center gap-0.5 sm:gap-1">
-                            <Flame className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-500" />
-                            <span>{mealPreview.snack.calories}</span>
-                          </div>
-                          <div className="flex items-center gap-0.5 sm:gap-1">
-                            <Drumstick className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-500" />
-                            <span>{mealPreview.snack.protein}g</span>
-                          </div>
-                          <div className="flex items-center gap-0.5 sm:gap-1">
-                            <Wheat className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-500" />
-                            <span>{mealPreview.snack.carbs}g</span>
-                          </div>
-                          <div className="flex items-center gap-0.5 sm:gap-1">
-                            <Droplet className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-yellow-500" />
-                            <span>{mealPreview.snack.fat}g</span>
-                          </div>
+                          <span>{mealPreview.snack.calories}</span>
+                          <span>{mealPreview.snack.protein}g</span>
+                          <span>{mealPreview.snack.carbs}g</span>
+                          <span>{mealPreview.snack.fat}g</span>
                         </div>
                       )}
                       {mealPreview.snack.benefit && (

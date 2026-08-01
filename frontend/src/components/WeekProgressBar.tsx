@@ -1,5 +1,4 @@
 import React from 'react';
-import { Trophy, TrendingUp } from 'lucide-react';
 
 interface WeekProgress {
   total_meals: number;
@@ -23,46 +22,37 @@ const WeekProgressBar: React.FC<WeekProgressBarProps> = ({ mealPlanId, progress,
   const { total_meals, cooked_meals, progress_percentage, is_complete } = progress;
   
   return (
-    <div className={`bg-white rounded-xl p-4 shadow-sm border border-gray-100 ${className}`}>
+    <div className={`bg-card rounded-2xl p-4 shadow-soft border border-border ${className}`}>
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          {is_complete ? (
-            <Trophy className="w-5 h-5 text-yellow-500" />
-          ) : (
-            <TrendingUp className="w-5 h-5 text-blue-500" />
-          )}
-          <span className="font-semibold text-gray-800">
-            {is_complete ? 'Week Complete!' : 'Weekly Progress'}
-          </span>
-        </div>
-        <span className="text-sm font-medium text-gray-600">
+        <span className="font-semibold text-foreground">
+          {is_complete ? 'Week complete' : 'Weekly progress'}
+        </span>
+        <span className="text-sm font-medium text-muted-foreground">
           {cooked_meals} / {total_meals} meals
         </span>
       </div>
       
-      <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
+      <div className="relative h-2.5 bg-secondary rounded-full overflow-hidden">
         <div 
           className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${
-            is_complete 
-              ? 'bg-gradient-to-r from-yellow-400 to-green-500' 
-              : 'bg-gradient-to-r from-blue-400 to-green-500'
+            is_complete ? 'bg-leaf' : 'bg-primary'
           }`}
           style={{ width: `${progress_percentage}%` }}
         />
       </div>
       
-      <div className="flex justify-between mt-2 text-xs text-gray-500">
+      <div className="flex justify-between mt-2 text-xs text-muted-foreground">
         <span>0%</span>
-        <span className={`font-medium ${is_complete ? 'text-green-600' : 'text-blue-600'}`}>
+        <span className={`font-medium ${is_complete ? 'text-leaf' : 'text-primary'}`}>
           {progress_percentage.toFixed(0)}%
         </span>
         <span>100%</span>
       </div>
       
       {is_complete && (
-        <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-yellow-50 rounded-lg border border-green-200">
-          <p className="text-sm text-green-800 font-medium text-center">
-            Congratulations! You've completed all your meals this week!
+        <div className="mt-3 p-3 bg-leaf-soft rounded-xl border border-leaf/15">
+          <p className="text-sm text-foreground font-medium text-center">
+            Nice work. You cooked every meal this week.
           </p>
         </div>
       )}

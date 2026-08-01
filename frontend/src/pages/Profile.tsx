@@ -130,18 +130,11 @@ const Profile: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc]">
+        <div className="min-h-screen bg-background">
             {/* Header - Matching other pages */}
-            <header 
-                className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[105px] flex items-center border-b"
-                style={{ 
-                    backgroundColor: '#F9FBFE',
-                    borderColor: '#F6FAFE',
-                    boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
-                }}
-            >
+            <header className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[88px] flex items-center border-b bg-card border-b border-border">
                 <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
-                    <h1 className="text-lg sm:text-xl md:text-2xl lg:text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%] truncate" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+                    <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-foreground tracking-tight truncate">
                         Profile
                     </h1>
                     
@@ -149,9 +142,9 @@ const Profile: React.FC = () => {
                     <div className="relative flex-shrink-0">
                         <button
                             onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                            className="flex items-center h-[36px] sm:h-[40px] md:h-[56px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-[10px] sm:rounded-[12px] md:rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+                            className="flex items-center h-[36px] sm:h-[40px] md:h-[48px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-full border border-border bg-card hover:bg-secondary transition-colors"
                         >
-                            <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-[10px] sm:text-xs md:text-sm border border-blue-100">
+                            <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-leaf-soft rounded-full flex items-center justify-center text-primary font-semibold text-[10px] sm:text-xs md:text-sm border border-border">
                                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
                             </div>
                             <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
@@ -181,7 +174,7 @@ const Profile: React.FC = () => {
             <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6 md:py-8">
                 <div className="max-w-4xl mx-auto space-y-6">
                     {/* Subtitle */}
-                    <p className="text-gray-600 text-[16px]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+                    <p className="text-gray-600 text-[16px]">
                         Manage your account details
                     </p>
 

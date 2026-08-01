@@ -3,9 +3,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useTrial } from '@/hooks/useTrial';
-import { Clock, Heart, Calendar, ChevronDown, CalendarDays } from 'lucide-react';
+import { ChevronDown, Clock } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
-// import { TrialService } from '@/lib/trialService'; // No longer needed
 import { safeGetItem, useAuth } from '@/lib/utils';
 import EngagementBanners from '@/components/EngagementBanners';
 
@@ -46,11 +45,11 @@ declare global {
 }
 
 const FEATURES = [
-  'Smart Ingredient Recognition',
+  'Ingredient recognition',
   'Recipe Suggestions & Cooking Instructions',
-  'Smart Food Detection',
-  'AI Meal Planning',
-  'AI Meal Plan for Chronic Sickness',
+  'Ingredient scanning',
+  'Meal planning',
+  'Meal plans for chronic conditions',
   'Budget & Location Based Meal Plans',
   'Full History Access',
   'Priority Support'
@@ -67,7 +66,6 @@ const PLANS = [
     durationMinutes: 10080,
     paystackAmount: 10,
     highlight: false,
-    icon: <Clock className="h-8 w-8 text-blue-500" />,
   },
   {
     label: '$20 Monthly',
@@ -76,7 +74,6 @@ const PLANS = [
     durationMinutes: 43200,
     paystackAmount: 20,
     highlight: true,
-    icon: <Heart className="h-8 w-8 text-red-500" />,
   },
   {
     label: '$120 Six Months',
@@ -85,7 +82,6 @@ const PLANS = [
     durationMinutes: 259200,
     paystackAmount: 120,
     highlight: false,
-    icon: <CalendarDays className="h-8 w-8 text-green-500" />,
   },
   {
     label: '$240 Yearly',
@@ -94,7 +90,6 @@ const PLANS = [
     durationMinutes: 525600,
     paystackAmount: 240,
     highlight: false,
-    icon: <Calendar className="h-8 w-8 text-purple-500" />,
   },
 ];
 
@@ -704,18 +699,11 @@ const Payment: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen bg-background">
       {/* Header - Matching other pages */}
-      <header 
-        className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[105px] flex items-center border-b"
-        style={{ 
-          backgroundColor: '#F9FBFE',
-          borderColor: '#F6FAFE',
-          boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
-        }}
-      >
+      <header className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[88px] flex items-center border-b bg-card border-border">
         <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
-          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%] truncate" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+          <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-foreground tracking-tight truncate">
             Payment
           </h1>
           
@@ -723,9 +711,9 @@ const Payment: React.FC = () => {
           <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[36px] sm:h-[40px] md:h-[56px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-[10px] sm:rounded-[12px] md:rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+              className="flex items-center h-[36px] sm:h-[40px] md:h-[48px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-full border border-border bg-card hover:bg-secondary transition-colors"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-[10px] sm:text-xs md:text-sm border border-blue-100">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-leaf-soft rounded-full flex items-center justify-center text-primary font-semibold text-[10px] sm:text-xs md:text-sm border border-border">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
               </div>
               <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
@@ -782,26 +770,25 @@ const Payment: React.FC = () => {
 
 
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
-        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose the plan that fits your needs. Start with one free 7-day meal plan, then subscribe from $10/week. No hidden fees — change anytime.</p>
+        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Choose the plan that fits your needs. Start with one free 7-day meal plan, then subscribe from $10/week. Change anytime.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 justify-center items-stretch w-full max-w-6xl mx-auto">
         {PLANS.map((plan) => (
           <Card
             key={plan.label}
-            className={`flex flex-col justify-between items-center p-6 sm:p-8 bg-white shadow-xl rounded-xl sm:rounded-2xl border border-gray-200 relative transform transition-all duration-300 hover:scale-105 hover:shadow-2xl ${plan.highlight ? 'ring-2 ring-yellow-400 shadow-2xl' : ''}`}
+            className={`flex flex-col justify-between items-center p-6 sm:p-8 bg-card shadow-soft rounded-2xl border border-border relative transition-all duration-300 hover:shadow-card ${plan.highlight ? 'ring-2 ring-primary/30' : ''}`}
           >
             {plan.highlight && (
-              <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-blue-500 text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg">
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg">
                 Most Popular
               </div>
             )}
 
             <div className="mb-6 text-center">
-              <div className="mb-4">{plan.icon}</div>
-              <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{plan.label}</div>
-              <div className="text-gray-500 text-sm mb-4">Billed {plan.duration}</div>
-              <div className="text-4xl font-bold text-blue-500 mb-2">
+              <div className="text-2xl sm:text-3xl font-bold text-foreground mb-2">{plan.label}</div>
+              <div className="text-muted-foreground text-sm mb-4">Billed {plan.duration}</div>
+              <div className="text-4xl font-bold text-primary mb-2">
                 ${plan.price.toLocaleString()}
               </div>
             </div>
@@ -809,7 +796,7 @@ const Payment: React.FC = () => {
             <ul className="mb-8 w-full text-gray-700 text-left space-y-3">
               {FEATURES.map((feature, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <span className="inline-block w-5 h-5 rounded-full bg-green-400 mr-3 flex-shrink-0 flex items-center justify-center">
+                  <span className="inline-block w-5 h-5 rounded-full bg-leaf mr-3 flex-shrink-0 flex items-center justify-center">
                     <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
@@ -820,7 +807,7 @@ const Payment: React.FC = () => {
             </ul>
 
             <Button
-              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 text-lg font-semibold rounded-lg py-4 mt-auto shadow-lg transform transition-all duration-200 hover:scale-105"
+              className="w-full bg-primary hover:bg-blue-deep text-white text-lg font-semibold rounded-full py-4 mt-auto"
               onClick={() => openPaymentModal(plan)}
             >
               Select Plan
@@ -832,7 +819,7 @@ const Payment: React.FC = () => {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center text-blue-500">
+            <DialogTitle className="text-2xl font-bold text-center text-primary">
               Complete Your Payment
             </DialogTitle>
           </DialogHeader>
@@ -866,7 +853,7 @@ const Payment: React.FC = () => {
               <div className="text-lg font-semibold text-gray-800 mb-2">
                 Selected Plan:
               </div>
-              <div className="text-xl font-bold text-blue-500">
+              <div className="text-xl font-bold text-primary">
                 {selectedPlan?.label}
               </div>
               <div className="text-sm text-gray-600 mt-1">
@@ -877,7 +864,7 @@ const Payment: React.FC = () => {
 
           <DialogFooter>
             <Button
-              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 text-lg font-semibold rounded-lg py-3 shadow-lg transform transition-all duration-200 hover:scale-105"
+              className="w-full bg-primary hover:bg-blue-deep text-white text-lg font-semibold rounded-full py-3"
               onClick={processPayment}
             >
               Pay with Paystack

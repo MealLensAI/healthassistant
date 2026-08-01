@@ -311,7 +311,7 @@ const Index = () => {
       showCancelButton: true,
       confirmButtonText: 'Subscribe',
       cancelButtonText: 'Maybe later',
-      confirmButtonColor: '#f97316',
+      confirmButtonColor: '#0E3E77',
     });
     if (result.isConfirmed) {
       navigate('/payment');
@@ -349,12 +349,12 @@ const Index = () => {
       }
     }
 
-    // Validate Medical AI requirements
+    // Validate From your health profile requirements
     if (inputType === 'auto_medical') {
       if (!isHealthProfileComplete()) {
         toast({
           title: "Complete Health Profile Required",
-          description: "Please complete your health profile in Settings to use Medical AI nutrition planning",
+          description: "Please complete your health profile in Settings to use From your health profile nutrition planning",
           variant: "destructive"
         });
         return;
@@ -392,9 +392,9 @@ const Index = () => {
       const sicknessInfo = getSicknessInfo();
       const healthProfilePayload = getHealthProfilePayload();
 
-      // Handle Medical AI Auto-Generate
+      // Handle From your health profile Auto-Generate
       if (inputType === 'auto_medical' && isHealthProfileComplete()) {
-        console.log('[Index] Using Medical AI Nutrition Plan endpoint');
+        console.log('[Index] Using From your health profile Nutrition Plan endpoint');
         // Map goal to backend format before sending
         const mappedPayload = {
           ...healthProfilePayload,
@@ -415,7 +415,7 @@ const Index = () => {
         }
 
         const data = await response.json();
-        console.log('[Index] Medical AI Response:', data);
+        console.log('[Index] From your health profile Response:', data);
 
         if (data.success && data.meal_plan) {
           // Transform the response to match our MealPlan interface
@@ -475,7 +475,7 @@ const Index = () => {
           setInputType('ingredient_list'); // Reset to default
 
           toast({
-            title: "Medical Nutrition Plan Created!",
+            title: "Meal plan created!",
             description: `Your doctor-approved meal plan for ${savedPlan?.name} has been created with personalized nutritional guidance.`,
           });
           return;
@@ -775,7 +775,7 @@ const Index = () => {
           icon: 'success',
           title: 'Meal Plan Created!',
           text: `Your meal plan for ${savedPlan?.name} has been created and saved!`,
-          confirmButtonColor: '#f97316',
+          confirmButtonColor: '#0E3E77',
           timer: 2500
         });
       }
@@ -822,14 +822,14 @@ const Index = () => {
           icon: 'warning',
           title: 'Duplicate Plan',
           text: 'A meal plan for this week already exists. Please choose a different week or edit the existing plan.',
-          confirmButtonColor: '#f97316'
+          confirmButtonColor: '#0E3E77'
         });
       } else {
         Swal.fire({
           icon: 'error',
           title: 'Generation Failed',
           text: 'Failed to generate meal plan. Please try again.',
-          confirmButtonColor: '#f97316'
+          confirmButtonColor: '#0E3E77'
         });
       }
     } finally {
@@ -1013,46 +1013,36 @@ const Index = () => {
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
-      {/* Header - aligned with sidebar logo height (123px) - responsive */}
-      <header 
-        className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[105px] flex items-center border-b"
-        style={{ 
-          backgroundColor: '#F9FBFE',
-          borderColor: '#F6FAFE',
-          boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
-        }}
-      >
+    <div className="min-h-screen bg-background">
+      <header className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[88px] flex items-center border-b border-border bg-card">
         <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
-          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%] truncate" style={{ fontFamily: "'Work Sans', sans-serif" }}>Diet Planner</h1>
+          <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-foreground tracking-tight truncate">Meal plans</h1>
           
           <div className="flex items-center gap-2 sm:gap-3">
             <NotificationBell />
 
-            {/* Profile Dropdown */}
             <div className="relative flex-shrink-0">
               <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center h-[36px] sm:h-[40px] md:h-[56px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-[10px] sm:rounded-[12px] md:rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+                className="flex items-center h-[36px] sm:h-[40px] md:h-[48px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-4 rounded-full border border-border bg-card hover:bg-secondary transition-colors"
               >
-                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-[10px] sm:text-xs md:text-sm border border-blue-100">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-leaf-soft rounded-full flex items-center justify-center text-primary font-semibold text-[10px] sm:text-xs md:text-sm border border-border">
                   {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
                 </div>
-                <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
+                <span className="text-xs sm:text-sm md:text-[15px] font-medium text-muted-foreground hidden lg:block">
                   {user?.displayName || user?.email?.split('@')[0] || 'User'}
                 </span>
-                <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
               </button>
               
-              {/* Dropdown Menu */}
               {showProfileDropdown && (
                 <>
                   <div 
                     className="fixed inset-0 z-40" 
                     onClick={() => setShowProfileDropdown(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-[12px] sm:rounded-[15px] shadow-lg border border-gray-200 py-2 sm:py-3 z-50">
-                    <a href="/profile" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
+                  <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-card rounded-2xl shadow-elevated border border-border py-2 z-50">
+                    <a href="/profile" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-foreground hover:bg-secondary">Profile</a>
                   </div>
                 </>
               )}
@@ -1072,8 +1062,8 @@ const Index = () => {
               onClick={() => setShowPlanManager(false)}
               className={`px-4 sm:px-7 py-2 sm:py-3 rounded-lg text-sm sm:text-[15px] font-semibold transition-all duration-200 border whitespace-nowrap ${
                 !showPlanManager
-                  ? 'border-blue-500 text-blue-500 bg-white'
-                  : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300'
+                  ? 'border-primary text-primary bg-card'
+                  : 'border-border text-muted-foreground bg-card hover:border-primary/30'
               }`}
             >
               Active Plan
@@ -1082,8 +1072,8 @@ const Index = () => {
               onClick={() => setShowPlanManager(true)}
               className={`px-4 sm:px-7 py-2 sm:py-3 rounded-lg text-sm sm:text-[15px] font-semibold transition-all duration-200 border whitespace-nowrap ${
                 showPlanManager
-                  ? 'border-blue-500 text-blue-500 bg-white'
-                  : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300'
+                  ? 'border-primary text-primary bg-card'
+                  : 'border-border text-muted-foreground bg-card hover:border-primary/30'
               }`}
             >
               Saved Plans
@@ -1092,8 +1082,8 @@ const Index = () => {
 
           <button
             onClick={handleNewPlan}
-            className="flex items-center justify-center w-full sm:w-auto min-w-[140px] sm:min-w-[160px] md:w-[201px] h-[40px] sm:h-[44px] md:h-[48px] gap-2 sm:gap-[10px] bg-[#1A76E3] hover:bg-[#1565C0] text-white rounded-[10px] sm:rounded-[12px] md:rounded-[15px] border border-[#1356A5] text-xs sm:text-sm md:text-[15px] font-semibold transition-all duration-200"
-            style={{ boxShadow: '4px 4px 4px rgba(72, 146, 234, 0.3)' }}
+            className="flex items-center justify-center w-full sm:w-auto min-w-[140px] sm:min-w-[160px] md:w-[201px] h-[40px] sm:h-[44px] md:h-[48px] gap-2 sm:gap-[10px] bg-primary hover:bg-blue-deep text-white rounded-full border border-primary text-xs sm:text-sm md:text-[15px] font-semibold transition-all duration-200"
+            
           >
             <span className="truncate">Create New Plan</span>
             <Plus className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
@@ -1103,13 +1093,13 @@ const Index = () => {
         {/* Date Range and Day Tabs - responsive */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-3 sm:gap-4 md:gap-6 lg:gap-10 py-3 sm:py-4 md:py-6">
           <div className="flex items-center flex-shrink-0">
-            <span className="text-sm sm:text-base md:text-lg lg:text-[20px] font-medium text-black tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+            <span className="text-sm sm:text-base md:text-lg lg:text-[20px] font-medium text-black tracking-[0.03em] leading-[130%]" >
               {formatDateRange()}
             </span>
           </div>
 
           <div className="flex-1 w-full overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-hide">
-            <div className="inline-flex items-center h-[38px] sm:h-[44px] md:h-[48px] bg-[#F7F7F7] border border-[#E7E7E7] rounded-[8px] sm:rounded-[10px] md:rounded-[12px] p-0.5 sm:p-1 gap-0.5 sm:gap-1 min-w-full sm:min-w-0">
+            <div className="inline-flex items-center h-[38px] sm:h-[44px] md:h-[48px] bg-secondary border border-border rounded-[8px] sm:rounded-[10px] md:rounded-[12px] p-0.5 sm:p-1 gap-0.5 sm:gap-1 min-w-full sm:min-w-0">
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                 <button
                   key={day}
@@ -1138,19 +1128,19 @@ const Index = () => {
           ) : displayPlan ? (
             <React.Fragment>
               {isDemo && (
-                <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border border-yellow-200 bg-yellow-50 rounded-lg">
+                <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border border-border bg-secondary rounded-2xl">
                   <div className="flex items-start sm:items-center gap-3">
-                    <span className="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-400 text-white text-base font-bold">
+                    <span className="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-base font-bold">
                       !
                     </span>
                     <p className="text-sm sm:text-base text-gray-800 leading-snug">
                       Below is a <span className="font-semibold">sample preview plan</span>. To get started, please create your own plan by clicking the{' '}
-                      <span className="font-semibold text-blue-600">&ldquo;Create New Plan&rdquo;</span> button.
+                      <span className="font-semibold text-primary">&ldquo;Create New Plan&rdquo;</span> button.
                     </p>
                   </div>
                   <button
                     onClick={dismissDemoAndCreate}
-                    className="flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors shadow-sm w-full sm:w-auto"
+                    className="flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg bg-primary hover:bg-blue-deep text-white text-sm font-semibold transition-colors shadow-sm w-full sm:w-auto"
                   >
                     <Plus className="w-4 h-4" />
                     Create New Plan
@@ -1236,16 +1226,16 @@ const Index = () => {
             </React.Fragment>
           ) : (
             mealPlansInitialized && !mealPlansLoading ? (
-              <div className="bg-white rounded-xl sm:rounded-2xl p-6 sm:p-8 md:p-12 text-center shadow-sm border border-gray-100">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-                  <ChefHat className="w-8 h-8 sm:w-10 sm:h-10 text-orange-400" />
+              <div className="bg-card rounded-2xl p-6 sm:p-8 md:p-12 text-center shadow-soft border border-border">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-leaf-soft rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                  <ChefHat className="w-8 h-8 sm:w-10 sm:h-10 text-leaf" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">No Meal Plan Selected</h3>
                 <p className="text-sm sm:text-base text-gray-500 mb-6 sm:mb-8 max-w-md mx-auto">Create a new meal plan or select an existing one to get started with your health journey!</p>
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
                   <button
                     onClick={handleNewPlan}
-                    className="bg-blue-500 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200 shadow-sm hover:shadow-md text-sm sm:text-base"
+                    className="bg-primary text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:bg-blue-deep transition-all duration-200 shadow-sm hover:shadow-md text-sm sm:text-base"
                   >
                     Create New Plan
                   </button>
@@ -1272,7 +1262,7 @@ const Index = () => {
               <h2 className="text-xl sm:text-2xl font-bold text-[#2D3436]">Manage Meal Plans</h2>
               <button
                 onClick={() => setShowPlanManager(false)}
-                className="text-[#1e293b] hover:text-blue-500 transition-colors text-2xl sm:text-3xl leading-none"
+                className="text-[#1e293b] hover:text-primary transition-colors text-2xl sm:text-3xl leading-none"
               >
                 ✕
               </button>
@@ -1302,7 +1292,7 @@ const Index = () => {
               <h2 className="text-xl sm:text-2xl font-bold text-[#2D3436]">Create Your Meal Plan</h2>
               <button
                 onClick={() => setShowInputModal(false)}
-                className="text-[#1e293b] hover:text-blue-500 transition-colors text-2xl sm:text-3xl leading-none"
+                className="text-[#1e293b] hover:text-primary transition-colors text-2xl sm:text-3xl leading-none"
               >
                 ✕
               </button>
@@ -1317,7 +1307,7 @@ const Index = () => {
                 type="date"
                 value={selectedDate.toISOString().split('T')[0]}
                 onChange={(e) => handleDateChange(new Date(e.target.value))}
-                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none text-sm sm:text-base"
+                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:border-primary focus:outline-none text-sm sm:text-base"
               />
               <p className="text-xs sm:text-sm text-[#1e293b] mt-2">
                 Creating plan for: {weekDates.name}
@@ -1341,7 +1331,7 @@ const Index = () => {
                 </div>
                 <button
                   onClick={() => setIsAutoGenerateEnabled(!isAutoGenerateEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${isAutoGenerateEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${isAutoGenerateEnabled ? 'bg-primary' : 'bg-gray-300'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAutoGenerateEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
@@ -1351,13 +1341,13 @@ const Index = () => {
             {/* Health Profile Indicator */}
             {getSicknessInfo() && (
               <div className={`mb-6 p-4 rounded-lg ${isHealthProfileComplete()
-                ? 'bg-gradient-to-r from-blue-50 to-green-50 border-2 border-blue-300'
+                ? 'bg-gradient-to-r from-blue-50 to-green-50 border-2 border-primary/25'
                 : 'bg-orange-50 border border-orange-200'}`}>
                 <div className="flex items-center gap-2 mb-2">
                   {isHealthProfileComplete() ? (
                     <>
                       <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                      <span className="text-sm font-semibold text-green-900">🏥 Medical-Grade AI Nutrition Plan</span>
+                      <span className="text-sm font-semibold text-green-900">Personalized nutrition plan</span>
                     </>
                   ) : (
                     <>
@@ -1384,7 +1374,7 @@ const Index = () => {
                       Your meal plan will be customized for: <strong>{getSicknessInfo()?.sicknessType}</strong>
                     </p>
                     <p className="text-xs text-orange-600">
-                      💡 <strong>Tip:</strong> Complete your full health profile in Settings to unlock medical-grade AI nutrition plans!
+                      💡 <strong>Tip:</strong> Complete your full health profile in Settings to unlock personalized nutrition plans.
                     </p>
                   </div>
                 )}
@@ -1397,8 +1387,8 @@ const Index = () => {
                 <button
                   onClick={() => setInputType('ingredient_list')}
                   className={`p-6 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
-                    ? 'border-blue-500 bg-blue-500 text-white'
-                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-blue-400'}`}
+                    ? 'border-blue-500 bg-primary text-white'
+                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-primary/50'}`}
                 >
                   <div className="flex items-center justify-center">
                     <List className="w-6 h-6 mr-4" />
@@ -1412,8 +1402,8 @@ const Index = () => {
                 <button
                   onClick={() => setInputType('image')}
                   className={`p-6 rounded-xl border-2 transition-all ${inputType === 'image'
-                    ? 'border-blue-500 bg-blue-500 text-white'
-                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-blue-400'}`}
+                    ? 'border-blue-500 bg-primary text-white'
+                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-primary/50'}`}
                 >
                   <div className="flex items-center justify-center">
                     <Camera className="w-6 h-6 mr-4" />
@@ -1430,13 +1420,13 @@ const Index = () => {
                     className={`p-4 rounded-xl border-2 transition-all ${inputType === 'auto_medical'
                       ? 'border-green-500 bg-green-500 text-white'
                       : isHealthProfileComplete()
-                        ? 'border-green-200 bg-gradient-to-br from-green-50 to-blue-50 text-green-800 hover:border-green-400'
-                        : 'border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50 text-orange-800 hover:border-orange-400'}`}
+                        ? 'border-green-200 bg-leaf-soft text-green-800 hover:border-green-400'
+                        : 'border-orange-200 bg-secondary text-orange-800 hover:border-orange-400'}`}
                   >
                     <div className="flex items-center justify-center">
-                      <span className="text-2xl mr-3">🏥</span>
+                      
                       <div>
-                        <div className="font-semibold">Medical AI</div>
+                        <div className="font-semibold">From your health profile</div>
                         <div className="text-sm opacity-90">
                           {isHealthProfileComplete() ? 'Auto-generate' : 'Complete profile needed'}
                         </div>
@@ -1450,18 +1440,18 @@ const Index = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               {isAutoGenerateEnabled ? (
                 <div className="space-y-6">
-                  <div className={`p-4 border rounded-xl ${getSicknessInfo() ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+                  <div className={`p-4 border rounded-xl ${getSicknessInfo() ? 'bg-green-50 border-green-200' : 'bg-accent border-primary/20'}`}>
                     <div className="flex items-center gap-2 mb-3">
                       {getSicknessInfo() ? (
                         <Utensils className="w-5 h-5 text-green-600" />
                       ) : (
-                        <ChefHat className="w-5 h-5 text-blue-600" />
+                        <ChefHat className="w-5 h-5 text-primary" />
                       )}
-                      <h3 className={`text-lg font-semibold ${getSicknessInfo() ? 'text-green-800' : 'text-blue-800'}`}>
+                      <h3 className={`text-lg font-semibold ${getSicknessInfo() ? 'text-green-800' : 'text-primary'}`}>
                         Auto Generate with Budget & Location
                       </h3>
                     </div>
-                    <p className={`text-sm ${getSicknessInfo() ? 'text-green-700' : 'text-blue-700'}`}>
+                    <p className={`text-sm ${getSicknessInfo() ? 'text-green-700' : 'text-primary'}`}>
                       {getSicknessInfo()
                         ? `We'll create a personalized meal plan based on your health condition: ${getSicknessInfo()?.sicknessType}`
                         : "We'll create a personalized meal plan based on your location and budget preferences."}
@@ -1474,7 +1464,7 @@ const Index = () => {
                       <select
                         value={location}
                         onChange={(e) => setLocation(e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-primary focus:outline-none"
                         disabled={isLoading}
                       >
                         <option value="">Select a country</option>
@@ -1487,7 +1477,7 @@ const Index = () => {
 
                     <div>
                       <label className="block text-sm font-semibold text-[#2D3436] mb-2">Weekly Budget</label>
-                      <div className="flex items-stretch rounded-lg border border-gray-300 focus-within:border-blue-500 overflow-hidden">
+                      <div className="flex items-stretch rounded-lg border border-gray-300 focus-within:border-primary overflow-hidden">
                         <span className="flex items-center px-3 bg-gray-50 text-sm font-semibold text-[#2D3436] border-r border-gray-300 whitespace-nowrap">
                           {budgetCurrency.symbol}
                         </span>
@@ -1513,20 +1503,19 @@ const Index = () => {
               ) : inputType === 'auto_medical' ? (
                 <div className="space-y-6">
                   {isHealthProfileComplete() ? (
-                    <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-xl">
+                    <div className="p-6 bg-leaf-soft border border-leaf/20 rounded-xl">
                       <div className="flex items-center gap-3 mb-4">
-                        <span className="text-3xl">🏥</span>
+                        
                         <div>
-                          <h3 className="text-xl font-bold text-green-900">Medical AI Nutrition Plan</h3>
+                          <h3 className="text-xl font-bold text-green-900">From your health profile Nutrition Plan</h3>
                           <p className="text-sm text-green-700">Personalized meal plans with detailed nutrition</p>
                         </div>
                       </div>
-                      <div className="p-4 bg-blue-100 border border-blue-300 rounded-lg">
+                      <div className="p-4 bg-accent border border-primary/25 rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-blue-600">✨</span>
-                          <span className="font-semibold text-blue-900">What You'll Get</span>
+                          <span className="font-semibold text-foreground">What you'll get</span>
                         </div>
-                        <ul className="text-sm text-blue-800 space-y-1">
+                        <ul className="text-sm text-primary space-y-1">
                           <li>• Complete 7-day meal plan with exact portions</li>
                           <li>• Detailed nutritional breakdown</li>
                           <li>• Health assessment (WHtR, BMR, daily calorie needs)</li>
@@ -1535,9 +1524,9 @@ const Index = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="p-6 bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded-xl">
+                    <div className="p-6 bg-secondary border border-border rounded-xl">
                       <div className="flex items-center gap-3 mb-4">
-                        <span className="text-3xl">🏥</span>
+                        
                         <div>
                           <h3 className="text-xl font-bold text-orange-900">Complete Your Health Profile</h3>
                           <p className="text-sm text-orange-700">Go to Settings to complete your profile</p>
@@ -1553,7 +1542,7 @@ const Index = () => {
                     value={ingredientList}
                     onChange={(e) => setIngredientList(e.target.value)}
                     placeholder="e.g., tomatoes, onions, beef, rice, bell peppers, garlic, olive oil..."
-                    className="w-full h-32 p-4 border-2 border-[#e2e8f0] rounded-xl focus:border-blue-500 focus:outline-none transition-colors resize-none"
+                    className="w-full h-32 p-4 border-2 border-[#e2e8f0] rounded-xl focus:border-primary focus:outline-none transition-colors resize-none"
                     disabled={isLoading}
                   />
                 </div>
@@ -1567,7 +1556,7 @@ const Index = () => {
                         <button
                           type="button"
                           onClick={() => { setSelectedImage(null); setImagePreview(null); }}
-                          className="text-blue-500 hover:text-blue-600"
+                          className="text-blue-500 hover:text-primary"
                         >
                           Choose different image
                         </button>
@@ -1589,7 +1578,7 @@ const Index = () => {
                         />
                         <label
                           htmlFor="file-upload"
-                          className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
+                          className="inline-block px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-deep transition-colors cursor-pointer"
                         >
                           Select Image
                         </label>
@@ -1602,7 +1591,7 @@ const Index = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 sm:py-4 bg-blue-500 text-white font-bold text-base sm:text-lg rounded-lg sm:rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                className="w-full py-3 sm:py-4 bg-primary text-white font-bold text-base sm:text-lg rounded-lg sm:rounded-xl hover:bg-blue-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isLoading ? (
                   <>
