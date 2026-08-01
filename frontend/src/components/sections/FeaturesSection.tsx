@@ -5,7 +5,7 @@ const FEATURES = [
     icon: UtensilsCrossed,
     title: "Food for you",
     description:
-      "The first place to look when you have a chronic condition and need to know what to eat. Get meals that support your health, wherever you are, ready to cook.",
+      "The first place to look when you have a chronic condition and need to know what to eat. Get meals that support your health — wherever you are — ready to cook.",
   },
   {
     icon: ScanLine,
@@ -46,7 +46,7 @@ const FeaturesSection = () => {
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
             Start with Food for you when you need meals that fit your
-            condition. Then scan, plan, and cook in one place, built so
+            condition. Then scan, plan, and cook in one place — built so
             managing health through food feels easy.
           </p>
         </div>

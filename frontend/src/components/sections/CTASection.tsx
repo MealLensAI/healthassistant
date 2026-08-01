@@ -15,7 +15,7 @@ const CTASection = () => {
             Make “what should I eat?” the easy part
           </h2>
           <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto leading-relaxed">
-            Start free. Open Food for you for meals that fit your condition,
+            Start free. Open Food for you for meals that fit your condition —
             then cook, plan, and stay consistent wherever you are.
           </p>
 

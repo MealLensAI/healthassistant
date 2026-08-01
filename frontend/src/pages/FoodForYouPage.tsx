@@ -283,7 +283,6 @@ const FoodForYouPage: React.FC = () => {
   const trialPrompted = useRef(false);
 
   const {
-    getSicknessInfo,
     getHealthProfilePayload,
     isHealthProfileComplete,
     settings: sicknessSettings,
@@ -298,7 +297,6 @@ const FoodForYouPage: React.FC = () => {
     refreshStatus: refreshTrialStatus,
   } = useTrial();
 
-  const location = sicknessSettings.location || '';
   const blocked = !hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan);
 
   const selectViewMode = (mode: 'box' | 'list') => {
@@ -326,9 +324,10 @@ const FoodForYouPage: React.FC = () => {
   };
 
   /**
-   * Same AI generate flow as location-budget, but does NOT save a meal plan.
-   * After the first successful generate, marks the free trial used via the
-   * existing /api/lifecycle/mark-trial-used endpoint (+ local flag for UI gate).
+   * Same as meal-plan "From your health profile" auto-generate:
+   * POST /ai_nutrition_plan with the health profile JSON.
+   * Does NOT save a meal plan — only displays flattened foods.
+   * After first success, marks free trial used (lifecycle + local flag).
    */
   const fetchFoods = async (forceRefresh = false) => {
     if (!forceRefresh) {
@@ -345,91 +344,56 @@ const FoodForYouPage: React.FC = () => {
       return;
     }
 
-    if (!location.trim()) {
+    if (!isHealthProfileComplete()) {
       toast({
-        title: 'Location needed',
-        description: 'Set your location in Health info or Meals with location and budget first.',
+        title: 'Complete Health Profile Required',
+        description:
+          'Please complete your health profile in Health info to get personalized food.',
         variant: 'destructive',
       });
       return;
     }
 
-    const sicknessInfo = getSicknessInfo();
     const healthProfilePayload = getHealthProfilePayload();
-    const budget = safeGetItem('meallensai_weekly_budget_v1') || '150';
+    if (!healthProfilePayload) {
+      toast({
+        title: 'Complete Health Profile Required',
+        description:
+          'Please complete your health profile in Health info to get personalized food.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setLoading(true);
     try {
-      const formData = new FormData();
-      let rawPlan: any[] = [];
+      const mappedPayload = {
+        ...healthProfilePayload,
+        goal: mapGoalToBackendFormat(healthProfilePayload.goal),
+      };
 
-      if (sicknessInfo) {
-        if (!isHealthProfileComplete()) {
-          toast({
-            title: 'Complete Health Profile Required',
-            description:
-              'Please complete your health profile in Health info to get personalized food.',
-            variant: 'destructive',
-          });
-          setLoading(false);
-          return;
-        }
+      const response = await fetch(`${APP_CONFIG.api.ai_api_url}/ai_nutrition_plan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(mappedPayload),
+      });
 
-        formData.append('image_or_ingredient_list', 'ingredient_list');
-        formData.append('ingredient_list', '');
-        formData.append('age', healthProfilePayload!.age.toString());
-        formData.append('weight', healthProfilePayload!.weight.toString());
-        formData.append('height', healthProfilePayload!.height.toString());
-        formData.append('waist', healthProfilePayload!.waist.toString());
-        formData.append('gender', healthProfilePayload!.gender);
-        formData.append('activity_level', healthProfilePayload!.activity_level);
-        formData.append('condition', healthProfilePayload!.condition);
-        formData.append('goal', mapGoalToBackendFormat(healthProfilePayload!.goal));
-        formData.append('location', location);
-        formData.append('budget_state', 'true');
-        formData.append('budget', budget);
-
-        const response = await fetch(`${APP_CONFIG.api.ai_api_url}/sick_smart_plan`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to auto-generate therapeutic meal plan');
-        }
-
-        const data = await response.json();
-        if (!(data.success && data.meal_plan)) {
-          throw new Error('Failed to generate food recommendations');
-        }
-        rawPlan = data.meal_plan;
-      } else {
-        formData.append('location', location);
-        formData.append('budget', budget);
-
-        const response = await fetch(`${APP_CONFIG.api.ai_api_url}/auto_generate_plan`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to generate meal plan');
-        }
-
-        const data = await response.json();
-        const plan = data.meal_plan || data;
-        rawPlan = Array.isArray(plan) ? plan : [];
-        if (rawPlan.length === 0) {
-          throw new Error('Failed to generate food recommendations');
-        }
+      if (!response.ok) {
+        throw new Error('Failed to generate food recommendations');
       }
 
-      const nextFoods = flattenMealPlanToFoods(rawPlan);
+      const data = await response.json();
+      if (!(data.success && data.meal_plan)) {
+        throw new Error('Failed to generate food recommendations');
+      }
+
+      const nextFoods = flattenMealPlanToFoods(data.meal_plan);
       setFoods(nextFoods);
       writeFoodCache(nextFoods, user?.id);
 
       // Mark free plan used without saving to Saved meal plans
-      // (existing lifecycle endpoint sets user_trials.is_used = true)
       try {
         await LifecycleService.markTrialUsed();
       } catch {
@@ -488,8 +452,7 @@ const FoodForYouPage: React.FC = () => {
       return;
     }
 
-    if (!location.trim()) return;
-    if (sicknessSettings.hasSickness && !isHealthProfileComplete()) return;
+    if (!isHealthProfileComplete()) return;
 
     autoStarted.current = true;
     fetchFoods(false);
@@ -498,8 +461,9 @@ const FoodForYouPage: React.FC = () => {
     settingsLoading,
     trialLoading,
     blocked,
-    location,
     sicknessSettings.hasSickness,
+    sicknessSettings.age,
+    sicknessSettings.location,
     user?.id,
   ]);
 
@@ -637,10 +601,10 @@ const FoodForYouPage: React.FC = () => {
           </div>
         )}
 
-        {!blocked && !location.trim() && !settingsLoading && !trialLoading && foods.length === 0 && !loading && (
+        {!blocked && !isHealthProfileComplete() && !settingsLoading && !trialLoading && foods.length === 0 && !loading && (
           <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-soft max-w-lg mx-auto">
             <p className="text-muted-foreground mb-4">
-              Set your location in Health info to load food for you.
+              Complete your health profile in Health info to load food for you.
             </p>
             <button
               type="button"
