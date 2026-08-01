@@ -492,9 +492,12 @@ const AIResponsePage: FC = () => {
       } : null
 
       // 1. Get cooking instructions
+      const mealIngredients = (selectedMeal.ingredients_used || [])
+        .map((item: string) => (typeof item === 'string' ? item.trim() : String(item || '').trim()))
+        .filter(Boolean)
       const requestBody: any = {
         food_name: mealName,
-        ingredients: selectedMeal.ingredients_used || []
+        ingredients: mealIngredients.length > 0 ? mealIngredients : [mealName],
       }
 
       if (sicknessInfo) {

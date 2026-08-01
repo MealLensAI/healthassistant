@@ -26,7 +26,9 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
       console.log('[CookingTutorialModal] Opening modal and generating content for:', recipeName, ingredients);
       generateContent(recipeName, ingredients);
     }
-  }, [isOpen, recipeName, ingredients]);
+    // Only re-fetch when the modal opens for a recipe — not on every ingredients array identity change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, recipeName]);
 
   useEffect(() => {
     if (!isOpen) {

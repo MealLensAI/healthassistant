@@ -41,21 +41,42 @@ export const useTutorialContent = () => {
 
     try {
       const sicknessInfo = getSicknessInfo();
-      console.log('[useTutorialContent] Generating content for:', { recipeName, ingredients, sicknessInfo });
+      const cleanedIngredients = (ingredients || [])
+        .map((item) => (typeof item === 'string' ? item.trim() : String(item || '').trim()))
+        .filter(Boolean);
 
-      // 1. Get cooking instructions first
-      const requestBody = {
+      // API requires a non-empty ingredients list — fall back to the dish name
+      const resolvedIngredients =
+        cleanedIngredients.length > 0 ? cleanedIngredients : [recipeName].filter(Boolean);
+
+      console.log('[useTutorialContent] Generating content for:', {
+        recipeName,
+        ingredients: resolvedIngredients,
+        sicknessInfo,
+      });
+
+      if (!recipeName?.trim()) {
+        throw new Error('Recipe name is required');
+      }
+
+      const requestBody: {
+        food_name: string;
+        ingredients: string[];
+        sickness?: string;
+      } = {
         food_name: recipeName,
-        ingredients: ingredients || []
+        ingredients: resolvedIngredients,
       };
 
-      // Add sickness information if user has sickness
-      if (sicknessInfo) {
+      if (sicknessInfo?.sicknessType) {
         requestBody.sickness = sicknessInfo.sicknessType;
       }
 
-      // Use different endpoint based on sickness status
-      const endpoint = sicknessInfo ? `${APP_CONFIG.api.ai_api_url}/sick_meal_plan_instructions` : `${APP_CONFIG.api.ai_api_url}/meal_plan_instructions`;
+      const endpoint = sicknessInfo?.sicknessType
+        ? `${APP_CONFIG.api.ai_api_url}/sick_meal_plan_instructions`
+        : `${APP_CONFIG.api.ai_api_url}/meal_plan_instructions`;
+
+      console.log('[useTutorialContent] Calling instructions API:', endpoint);
 
       const instrRes = await fetch(endpoint, {
         method: 'POST',
@@ -64,7 +85,18 @@ export const useTutorialContent = () => {
       });
 
       if (!instrRes.ok) {
-        throw new Error(`HTTP error! status: ${instrRes.status}`);
+        let detail = '';
+        try {
+          const errBody = await instrRes.json();
+          detail = errBody?.error || errBody?.message || '';
+        } catch {
+          /* ignore */
+        }
+        throw new Error(
+          detail
+            ? `Instructions API failed (${instrRes.status}): ${detail}`
+            : `HTTP error! status: ${instrRes.status}`
+        );
       }
 
       const instrData = await instrRes.json();
@@ -131,7 +163,7 @@ export const useTutorialContent = () => {
         console.error('Processed results:', googleResults);
 
         // TEMPORARY FIX: Filter out GNU make content and show error message
-        const filteredResults = googleResults.filter(item =>
+        const filteredResults = googleResults.filter((item: WebResource) =>
           !item.title.toLowerCase().includes('gnu make') &&
           !item.description.toLowerCase().includes('gnu make')
         );

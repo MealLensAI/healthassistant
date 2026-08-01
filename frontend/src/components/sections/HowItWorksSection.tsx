@@ -12,8 +12,7 @@ const STEPS = [
     title: "Get food that fits your body",
     description:
       "We calculate BMI, BMR, obesity level, and the nutrients your body needs, then recommend meals that help you manage your health.",
-    image:
-      "/assets/Screenshot_2025-12-14_at_11.07.29-3201fdec-52ea-4b1a-a161-7dc41f538dd3.png",
+    image: "/assets/how-it-works-meal-plans.png",
   },
   {
     number: "03",

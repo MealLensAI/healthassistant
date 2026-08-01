@@ -39,8 +39,9 @@ const Sidebar = () => {
   }
 
   const navItems = [
+    { label: "Scan/type ingredients", path: "/health-meals" },
     { label: "Meal plans", path: "/planner" },
-    { label: "Scan ingredients", path: "/health-meals" },
+    { label: "Meals with location and budget", path: "/location-budget" },
     { label: "Health info", path: "/settings" },
     { label: "History", path: "/history" },
     { label: "Payment", path: "/payment" },
@@ -64,7 +65,7 @@ const Sidebar = () => {
                 setIsMobileOpen(false)
               }}
               className={`
-                w-full text-left px-4 py-3 rounded-xl text-[15px] font-semibold transition-colors
+                w-full text-left px-4 py-3 rounded-xl text-[14px] sm:text-[15px] font-semibold transition-colors leading-snug
                 ${active
                   ? "bg-primary text-primary-foreground"
                   : "text-foreground/70 hover:bg-secondary hover:text-foreground"

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown, X } from 'lucide-react';
+import { Plus, ChevronDown } from 'lucide-react';
 import { buildDemoMealPlan, DEMO_PLAN_FLAG_KEY } from '@/lib/mockMealPlan';
-import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import EnhancedRecipeCard from '../components/EnhancedRecipeCard';
 import MealTypeFilter from '../components/MealTypeFilter';
@@ -10,6 +9,7 @@ import CookingTutorialModal from '../components/CookingTutorialModal';
 import MealPlanManager from '../components/MealPlanManager';
 import MealPlanSkeleton from '../components/MealPlanSkeleton';
 import WeekProgressBar from '../components/WeekProgressBar';
+import WeekCalendar from '../components/WeekCalendar';
 import NotificationBell from '../components/NotificationBell';
 import EngagementBanners from '../components/EngagementBanners';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
@@ -19,9 +19,8 @@ import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 import { useTrial } from '@/hooks/useTrial';
 import { useAuth } from '@/lib/utils';
 import { APP_CONFIG } from '@/lib/config';
-import { COUNTRIES, getCurrencyForCountry } from '@/lib/countryCurrency';
 import Swal from 'sweetalert2';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 // Map new goal values to backend API format
 const mapGoalToBackendFormat = (goal: string | undefined): string => {
@@ -91,10 +90,6 @@ const Index = () => {
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [location, setLocation] = useState('');
-  const [budget, setBudget] = useState('');
-  const budgetCurrency = getCurrencyForCountry(location);
-  const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(false);
   const [showDemoPlan, setShowDemoPlan] = useState<boolean>(() => {
     try {
       return typeof window !== 'undefined' && sessionStorage.getItem(DEMO_PLAN_FLAG_KEY) === 'true';
@@ -106,6 +101,7 @@ const Index = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     canGenerateMealPlan,
     hasActiveSubscription,
@@ -221,6 +217,13 @@ const Index = () => {
   }, [sicknessSettings.hasSickness]);
 
   useEffect(() => {
+    if (searchParams.get('saved') === '1') {
+      setShowPlanManager(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
     if (!currentPlan) {
       setSelectedDay('Monday'); // Reset to default
       setSelectedMealType('all'); // Optionally reset meal type
@@ -235,6 +238,11 @@ const Index = () => {
       // Optionally clear other state if needed
     }
   }, [showPlanManager, currentPlan, savedPlans]);
+
+  // Helper to get day name from a Date
+  const getDayName = (date: Date) => {
+    return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()];
+  };
 
   const handleNewPlan = async () => {
     // Free-plan budget: a user gets ONE free 7-day meal plan. Once used,
@@ -328,25 +336,22 @@ const Index = () => {
       return;
     }
 
-    // Only validate ingredients/image if auto-generate is OFF
-    if (!isAutoGenerateEnabled) {
-      if (inputType === 'ingredient_list' && !ingredientList.trim()) {
-        toast({
-          title: "Error",
-          description: "Please enter your ingredients list",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (inputType === 'ingredient_list' && !ingredientList.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your ingredients list",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      if (inputType === 'image' && !selectedImage) {
-        toast({
-          title: "Error",
-          description: "Please select an image to upload",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (inputType === 'image' && !selectedImage) {
+      toast({
+        title: "Error",
+        description: "Please select an image to upload",
+        variant: "destructive",
+      });
+      return;
     }
 
     // Validate From your health profile requirements
@@ -358,31 +363,6 @@ const Index = () => {
           variant: "destructive"
         });
         return;
-      }
-    }
-
-    // Validate auto-generate requirements
-    if (isAutoGenerateEnabled) {
-      if (getSicknessInfo()) {
-        // Sick user - validate location and budget
-        if (!location.trim() || !budget.trim()) {
-          toast({
-            title: "Information Required",
-            description: "Please provide both location and budget for auto-generation",
-            variant: "destructive",
-          });
-          return;
-        }
-      } else {
-        // Healthy user - validate location and budget
-        if (!location.trim() || !budget.trim()) {
-          toast({
-            title: "Information Required",
-            description: "Please provide both location and budget for auto-generation",
-            variant: "destructive",
-          });
-          return;
-        }
       }
     }
 
@@ -469,9 +449,6 @@ const Index = () => {
           setIngredientList('');
           setSelectedImage(null);
           setImagePreview(null);
-          setLocation('');
-          setBudget('');
-          setIsAutoGenerateEnabled(false);
           setInputType('ingredient_list'); // Reset to default
 
           toast({
@@ -484,159 +461,12 @@ const Index = () => {
 
       const formData = new FormData();
 
-      if (isAutoGenerateEnabled) {
-        if (getSicknessInfo()) {
-          // Auto generate based on health profile, location, and budget
-          if (!isHealthProfileComplete()) {
-            toast({
-              title: "Complete Health Profile Required",
-              description: "Please complete your health profile in Settings to auto-generate health-aware meal plans",
-              variant: "destructive"
-            });
-            setIsLoading(false);
-            return;
-          }
-
-          // Use sick_smart_plan with budget_state=true for auto-generation
-          formData.append('image_or_ingredient_list', 'ingredient_list');
-          formData.append('ingredient_list', ''); // Empty for auto-generation
-          formData.append('age', healthProfilePayload!.age.toString());
-          formData.append('weight', healthProfilePayload!.weight.toString());
-          formData.append('height', healthProfilePayload!.height.toString());
-          formData.append('waist', healthProfilePayload!.waist.toString());
-          formData.append('gender', healthProfilePayload!.gender);
-          formData.append('activity_level', healthProfilePayload!.activity_level);
-          formData.append('condition', healthProfilePayload!.condition);
-          formData.append('goal', mapGoalToBackendFormat(healthProfilePayload!.goal));
-          formData.append('location', location);
-          formData.append('budget_state', 'true');
-          formData.append('budget', budget);
-
-          console.log('[Index] Using Sick Smart Plan (Auto) with budget_state=true');
-
-          const response = await fetch(`${APP_CONFIG.api.ai_api_url}/sick_smart_plan`, {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to auto-generate therapeutic meal plan');
-          }
-
-          const data = await response.json();
-          console.log('[Index] Auto Sick Smart Plan Response:', data);
-
-          if (data.success && data.meal_plan) {
-            // Transform the response to match our MealPlan interface
-            const transformedMealPlan: MealPlan[] = data.meal_plan.map((dayPlan: any) => ({
-              day: dayPlan.day,
-              breakfast: dayPlan.breakfast_name,
-              lunch: dayPlan.lunch_name,
-              dinner: dayPlan.dinner_name,
-              snack: dayPlan.snack_name,
-              breakfast_ingredients: dayPlan.breakfast_ingredients,
-              lunch_ingredients: dayPlan.lunch_ingredients,
-              dinner_ingredients: dayPlan.dinner_ingredients,
-              snack_ingredients: dayPlan.snack_ingredients,
-              // Enhanced nutritional data
-              breakfast_name: dayPlan.breakfast_name,
-              breakfast_calories: dayPlan.breakfast_calories,
-              breakfast_protein: dayPlan.breakfast_protein,
-              breakfast_carbs: dayPlan.breakfast_carbs,
-              breakfast_fat: dayPlan.breakfast_fat,
-              breakfast_benefit: dayPlan.breakfast_benefit,
-              lunch_name: dayPlan.lunch_name,
-              lunch_calories: dayPlan.lunch_calories,
-              lunch_protein: dayPlan.lunch_protein,
-              lunch_carbs: dayPlan.lunch_carbs,
-              lunch_fat: dayPlan.lunch_fat,
-              lunch_benefit: dayPlan.lunch_benefit,
-              dinner_name: dayPlan.dinner_name,
-              dinner_calories: dayPlan.dinner_calories,
-              dinner_protein: dayPlan.dinner_protein,
-              dinner_carbs: dayPlan.dinner_carbs,
-              dinner_fat: dayPlan.dinner_fat,
-              dinner_benefit: dayPlan.dinner_benefit,
-              snack_name: dayPlan.snack_name,
-              snack_calories: dayPlan.snack_calories,
-              snack_protein: dayPlan.snack_protein,
-              snack_carbs: dayPlan.snack_carbs,
-              snack_fat: dayPlan.snack_fat,
-              snack_benefit: dayPlan.snack_benefit,
-            }));
-
-            // Save the therapeutic meal plan with health assessment
-            const savedPlan = await saveMealPlan(
-              transformedMealPlan,
-              selectedDate,
-              data.health_assessment,
-              data.user_info,
-              { hasSickness: sicknessSettings.hasSickness, sicknessType: sicknessSettings.sicknessType }
-            );
-
-            setShowInputModal(false);
-            setIngredientList('');
-            setSelectedImage(null);
-            setImagePreview(null);
-            setLocation('');
-            setBudget('');
-            setIsAutoGenerateEnabled(false);
-
-            toast({
-              title: "Auto-Generated Therapeutic Plan Created!",
-              description: `Your location and budget-based meal plan for ${savedPlan?.name} has been created with nutritional guidance.`,
-            });
-            return;
-          }
-        } else {
-          // Auto generate based on location and budget only
-          formData.append('location', location);
-          formData.append('budget', budget);
-          
-          const response = await fetch(`${APP_CONFIG.api.ai_api_url}/auto_generate_plan`, {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to generate meal plan');
-          }
-
-          const data = await response.json();
-          console.log('[Index] Auto Healthy API Response:', data);
-          console.log('[Index] Meal Plan Data:', data.meal_plan);
-
-          // Save the new meal plan and await the result
-          const savedPlan = await saveMealPlan(
-            data.meal_plan,
-            selectedDate,
-            undefined,
-            undefined,
-            { hasSickness: sicknessSettings.hasSickness, sicknessType: sicknessSettings.sicknessType }
-          );
-
-          setShowInputModal(false);
-          setIngredientList('');
-          setSelectedImage(null);
-          setImagePreview(null);
-          setLocation('');
-          setBudget('');
-          setIsAutoGenerateEnabled(false);
-
-          toast({
-            title: "Success!",
-            description: `Your auto-generated meal plan for ${savedPlan?.name} has been created and saved!`,
-          });
-          return;
-        }
-      }
-
       // Regular meal plan generation
       formData.append('image_or_ingredient_list', inputType);
 
       if (inputType === 'ingredient_list') {
         formData.append('ingredient_list', ingredientList);
-      } else {
+      } else if (inputType === 'image') {
         formData.append('image', selectedImage!);
       }
 
@@ -767,9 +597,6 @@ const Index = () => {
         setIngredientList('');
         setSelectedImage(null);
         setImagePreview(null);
-        setLocation('');
-        setBudget('');
-        setIsAutoGenerateEnabled(false);
 
         Swal.fire({
           icon: 'success',
@@ -837,18 +664,20 @@ const Index = () => {
     }
   };
 
-  const handleRecipeClick = (recipeName: string, mealType: string) => {
+  const handleRecipeClick = (recipeName: string, mealType: string, recipeIngredients?: string[]) => {
     if (!displayPlan) return;
 
     // Extract clean food name for tutorial content
     const cleanName = recipeName.replace(/\s*\(buy:[^)]*\)/, '').trim();
 
-    // Get ingredients for the selected meal type
+    // Prefer ingredients from the recipe card; fall back to the day plan fields
     const mealPlanArr = Array.isArray(displayPlan.mealPlan) ? displayPlan.mealPlan : [];
     const dayPlan = mealPlanArr.find(plan => plan.day === selectedDay);
-    let ingredients: string[] = [];
+    let ingredients: string[] = Array.isArray(recipeIngredients)
+      ? recipeIngredients.filter(Boolean)
+      : [];
 
-    if (dayPlan) {
+    if (ingredients.length === 0 && dayPlan) {
       switch (mealType) {
         case 'breakfast':
           ingredients = dayPlan.breakfast_ingredients || [];
@@ -864,6 +693,11 @@ const Index = () => {
           break;
       }
     }
+
+    // Keep only real ingredient strings
+    ingredients = ingredients
+      .map((item) => (typeof item === 'string' ? item.trim() : String(item || '').trim()))
+      .filter(Boolean);
 
     console.log('[Index] Recipe clicked:', { cleanName, mealType, ingredients });
     setSelectedRecipe(cleanName);
@@ -914,6 +748,7 @@ const Index = () => {
     // Include nutritional data if current health settings indicate sickness
     const shouldIncludeNutritionData = sicknessSettings.hasSickness;
 
+    // Always pass through ingredients when present — cooking instructions API requires them
     const recipes = [
       {
         title: extractFoodName(dayPlan.breakfast),
@@ -922,7 +757,7 @@ const Index = () => {
         rating: 5,
         originalTitle: dayPlan.breakfast, // Keep original for display
         name: shouldIncludeNutritionData ? (dayPlan.breakfast_name || extractFoodName(dayPlan.breakfast)) : undefined,
-        ingredients: shouldIncludeNutritionData ? (dayPlan.breakfast_ingredients || []) : undefined,
+        ingredients: dayPlan.breakfast_ingredients || [],
         calories: shouldIncludeNutritionData ? dayPlan.breakfast_calories : undefined,
         protein: shouldIncludeNutritionData ? dayPlan.breakfast_protein : undefined,
         carbs: shouldIncludeNutritionData ? dayPlan.breakfast_carbs : undefined,
@@ -936,7 +771,7 @@ const Index = () => {
         rating: 4,
         originalTitle: dayPlan.lunch,
         name: shouldIncludeNutritionData ? (dayPlan.lunch_name || extractFoodName(dayPlan.lunch)) : undefined,
-        ingredients: shouldIncludeNutritionData ? (dayPlan.lunch_ingredients || []) : undefined,
+        ingredients: dayPlan.lunch_ingredients || [],
         calories: shouldIncludeNutritionData ? dayPlan.lunch_calories : undefined,
         protein: shouldIncludeNutritionData ? dayPlan.lunch_protein : undefined,
         carbs: shouldIncludeNutritionData ? dayPlan.lunch_carbs : undefined,
@@ -950,7 +785,7 @@ const Index = () => {
         rating: 5,
         originalTitle: dayPlan.dinner,
         name: shouldIncludeNutritionData ? (dayPlan.dinner_name || extractFoodName(dayPlan.dinner)) : undefined,
-        ingredients: shouldIncludeNutritionData ? (dayPlan.dinner_ingredients || []) : undefined,
+        ingredients: dayPlan.dinner_ingredients || [],
         calories: shouldIncludeNutritionData ? dayPlan.dinner_calories : undefined,
         protein: shouldIncludeNutritionData ? dayPlan.dinner_protein : undefined,
         carbs: shouldIncludeNutritionData ? dayPlan.dinner_carbs : undefined,
@@ -966,7 +801,7 @@ const Index = () => {
         rating: 4,
         originalTitle: dayPlan.snack,
         name: shouldIncludeNutritionData ? (dayPlan.snack_name || extractFoodName(dayPlan.snack)) : undefined,
-        ingredients: shouldIncludeNutritionData ? (dayPlan.snack_ingredients || []) : undefined,
+        ingredients: dayPlan.snack_ingredients || [],
         calories: shouldIncludeNutritionData ? dayPlan.snack_calories : undefined,
         protein: shouldIncludeNutritionData ? dayPlan.snack_protein : undefined,
         carbs: shouldIncludeNutritionData ? dayPlan.snack_carbs : undefined,
@@ -979,33 +814,20 @@ const Index = () => {
       : recipes.filter(recipe => recipe.type === selectedMealType);
   };
 
-  // Helper to get day name from a Date
-  const getDayName = (date: Date) => {
-    return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()];
-  };
-
-  // Update setSelectedDate to also set selectedDay
-  const handleDateChange = (date: Date) => {
-    setSelectedDate(date);
-    setSelectedDay(getDayName(date));
-  };
-
-
-  // Format date range for display
   const formatDateRange = () => {
     if (displayPlan) {
       const start = new Date(displayPlan.startDate);
       const end = new Date(start);
       end.setDate(end.getDate() + 6);
-      
+
       const formatDate = (d: Date) => {
         const day = d.getDate();
-        const suffix = day === 1 || day === 21 || day === 31 ? 'st' : 
-                      day === 2 || day === 22 ? 'nd' : 
+        const suffix = day === 1 || day === 21 || day === 31 ? 'st' :
+                      day === 2 || day === 22 ? 'nd' :
                       day === 3 || day === 23 ? 'rd' : 'th';
         return d.toLocaleDateString('en-US', { month: 'short' }) + ' ' + day + suffix;
       };
-      
+
       return formatDate(start) + ' - ' + formatDate(end);
     }
     return weekDates.name;
@@ -1194,7 +1016,7 @@ const Index = () => {
                           carbs={recipe.carbs}
                           fat={recipe.fat}
                           benefit={recipe.benefit}
-                          onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
+                          onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type, recipe.ingredients)}
                           mealPlanId={isDemo ? undefined : displayPlan?.id}
                           day={selectedDay}
                           isCooked={isCooked}
@@ -1212,7 +1034,7 @@ const Index = () => {
                         time={recipe.time}
                         rating={recipe.rating}
                         mealType={mealType}
-                        onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
+                        onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type, recipe.ingredients)}
                         mealPlanId={isDemo ? undefined : displayPlan?.id}
                         day={selectedDay}
                         isCooked={isCooked}
@@ -1227,23 +1049,24 @@ const Index = () => {
           ) : (
             mealPlansInitialized && !mealPlansLoading ? (
               <div className="bg-card rounded-2xl p-6 sm:p-8 md:p-12 text-center shadow-soft border border-border">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-leaf-soft rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-                  <ChefHat className="w-8 h-8 sm:w-10 sm:h-10 text-leaf" />
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">No Meal Plan Selected</h3>
-                <p className="text-sm sm:text-base text-gray-500 mb-6 sm:mb-8 max-w-md mx-auto">Create a new meal plan or select an existing one to get started with your health journey!</p>
+                <h3 className="font-display text-lg sm:text-xl font-bold text-foreground mb-2 tracking-tight">
+                  No meal plan selected
+                </h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 max-w-md mx-auto">
+                  Create a new meal plan or select an existing one to get started.
+                </p>
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
                   <button
                     onClick={handleNewPlan}
-                    className="bg-primary text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:bg-blue-deep transition-all duration-200 shadow-sm hover:shadow-md text-sm sm:text-base"
+                    className="bg-primary text-primary-foreground px-6 sm:px-8 py-2.5 sm:py-3 rounded-full font-semibold hover:bg-blue-deep transition-colors text-sm sm:text-base"
                   >
-                    Create New Plan
+                    Create new plan
                   </button>
                   <button
                     onClick={() => setShowPlanManager(true)}
-                    className="bg-gray-100 text-gray-700 px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:bg-gray-200 transition-all duration-200 text-sm sm:text-base"
+                    className="bg-secondary text-foreground px-6 sm:px-8 py-2.5 sm:py-3 rounded-full font-semibold hover:bg-muted transition-colors text-sm sm:text-base border border-border"
                   >
-                    View Saved Plans
+                    View saved plans
                   </button>
                 </div>
               </div>
@@ -1286,287 +1109,178 @@ const Index = () => {
 
       {/* Input Modal - responsive */}
       {showInputModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto my-auto">
+        <div className="fixed inset-0 bg-foreground/40 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-card rounded-2xl border border-border shadow-elevated p-4 sm:p-6 md:p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold text-[#2D3436]">Create Your Meal Plan</h2>
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+                Create your meal plan
+              </h2>
               <button
                 onClick={() => setShowInputModal(false)}
-                className="text-[#1e293b] hover:text-primary transition-colors text-2xl sm:text-3xl leading-none"
+                className="text-muted-foreground hover:text-foreground transition-colors text-2xl sm:text-3xl leading-none"
+                aria-label="Close"
               >
-                ✕
+                ×
               </button>
             </div>
 
             {/* Week Selection */}
-            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <label className="block text-sm font-semibold text-[#2D3436] mb-2">
-                Select Week
+            <div className="mb-4 sm:mb-6">
+              <label className="block text-sm font-semibold text-foreground mb-2">
+                Select week
               </label>
-              <input
-                type="date"
-                value={selectedDate.toISOString().split('T')[0]}
-                onChange={(e) => handleDateChange(new Date(e.target.value))}
-                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:border-primary focus:outline-none text-sm sm:text-base"
+              <WeekCalendar
+                selectedDate={selectedDate}
+                onSelectDate={(date) => {
+                  setSelectedDate(date);
+                  setSelectedDay(getDayName(date));
+                }}
               />
-              <p className="text-xs sm:text-sm text-[#1e293b] mt-2">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                 Creating plan for: {weekDates.name}
               </p>
             </div>
 
-            {/* Auto-Generate Toggle */}
-            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between gap-2 sm:gap-3">
-                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                  <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 text-[#2D3436] flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-xs sm:text-sm font-semibold text-[#2D3436]"> Auto Generate with Budget & Location</h3>
-                    <p className="text-[10px] sm:text-xs text-[#1e293b] truncate">
-                      {getSicknessInfo()
-                        ? `Based on your health condition: ${getSicknessInfo()?.sicknessType}`
-                        : 'Based on location and budget preferences'
-                      }
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsAutoGenerateEnabled(!isAutoGenerateEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${isAutoGenerateEnabled ? 'bg-primary' : 'bg-gray-300'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAutoGenerateEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-            </div>
-
             {/* Health Profile Indicator */}
             {getSicknessInfo() && (
-              <div className={`mb-6 p-4 rounded-lg ${isHealthProfileComplete()
-                ? 'bg-gradient-to-r from-blue-50 to-green-50 border-2 border-primary/25'
-                : 'bg-orange-50 border border-orange-200'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  {isHealthProfileComplete() ? (
-                    <>
-                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                      <span className="text-sm font-semibold text-green-900">Personalized nutrition plan</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                      <span className="text-sm font-semibold text-orange-800">Health-aware meal planning</span>
-                    </>
-                  )}
+              <div className={`mb-6 p-4 rounded-2xl border ${isHealthProfileComplete()
+                ? 'bg-leaf-soft border-leaf/20'
+                : 'bg-secondary border-border'}`}>
+                <div className="mb-2">
+                  <span className="text-sm font-semibold text-foreground">
+                    {isHealthProfileComplete()
+                      ? 'Personalized nutrition plan'
+                      : 'Health-aware meal planning'}
+                  </span>
                 </div>
                 {isHealthProfileComplete() ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-green-800">
-                      Your complete health profile will generate a <strong>personalized meal plan</strong> with:
-                    </p>
-                    <ul className="text-xs text-green-700 space-y-1 ml-4">
-                      <li>• Full nutritional breakdown (calories, protein, carbs, fats)</li>
-                      <li>• Health assessment (WHtR, BMR, daily calorie needs)</li>
-                      <li>• Condition-specific health benefits for each meal</li>
-                      <li>• Personalized for: <strong>{getSicknessInfo()?.sicknessType}</strong></li>
-                    </ul>
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Your health profile will generate a personalized meal plan for{' '}
+                    <strong className="text-foreground">{getSicknessInfo()?.sicknessType}</strong>.
+                  </p>
                 ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-orange-700">
-                      Your meal plan will be customized for: <strong>{getSicknessInfo()?.sicknessType}</strong>
-                    </p>
-                    <p className="text-xs text-orange-600">
-                      💡 <strong>Tip:</strong> Complete your full health profile in Settings to unlock personalized nutrition plans.
-                    </p>
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Your meal plan will be customized for:{' '}
+                    <strong className="text-foreground">{getSicknessInfo()?.sicknessType}</strong>
+                  </p>
                 )}
               </div>
             )}
 
-            {/* Toggle Buttons */}
-            {!isAutoGenerateEnabled && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+            {/* Input method */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+              <button
+                type="button"
+                onClick={() => setInputType('ingredient_list')}
+                className={`p-5 rounded-2xl border transition-all text-left ${inputType === 'ingredient_list'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-border bg-card text-foreground hover:border-primary/40'}`}
+              >
+                <div className="font-semibold text-lg">Type ingredients</div>
+                <div className="text-sm opacity-90 mt-1">Enter manually</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInputType('image')}
+                className={`p-5 rounded-2xl border transition-all text-left ${inputType === 'image'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-border bg-card text-foreground hover:border-primary/40'}`}
+              >
+                <div className="font-semibold text-lg">Upload image</div>
+                <div className="text-sm opacity-90 mt-1">Take a photo</div>
+              </button>
+
+              {getSicknessInfo() && (
                 <button
-                  onClick={() => setInputType('ingredient_list')}
-                  className={`p-6 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
-                    ? 'border-blue-500 bg-primary text-white'
-                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-primary/50'}`}
+                  type="button"
+                  onClick={() => setInputType('auto_medical')}
+                  className={`p-5 rounded-2xl border transition-all text-left sm:col-span-2 ${inputType === 'auto_medical'
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border bg-card text-foreground hover:border-primary/40'}`}
                 >
-                  <div className="flex items-center justify-center">
-                    <List className="w-6 h-6 mr-4" />
-                    <div>
-                      <div className="font-semibold text-lg">Type Ingredients</div>
-                      <div className="text-sm opacity-90">Enter manually</div>
-                    </div>
+                  <div className="font-semibold">From your health profile</div>
+                  <div className="text-sm opacity-90 mt-1">
+                    {isHealthProfileComplete() ? 'Auto-generate from your saved health info' : 'Complete your profile in Health info first'}
                   </div>
                 </button>
-
-                <button
-                  onClick={() => setInputType('image')}
-                  className={`p-6 rounded-xl border-2 transition-all ${inputType === 'image'
-                    ? 'border-blue-500 bg-primary text-white'
-                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-primary/50'}`}
-                >
-                  <div className="flex items-center justify-center">
-                    <Camera className="w-6 h-6 mr-4" />
-                    <div>
-                      <div className="font-semibold text-lg">Upload Image</div>
-                      <div className="text-sm opacity-90">Take a photo</div>
-                    </div>
-                  </div>
-                </button>
-
-                {getSicknessInfo() && (
-                  <button
-                    onClick={() => setInputType('auto_medical')}
-                    className={`p-4 rounded-xl border-2 transition-all ${inputType === 'auto_medical'
-                      ? 'border-green-500 bg-green-500 text-white'
-                      : isHealthProfileComplete()
-                        ? 'border-green-200 bg-leaf-soft text-green-800 hover:border-green-400'
-                        : 'border-orange-200 bg-secondary text-orange-800 hover:border-orange-400'}`}
-                  >
-                    <div className="flex items-center justify-center">
-                      
-                      <div>
-                        <div className="font-semibold">From your health profile</div>
-                        <div className="text-sm opacity-90">
-                          {isHealthProfileComplete() ? 'Auto-generate' : 'Complete profile needed'}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                )}
-              </div>
-            )}
+              )}
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {isAutoGenerateEnabled ? (
-                <div className="space-y-6">
-                  <div className={`p-4 border rounded-xl ${getSicknessInfo() ? 'bg-green-50 border-green-200' : 'bg-accent border-primary/20'}`}>
-                    <div className="flex items-center gap-2 mb-3">
-                      {getSicknessInfo() ? (
-                        <Utensils className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <ChefHat className="w-5 h-5 text-primary" />
-                      )}
-                      <h3 className={`text-lg font-semibold ${getSicknessInfo() ? 'text-green-800' : 'text-primary'}`}>
-                        Auto Generate with Budget & Location
-                      </h3>
-                    </div>
-                    <p className={`text-sm ${getSicknessInfo() ? 'text-green-700' : 'text-primary'}`}>
-                      {getSicknessInfo()
-                        ? `We'll create a personalized meal plan based on your health condition: ${getSicknessInfo()?.sicknessType}`
-                        : "We'll create a personalized meal plan based on your location and budget preferences."}
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">Your Location</label>
-                      <select
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-primary focus:outline-none"
-                        disabled={isLoading}
-                      >
-                        <option value="">Select a country</option>
-                        {COUNTRIES.map(country => (
-                          <option key={country} value={country}>{country}</option>
-                        ))}
-                      </select>
-                      <p className="text-sm text-[#1e293b] mt-1">This helps us suggest locally available ingredients</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">Weekly Budget</label>
-                      <div className="flex items-stretch rounded-lg border border-gray-300 focus-within:border-primary overflow-hidden">
-                        <span className="flex items-center px-3 bg-gray-50 text-sm font-semibold text-[#2D3436] border-r border-gray-300 whitespace-nowrap">
-                          {budgetCurrency.symbol}
-                        </span>
-                        <input
-                          type="number"
-                          value={budget}
-                          onChange={(e) => setBudget(e.target.value)}
-                          placeholder="e.g., 150"
-                          className="w-full p-3 focus:outline-none"
-                          disabled={isLoading}
-                          min="0"
-                          step="any"
-                        />
-                      </div>
-                      <p className="text-sm text-[#1e293b] mt-1">
-                        {location
-                          ? `Your weekly budget in ${budgetCurrency.name} (${budgetCurrency.code})`
-                          : 'Select a location to set your local currency'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : inputType === 'auto_medical' ? (
-                <div className="space-y-6">
+              {inputType === 'auto_medical' ? (
+                <div className="space-y-4">
                   {isHealthProfileComplete() ? (
-                    <div className="p-6 bg-leaf-soft border border-leaf/20 rounded-xl">
-                      <div className="flex items-center gap-3 mb-4">
-                        
-                        <div>
-                          <h3 className="text-xl font-bold text-green-900">From your health profile Nutrition Plan</h3>
-                          <p className="text-sm text-green-700">Personalized meal plans with detailed nutrition</p>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-accent border border-primary/25 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold text-foreground">What you'll get</span>
-                        </div>
-                        <ul className="text-sm text-primary space-y-1">
-                          <li>• Complete 7-day meal plan with exact portions</li>
-                          <li>• Detailed nutritional breakdown</li>
-                          <li>• Health assessment (WHtR, BMR, daily calorie needs)</li>
-                          <li>• Condition-specific health benefits</li>
-                        </ul>
-                      </div>
+                    <div className="p-5 bg-secondary border border-border rounded-2xl">
+                      <h3 className="text-base font-semibold text-foreground mb-1">
+                        From your health profile
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Personalized meal plans with nutritional breakdown and condition-specific benefits.
+                      </p>
+                      <ul className="text-sm text-muted-foreground space-y-1.5">
+                        <li>• Complete 7-day meal plan with portions</li>
+                        <li>• Nutritional breakdown per meal</li>
+                        <li>• Health assessment (WHtR, BMR, daily calories)</li>
+                        <li>• Condition-specific health benefits</li>
+                      </ul>
                     </div>
                   ) : (
-                    <div className="p-6 bg-secondary border border-border rounded-xl">
-                      <div className="flex items-center gap-3 mb-4">
-                        
-                        <div>
-                          <h3 className="text-xl font-bold text-orange-900">Complete Your Health Profile</h3>
-                          <p className="text-sm text-orange-700">Go to Settings to complete your profile</p>
-                        </div>
-                      </div>
+                    <div className="p-5 bg-secondary border border-border rounded-2xl">
+                      <h3 className="text-base font-semibold text-foreground mb-1">
+                        Complete your health profile
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Go to Health info to finish your profile before using this option.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowInputModal(false);
+                          navigate('/settings');
+                        }}
+                        className="mt-4 text-primary font-medium hover:underline text-sm"
+                      >
+                        Open Health info
+                      </button>
                     </div>
                   )}
                 </div>
               ) : inputType === 'ingredient_list' ? (
                 <div>
-                  <label className="block text-lg font-semibold text-[#2D3436] mb-3">List your ingredients</label>
+                  <label className="block text-sm font-semibold text-foreground mb-2">
+                    List your ingredients
+                  </label>
                   <textarea
                     value={ingredientList}
                     onChange={(e) => setIngredientList(e.target.value)}
                     placeholder="e.g., tomatoes, onions, beef, rice, bell peppers, garlic, olive oil..."
-                    className="w-full h-32 p-4 border-2 border-[#e2e8f0] rounded-xl focus:border-primary focus:outline-none transition-colors resize-none"
+                    className="w-full h-32 p-4 border border-border rounded-xl bg-background focus:border-primary focus:outline-none transition-colors resize-none"
                     disabled={isLoading}
                   />
                 </div>
               ) : inputType === 'image' ? (
                 <div>
-                  <label className="block text-lg font-semibold text-[#2D3436] mb-3">Upload an image of your ingredients</label>
-                  <div className="border-2 border-dashed border-[#e2e8f0] rounded-xl p-8 text-center hover:border-blue-500 transition-colors">
+                  <label className="block text-sm font-semibold text-foreground mb-2">
+                    Upload an image of your ingredients
+                  </label>
+                  <div className="border border-dashed border-border rounded-2xl p-8 text-center hover:border-primary/50 transition-colors bg-secondary/40">
                     {imagePreview ? (
                       <div className="space-y-4">
-                        <img src={imagePreview} alt="Preview" className="max-w-full h-48 object-cover mx-auto rounded-lg" />
+                        <img src={imagePreview} alt="Preview" className="max-w-full h-48 object-cover mx-auto rounded-xl" />
                         <button
                           type="button"
                           onClick={() => { setSelectedImage(null); setImagePreview(null); }}
-                          className="text-blue-500 hover:text-primary"
+                          className="text-primary font-medium hover:underline text-sm"
                         >
                           Choose different image
                         </button>
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <Upload className="w-12 h-12 text-[#e2e8f0] mx-auto" />
                         <div>
-                          <p className="text-[#2D3436] font-medium">Click to upload</p>
-                          <p className="text-[#1e293b] text-sm">PNG, JPG, JPEG up to 10MB</p>
+                          <p className="text-foreground font-medium">Select an image</p>
+                          <p className="text-muted-foreground text-sm mt-1">PNG, JPG, JPEG up to 10MB</p>
                         </div>
                         <input
                           type="file"
@@ -1578,9 +1292,9 @@ const Index = () => {
                         />
                         <label
                           htmlFor="file-upload"
-                          className="inline-block px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-deep transition-colors cursor-pointer"
+                          className="inline-block px-6 py-2.5 bg-primary text-primary-foreground rounded-full hover:bg-blue-deep transition-colors cursor-pointer font-semibold text-sm"
                         >
-                          Select Image
+                          Select image
                         </label>
                       </div>
                     )}
@@ -1591,18 +1305,15 @@ const Index = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 sm:py-4 bg-primary text-white font-bold text-base sm:text-lg rounded-lg sm:rounded-xl hover:bg-blue-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                className="w-full py-3.5 bg-primary text-primary-foreground font-semibold text-base rounded-full hover:bg-blue-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isLoading ? (
                   <>
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-2 sm:mr-3"></div>
-                    <span className="text-sm sm:text-base">{isAutoGenerateEnabled ? 'Auto-Generating Plan...' : 'Generating Plan...'}</span>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3" />
+                    <span>Generating plan…</span>
                   </>
                 ) : (
-                  <>
-                    <Utensils className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
-                    <span className="text-sm sm:text-base">{isAutoGenerateEnabled ? 'Auto-Generate Meal Plan' : 'Generate My Meal Plan'}</span>
-                  </>
+                  <span>Generate meal plan</span>
                 )}
               </button>
             </form>

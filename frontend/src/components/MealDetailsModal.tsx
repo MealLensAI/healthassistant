@@ -19,6 +19,12 @@ interface MealDetailsModalProps {
   onGetCookingInstructions: () => void
 }
 
+const stripEmoji = (value: string) =>
+  value
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
 const MealDetailsModal: React.FC<MealDetailsModalProps> = ({
   isOpen,
   onClose,
@@ -28,78 +34,82 @@ const MealDetailsModal: React.FC<MealDetailsModalProps> = ({
   if (!isOpen || !meal) return null
 
   const mealName = meal.food_suggestions?.[0] || "Health Meal"
+  const benefit = stripEmoji(meal.health_benefit || '')
+
+  const nutrition = [
+    { label: 'Calories', value: `${meal.calories}` },
+    { label: 'Protein', value: `${meal.protein}g` },
+    { label: 'Carbs', value: `${meal.carbs}g` },
+    { label: 'Fat', value: `${meal.fat}g` },
+  ]
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">{mealName}</h2>
-          <button 
+    <div className="fixed inset-0 bg-foreground/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-card rounded-2xl max-w-lg w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto border border-border shadow-elevated">
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <h2 className="font-display text-xl font-bold text-foreground tracking-tight">
+            {mealName}
+          </h2>
+          <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Close"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Health Benefit */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">Health Benefit:</h3>
-          <p className="text-gray-600 leading-relaxed">{meal.health_benefit}</p>
-        </div>
-
-        {/* Nutrition Information */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Nutrition Information:</h3>
-          
-          {/* Nutrition Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Calories */}
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-orange-600">{meal.calories}</p>
-              <p className="text-sm text-orange-500 font-medium">Calories</p>
-            </div>
-
-            {/* Protein */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-blue-600">{meal.protein}g</p>
-              <p className="text-sm text-blue-500 font-medium">Protein</p>
-            </div>
-
-            {/* Carbs */}
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-green-600">{meal.carbs}g</p>
-              <p className="text-sm text-green-500 font-medium">Carbs</p>
-            </div>
-
-            {/* Fat */}
-            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-purple-600">{meal.fat}g</p>
-              <p className="text-sm text-purple-500 font-medium">Fat</p>
-            </div>
+        {benefit && (
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-leaf mb-2">
+              Health benefit
+            </h3>
+            <p className="text-muted-foreground leading-relaxed text-[15px]">
+              {benefit}
+            </p>
           </div>
-        </div>
+        )}
 
-        {/* Ingredients Used */}
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">Ingredients Used:</h3>
-          <div className="space-y-2">
-            {meal.ingredients_used.map((ingredient, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                <span className="text-gray-700">{ingredient}</span>
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-leaf mb-3">
+            Nutrition
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {nutrition.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-xl border border-border bg-secondary px-4 py-4 text-center"
+              >
+                <p className="text-2xl font-bold text-foreground tracking-tight">
+                  {item.value}
+                </p>
+                <p className="text-xs text-muted-foreground font-medium mt-1">
+                  {item.label}
+                </p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Get Cooking Instructions Button */}
+        <div className="mb-8">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-leaf mb-3">
+            Ingredients
+          </h3>
+          <ul className="space-y-2.5">
+            {meal.ingredients_used.map((ingredient, index) => (
+              <li key={index} className="flex items-start gap-3 text-[15px] text-foreground">
+                <span className="mt-2 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                <span>{ingredient}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <button
           onClick={onGetCookingInstructions}
-          className="w-full py-4 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200 shadow-lg"
+          className="w-full py-3.5 bg-primary text-primary-foreground rounded-full font-semibold hover:bg-blue-deep transition-colors"
         >
-          Get Cooking Instructions
+          Get cooking instructions
         </button>
       </div>
     </div>

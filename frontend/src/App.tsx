@@ -18,6 +18,7 @@ import { AuthProvider } from "@/lib/AuthProvider"
 import Payment from "./pages/Payment";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
+import LocationBudgetPage from "./pages/LocationBudgetPage";
 import TrialBlocker from "./components/TrialBlocker";
 import WelcomePage from "./pages/WelcomePage";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -148,6 +149,18 @@ const router = createBrowserRouter([
         <TrialBlocker>
           <MainLayout>
             <Settings />
+          </MainLayout>
+        </TrialBlocker>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/location-budget",
+    element: (
+      <ProtectedRoute>
+        <TrialBlocker>
+          <MainLayout>
+            <LocationBudgetPage />
           </MainLayout>
         </TrialBlocker>
       </ProtectedRoute>
