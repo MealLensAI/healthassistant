@@ -19,90 +19,97 @@ const LandingNavbar = () => {
   }, []);
 
   const navLinks = [
-    { name: "Conditions", href: "#conditions" },
+    { name: "Why", href: "#why" },
     { name: "Features", href: "#features" },
-    { name: "How It Works", href: "#how-it-works" },
+    { name: "How it works", href: "#how-it-works" },
+    { name: "Conditions", href: "#conditions" },
+    { name: "Who it's for", href: "#who" },
     { name: "Pricing", href: "#pricing" },
-    { name: "Organizations", href: "#organizations" },
-    { name: "About", href: "#about" },
   ];
 
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "bg-background border-b border-border py-4"
-          : "bg-background py-6"
+          ? "bg-background/90 backdrop-blur-md border-b border-border py-3"
+          : "bg-transparent py-5"
       }`}
     >
       <div className="container mx-auto px-4 lg:px-8">
         <div className="flex items-center justify-between">
-          {/* Logo */}
-          <a href="#" className="flex items-center gap-2">
-            <img 
-              src="/assets/logo.png" 
-              alt="MealLensAI" 
-              className="h-12 w-auto"
-              onError={(e) => {
-                // Fallback to text if image doesn't load
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                if (target.parentElement) {
-                  target.parentElement.innerHTML = '<span class="text-xl font-normal text-foreground">Meal<span class="text-primary">Lens</span>AI</span>';
-                }
-              }}
-            />
+          <a
+            href="#"
+            className={`font-display text-xl tracking-tight transition-colors ${
+              isScrolled ? "text-primary" : "text-white"
+            }`}
+          >
+            MealLensAI
           </a>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-8">
+          <div className="hidden lg:flex items-center gap-7">
             {navLinks.map((link) => (
               <a
                 key={link.name}
                 href={link.href}
-                className="text-foreground hover:text-primary text-sm font-normal transition-colors"
+                className={`text-sm font-medium transition-colors ${
+                  isScrolled
+                    ? "text-foreground/80 hover:text-primary"
+                    : "text-white/85 hover:text-white"
+                }`}
               >
                 {link.name}
               </a>
             ))}
           </div>
 
-          {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-3">
             {!user ? (
               <>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-foreground hover:text-primary text-sm font-normal"
-                  onClick={() => navigate('/login')}
-                >
-                  Sign In
-                </Button>
-                <Button 
-                  variant="hero" 
+                <Button
+                  variant="ghost"
                   size="sm"
-                  className="bg-primary hover:bg-blue-deep text-white"
-                  onClick={() => navigate('/signup')}
+                  className={
+                    isScrolled
+                      ? "text-foreground hover:text-primary"
+                      : "text-white hover:text-white hover:bg-white/10"
+                  }
+                  onClick={() => navigate("/login")}
                 >
-                  Get Started
+                  Sign in
+                </Button>
+                <Button
+                  variant="hero"
+                  size="sm"
+                  className={
+                    isScrolled
+                      ? "bg-primary hover:bg-blue-deep text-white"
+                      : "bg-white text-primary hover:bg-white/90"
+                  }
+                  onClick={() => navigate("/signup")}
+                >
+                  Start free
                 </Button>
               </>
             ) : (
-              <Button 
-                variant="hero" 
+              <Button
+                variant="hero"
                 size="sm"
-                className="bg-primary hover:bg-blue-deep text-white"
-                onClick={() => navigate('/planner')}
+                className={
+                  isScrolled
+                    ? "bg-primary hover:bg-blue-deep text-white"
+                    : "bg-white text-primary hover:bg-white/90"
+                }
+                onClick={() => navigate("/planner")}
               >
-                Go to App
+                Go to app
               </Button>
             )}
           </div>
 
-          {/* Mobile Menu Button */}
           <button
-            className="lg:hidden p-2 text-foreground"
+            className={`lg:hidden p-2 ${
+              isScrolled ? "text-foreground" : "text-white"
+            }`}
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -114,15 +121,14 @@ const LandingNavbar = () => {
           </button>
         </div>
 
-        {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden mt-4 py-4 border-t border-border">
-            <div className="flex flex-col gap-4">
+          <div className="lg:hidden mt-4 py-4 border-t border-border bg-background rounded-b-2xl -mx-1 px-3">
+            <div className="flex flex-col gap-3">
               {navLinks.map((link) => (
                 <a
                   key={link.name}
                   href={link.href}
-                  className="text-foreground hover:text-primary font-normal py-2 transition-colors"
+                  className="text-foreground hover:text-primary font-medium py-2 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {link.name}
@@ -131,37 +137,37 @@ const LandingNavbar = () => {
               <div className="flex flex-col gap-3 pt-4 border-t border-border">
                 {!user ? (
                   <>
-                    <Button 
-                      variant="outline" 
-                      className="w-full border-border text-foreground hover:bg-accent"
+                    <Button
+                      variant="outline"
+                      className="w-full"
                       onClick={() => {
                         setIsMobileMenuOpen(false);
-                        navigate('/login');
+                        navigate("/login");
                       }}
                     >
-                      Sign In
+                      Sign in
                     </Button>
-                    <Button 
-                      variant="hero" 
+                    <Button
+                      variant="hero"
                       className="w-full bg-primary hover:bg-blue-deep text-white"
                       onClick={() => {
                         setIsMobileMenuOpen(false);
-                        navigate('/signup');
+                        navigate("/signup");
                       }}
                     >
-                      Get Started
+                      Start free
                     </Button>
                   </>
                 ) : (
-                  <Button 
-                    variant="hero" 
+                  <Button
+                    variant="hero"
                     className="w-full bg-primary hover:bg-blue-deep text-white"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
-                      navigate('/planner');
+                      navigate("/planner");
                     }}
                   >
-                    Go to App
+                    Go to app
                   </Button>
                 )}
               </div>

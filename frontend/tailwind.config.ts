@@ -20,7 +20,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Google Sans', 'Roboto', 'system-ui', 'sans-serif'],
+        sans: ['Nunito Sans', 'Nunito', 'system-ui', 'sans-serif'],
+        display: ['Nunito', 'Nunito Sans', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -60,6 +61,11 @@ export default {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
         },
+        leaf: {
+          DEFAULT: "hsl(var(--leaf))",
+          foreground: "hsl(var(--leaf-foreground))",
+          soft: "hsl(var(--leaf-soft))",
+        },
         blue: {
           DEFAULT: "hsl(var(--blue))",
           deep: "hsl(var(--blue-deep))",
@@ -70,6 +76,11 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        soft: "var(--shadow-soft)",
+        card: "var(--shadow-card)",
+        elevated: "var(--shadow-elevated)",
       },
       keyframes: {
         "accordion-down": {

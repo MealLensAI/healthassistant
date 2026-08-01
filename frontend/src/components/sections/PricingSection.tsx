@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Check, Zap, Clock, Heart, CalendarDays, Calendar } from "lucide-react";
+import { Check } from "lucide-react";
 
 const PRICING_CARDS = [
   {
@@ -16,9 +16,8 @@ const PRICING_CARDS = [
       "Chronic condition meal planning",
       "Budget & location-based plans",
     ],
-    cta: "Get Started",
+    cta: "Start free",
     highlight: false,
-    icon: Zap,
   },
   {
     id: "weekly",
@@ -32,9 +31,8 @@ const PRICING_CARDS = [
       "Unlimited health meal generations",
       "Cancel anytime",
     ],
-    cta: "Get Started",
+    cta: "Get started",
     highlight: false,
-    icon: Clock,
   },
   {
     id: "monthly",
@@ -49,41 +47,38 @@ const PRICING_CARDS = [
       "Priority support",
       "Cancel anytime",
     ],
-    cta: "Get Started",
+    cta: "Get started",
     highlight: true,
-    icon: Heart,
   },
   {
     id: "six_months",
     name: "6 Months",
     price: "$120",
     period: "per 6 months",
-    description: "Commit for half a year — better value",
+    description: "Commit for half a year. Better value.",
     features: [
       "Everything in Monthly",
       "Unlimited meal plans",
       "Priority support",
       "Advanced health tracking",
     ],
-    cta: "Get Started",
+    cta: "Get started",
     highlight: false,
-    icon: CalendarDays,
   },
   {
     id: "yearly",
     name: "1 Year",
     price: "$240",
     period: "per year",
-    description: "Best value — a full year of access",
+    description: "Best value. A full year of access.",
     features: [
       "Everything in Monthly",
       "Best long-term value",
       "Priority support",
       "Advanced health tracking",
     ],
-    cta: "Get Started",
+    cta: "Get started",
     highlight: false,
-    icon: Calendar,
   },
 ];
 
@@ -91,60 +86,67 @@ const PricingSection = () => {
   const navigate = useNavigate();
 
   return (
-    <section id="pricing" className="py-24 bg-muted/30">
+    <section id="pricing" className="py-24 lg:py-28 bg-background">
       <div className="container mx-auto px-4 lg:px-8">
-        <div className="max-w-3xl mx-auto text-center mb-16">
-          <h2 className="text-3xl lg:text-5xl font-normal mb-6">
-            Simple, transparent pricing
+        <div className="max-w-2xl mx-auto text-center mb-16">
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-leaf mb-4">
+            Pricing
+          </p>
+          <h2 className="font-display text-3xl lg:text-5xl tracking-tight mb-5">
+            Simple pricing. One subscription.
           </h2>
-          <p className="text-lg text-muted-foreground">
-            Get one free 7-day meal plan when you sign up. Then choose a plan that fits — from $10/week to $240/year. One payment unlocks Cooking and Health features.
+          <p className="text-lg text-muted-foreground leading-relaxed">
+            Get one free 7-day meal plan when you sign up. Then choose a plan
+            that fits, with cooking and health features included.
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
-          {PRICING_CARDS.map((card) => {
-            const Icon = card.icon;
-            return (
-              <div
-                key={card.id}
-                className={`relative rounded-xl border bg-card p-6 sm:p-8 flex flex-col ${card.highlight
-                    ? "border-primary shadow-lg ring-2 ring-primary/20"
-                    : "border-border"
-                  }`}
-              >
-                {card.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-sm font-medium">
-                    Most popular
-                  </div>
-                )}
-                <div className="flex items-center gap-2 mb-4">
-                  <Icon className="h-6 w-6 text-primary" />
-                  <h3 className="text-xl font-semibold">{card.name}</h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-5 max-w-6xl mx-auto">
+          {PRICING_CARDS.map((card) => (
+            <div
+              key={card.id}
+              className={`relative rounded-2xl border bg-card p-6 flex flex-col ${
+                card.highlight
+                  ? "border-primary shadow-card ring-1 ring-primary/20"
+                  : "border-border"
+              }`}
+            >
+              {card.highlight && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                  Most popular
                 </div>
-                <div className="mb-2">
-                  <span className="text-3xl font-bold">{card.price}</span>
-                  <span className="text-muted-foreground ml-1">{card.period}</span>
-                </div>
-                <p className="text-sm text-muted-foreground mb-6">{card.description}</p>
-                <ul className="space-y-3 mb-8 flex-1">
-                  {card.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  variant={card.highlight ? "default" : "outline"}
-                  className="w-full"
-                  onClick={() => navigate("/signup")}
-                >
-                  {card.cta}
-                </Button>
+              )}
+              <h3 className="font-display text-xl tracking-tight mb-3">
+                {card.name}
+              </h3>
+              <div className="mb-2">
+                <span className="text-3xl font-bold tracking-tight">
+                  {card.price}
+                </span>
+                <span className="text-muted-foreground ml-1 text-sm">
+                  {card.period}
+                </span>
               </div>
-            );
-          })}
+              <p className="text-sm text-muted-foreground mb-6">
+                {card.description}
+              </p>
+              <ul className="space-y-3 mb-8 flex-1">
+                {card.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2 text-sm">
+                    <Check className="h-4 w-4 text-leaf flex-shrink-0 mt-0.5" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                variant={card.highlight ? "default" : "outline"}
+                className="w-full"
+                onClick={() => navigate("/signup")}
+              >
+                {card.cta}
+              </Button>
+            </div>
+          ))}
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-8">

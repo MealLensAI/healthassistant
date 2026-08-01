@@ -7,8 +7,8 @@ type MetaConfig = {
 }
 
 const DEFAULTS: MetaConfig = {
-    title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $20/month',
-    description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. One free 7-day meal plan, then plans from $10/week. Budget & location-based plans. One subscription unlocks Cooking + Health.',
+    title: 'MealLensAI – Eat Right for Your Condition, Effortlessly',
+    description: 'Hospitals don’t solve adherence. MealLensAI does. Cook personalized recipes, generate condition-friendly weekly plans, and scan ingredients tailored to your budget and location. Built for diabetes, ulcers, high blood pressure, and more.',
     keywords: buildKeywords(),
     url: (typeof window !== 'undefined' ? window.location.origin : '') || (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_PUBLIC_URL) || '',
     image: '/assets/images/share-image.png'
@@ -16,12 +16,12 @@ const DEFAULTS: MetaConfig = {
 
 export const ROUTE_SEO: Record<string, Partial<MetaConfig>> = {
     '/': {
-        title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $20/month',
-        description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. One free 7-day meal plan, then plans from $10/week. Budget & location-based plans. One subscription unlocks Cooking + Health.',
+        title: 'MealLensAI – Eat Right for Your Condition, Effortlessly',
+        description: 'Hospitals don’t solve adherence. MealLensAI does. Cook personalized recipes or generate weekly plans for diabetes, ulcers, high blood pressure, and more. Powered by AI.',
     },
     '/landing': {
-        title: 'MealLensAI – AI Recipe Finder & Meal Plans for Chronic Conditions | $20/month',
-        description: 'Snap ingredients, get recipes instantly. AI meal plans for diabetes, hypertension, PCOS & more. One free 7-day meal plan, then plans from $10/week. Budget & location-based plans. One subscription unlocks Cooking + Health.',
+        title: 'MealLensAI – Eat Right for Your Condition, Effortlessly',
+        description: 'Hospitals don’t solve adherence. MealLensAI does. Cook personalized recipes or generate weekly plans for diabetes, ulcers, high blood pressure, and more. Powered by AI.',
     },
     '/login': {
         title: 'Login - MealLensAI',

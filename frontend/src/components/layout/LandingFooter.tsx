@@ -2,13 +2,9 @@ const LandingFooter = () => {
   const footerLinks = {
     Product: [
       { name: "Features", href: "#features" },
-      { name: "How It Works", href: "#how-it-works" },
-      { name: "For Organizations", href: "#organizations" },
-    ],
-    Company: [
-      { name: "About", href: "#about" },
-      { name: "Blog", href: "#" },
-      { name: "Careers", href: "#" },
+      { name: "How it works", href: "#how-it-works" },
+      { name: "Pricing", href: "#pricing" },
+      { name: "Who it's for", href: "#who" },
     ],
     Legal: [
       { name: "Privacy", href: "#" },
@@ -17,47 +13,42 @@ const LandingFooter = () => {
   };
 
   return (
-    <footer className="bg-background border-t border-border py-16">
+    <footer className="bg-primary text-primary-foreground py-16">
       <div className="container mx-auto px-4 lg:px-8">
-        <div className="grid lg:grid-cols-5 gap-12 mb-12">
-          {/* Brand */}
+        <div className="grid lg:grid-cols-4 gap-12 mb-12">
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <img 
-                src="/assets/logo.png" 
-                alt="MealLensAI" 
-                className="h-10 w-auto"
-                onError={(e) => {
-                  // Fallback to text if image doesn't load
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  if (target.parentElement) {
-                    target.parentElement.innerHTML = '<p class="text-xl font-normal">Meal<span class="text-primary">Lens</span>AI</p>';
-                  }
-                }}
-              />
-            </div>
-            <p className="text-muted-foreground max-w-sm mb-4">
-              Better health through food.
+            <p className="font-display text-2xl tracking-tight mb-4">
+              MealLensAI
             </p>
-            <p className="text-sm text-muted-foreground mb-2">
+            <p className="text-primary-foreground/75 max-w-sm mb-5 leading-relaxed">
+              Manage your health through food with ease. Hospitals don&apos;t
+              solve adherence. We do.
+            </p>
+            <p className="text-sm text-primary-foreground/70 mb-1">
               meallensai@gmail.com
             </p>
-            <p className="text-sm text-muted-foreground">
-              WhatsApp or call: <a href="tel:+254748703778" className="text-primary hover:underline">+254748703778</a>
+            <p className="text-sm text-primary-foreground/70">
+              WhatsApp or call:{" "}
+              <a
+                href="tel:+254748703778"
+                className="text-white hover:underline"
+              >
+                +254748703778
+              </a>
             </p>
           </div>
 
-          {/* Links */}
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h4 className="font-semibold mb-4 text-sm">{category}</h4>
+              <h4 className="font-semibold mb-4 text-sm text-white">
+                {category}
+              </h4>
               <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.name}>
                     <a
                       href={link.href}
-                      className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+                      className="text-primary-foreground/70 hover:text-white transition-colors text-sm"
                     >
                       {link.name}
                     </a>
@@ -68,9 +59,8 @@ const LandingFooter = () => {
           ))}
         </div>
 
-        {/* Bottom */}
-        <div className="pt-8 border-t border-border">
-          <p className="text-sm text-muted-foreground">
+        <div className="pt-8 border-t border-white/15">
+          <p className="text-sm text-primary-foreground/60">
             © {new Date().getFullYear()} MealLensAI. All rights reserved.
           </p>
         </div>

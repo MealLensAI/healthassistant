@@ -1,0 +1,57 @@
+Super food app for people with chronic conditions like Diabetic, ulcers, high blood pressure etc.
+Doctors tell you to eat healthy and cut sugar. You know what to eat, you just can't do it consistently. Not because you don't care, but because changing habits is hard. Following meal plans feel like a chore when cooking takes time and energy you don't have.
+The issue isn't discipline it's that no solution makes eating right to manage health easy.
+Hospitals don't solve adherence. MealLensAI does.
+MealLensAI is your all in one food app for eating right, effortlessly: order health supporting meals, cook personalized recipes, generate condition friendly weekly meal plans, scan ingredients and get better food choices, get cooking instructions, enter your budget and location to get meal recommendations that fit both.
+Manage your health through food with ease, powered by AI.
+Features:
+Order Meals: Enter your location and order meals tailored to your health.
+Scan Ingredients: Snap a photo of your fridge or ingredients and get meal ideas with cooking instructions, or just order instead.
+Weekly Meal Plans: Generate condition friendly meal plans by scanning or typing ingredients, or auto-generate based on your health profile, complete with cooking instructions, or order the food directly.
+Budget & Location: Enter your budget and location to get meal plans that fit both, with the option to order instantly.
+2. Who is MealLensAI For?
+Chronic condition patients
+
+
+Nutritionist /Dietician's and Doctors
+
+
+Insurance companies
+
+
+Wellness chefs
+
+
+Chronic condition patients
+
+
+If you have a chronic condition, tell our AI your sickness… You provide our AI with your health data: (weight, age, gender, and your health condition, activity level, height and location)
+Our solution uses medical procedures to calculate your BMI, BMR, obesity level, nutrient your body need to heal and then recommends food you should eat that would help you mange your health.. which you can other or cook yourself
+For Nutritionists & Dietitian Automate manual processes
+Nutritionists and dietitians currently do all these things manually. With our product, you won't need to do everything manually. you will just use MealLensAI and it will automatically do everything for them, saving time and making them manage more users at once and focus on other things.
+Benefits
+Automated calculations
+No more manual BMI/BMR calculations for each patient.
+Monitor and track patient data and progress
+Monitor and track patient data and progress over time, saving them time.
+Manage more users at once
+Handle more patients in less time with automated processes.
+Focus on other important tasks
+AI-powered food recommendations free up time to focus on other things.
+3. For Insurance Companies
+Reduce healthcare costs
+Insurance companies need to save money. People with health insurance can use our product, and it will automatically reduce the amount of money they spend on treating people with sickness, getting them better health, and reducing the amount of costs the company spends.
+Benefits
+Lower healthcare costs
+Reduce the amount of money spent on treating people with sickness.
+Better health outcomes
+Help insured clients get better health through personalized nutrition.
+Reduced company costs
+Automatically reduce the amount of costs the company spends on healthcare claims.
+Wellness chefs: Use meallensai to manage your patient and get food needed for them and also get cooking instructions for how to cook the meals
+3. How it Works
+If you have a chronic condition, tell our plartform your sickness… You provide our plartform with your health data: (weight, age, gender, and your health condition, activity level, height and location)
+Our solution uses medical procedures to calculate your BMI, BMR, obesity level, nutrient your body need to heal and then recommends food you should eat that would help you mange your health.. which you can other or cook yourself
+
+
+

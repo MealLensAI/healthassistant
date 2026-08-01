@@ -4,23 +4,21 @@ import { useAuth } from '@/lib/utils';
 import LandingNavbar from '@/components/layout/LandingNavbar';
 import LandingFooter from '@/components/layout/LandingFooter';
 import HeroSection from '@/components/sections/HeroSection';
-import ConditionsWeSupportSection from '@/components/sections/ConditionsWeSupportSection';
+import ProblemSection from '@/components/sections/ProblemSection';
 import FeaturesSection from '@/components/sections/FeaturesSection';
 import HowItWorksSection from '@/components/sections/HowItWorksSection';
+import ConditionsWeSupportSection from '@/components/sections/ConditionsWeSupportSection';
+import AudienceSection from '@/components/sections/AudienceSection';
 import PricingSection from '@/components/sections/PricingSection';
-import OrganizationsSection from '@/components/sections/OrganizationsSection';
-import AboutSection from '@/components/sections/AboutSection';
 import CTASection from '@/components/sections/CTASection';
 
 const WelcomePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // If a logged-in user hits the landing page, redirect them to the app
   useEffect(() => {
     if (user) {
-      // Don't redirect immediately - let them see the landing page if they want
-      // They can use the "Go to App" button in the navbar
+      // Logged-in users can still view the landing page and use "Go to app"
     }
   }, [user, navigate]);
 
@@ -29,12 +27,12 @@ const WelcomePage: React.FC = () => {
       <LandingNavbar />
       <main>
         <HeroSection />
-        <ConditionsWeSupportSection />
+        <ProblemSection />
         <FeaturesSection />
         <HowItWorksSection />
+        <ConditionsWeSupportSection />
+        <AudienceSection />
         <PricingSection />
-        <OrganizationsSection />
-        <AboutSection />
         <CTASection />
       </main>
       <LandingFooter />
