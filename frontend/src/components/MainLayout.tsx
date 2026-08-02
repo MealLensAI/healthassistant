@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/lib/utils"
 import Sidebar from "./Sidebar"
+import HealthProfileGate from "./HealthProfileGate"
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth()
@@ -16,6 +17,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
       <main className="flex-1 min-h-screen w-full md:ml-[250px]">
         {children}
       </main>
+      <HealthProfileGate />
     </div>
   )
 }

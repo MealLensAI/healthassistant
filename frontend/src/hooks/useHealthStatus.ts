@@ -31,15 +31,8 @@ export const useHealthStatus = () => {
       hasSickness: hasSickness,
       sicknessType: settings.sicknessType || '',
       profileComplete: profileComplete,
-      needsHealthProfile: hasSickness && !profileComplete
-    });
-
-    console.log('🏥 Health Status:', {
-      isHealthAware: hasSickness,
-      hasSickness,
-      sicknessType: settings.sicknessType,
-      profileComplete,
-      needsHealthProfile: hasSickness && !profileComplete
+      // Personalization needs a full profile regardless of hasSickness flag
+      needsHealthProfile: !profileComplete
     });
   }, [settings, isAuthenticated, authLoading, settingsLoading, isHealthProfileComplete]);
 

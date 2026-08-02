@@ -174,6 +174,19 @@ export function useProvideAuth(): AuthContextType {
     } catch {
       // ignore storage failures
     }
+    // Allow health-profile gate to show again on next sign-in
+    try {
+      const keysToRemove: string[] = []
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i)
+        if (key && key.startsWith('meallensai_health_gate_seen_')) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach((key) => sessionStorage.removeItem(key))
+    } catch {
+      // ignore
+    }
     setUser(null)
     setToken(null)
   }, [])

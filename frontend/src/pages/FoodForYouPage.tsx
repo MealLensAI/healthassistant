@@ -346,22 +346,22 @@ const FoodForYouPage: React.FC = () => {
     }
 
     if (!isHealthProfileComplete()) {
-      toast({
-        title: 'Complete Health Profile Required',
-        description:
-          'Please complete your health profile in Health info to get personalized food.',
-        variant: 'destructive',
+      Swal.fire({
+        icon: 'info',
+        title: 'Health Profile Required',
+        text: 'Please complete your health profile in Health info to get personalized food.',
+        confirmButtonColor: '#0E3E77',
       });
       return;
     }
 
     const healthProfilePayload = getHealthProfilePayload();
     if (!healthProfilePayload) {
-      toast({
-        title: 'Complete Health Profile Required',
-        description:
-          'Please complete your health profile in Health info to get personalized food.',
-        variant: 'destructive',
+      Swal.fire({
+        icon: 'info',
+        title: 'Health Profile Required',
+        text: 'Please complete your health profile in Health info to get personalized food.',
+        confirmButtonColor: '#0E3E77',
       });
       return;
     }

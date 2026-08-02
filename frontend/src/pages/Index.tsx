@@ -357,10 +357,11 @@ const Index = () => {
     // Validate From your health profile requirements
     if (inputType === 'auto_medical') {
       if (!isHealthProfileComplete()) {
-        toast({
-          title: "Complete Health Profile Required",
-          description: "Please complete your health profile in Settings to use From your health profile nutrition planning",
-          variant: "destructive"
+        Swal.fire({
+          icon: 'info',
+          title: 'Health Profile Required',
+          text: 'Please complete your health profile in Health info to use From your health profile nutrition planning.',
+          confirmButtonColor: '#0E3E77'
         });
         return;
       }
@@ -474,10 +475,11 @@ const Index = () => {
       if (sicknessInfo) {
         // Sick Smart Plan - requires complete health profile
         if (!isHealthProfileComplete()) {
-          toast({
-            title: "Complete Health Profile Required",
-            description: "Please complete your health profile in Settings to generate health-aware meal plans",
-            variant: "destructive"
+          Swal.fire({
+            icon: 'info',
+            title: 'Health Profile Required',
+            text: 'Please complete your health profile in Health info to generate health-aware meal plans.',
+            confirmButtonColor: '#0E3E77'
           });
           setIsLoading(false);
           return;

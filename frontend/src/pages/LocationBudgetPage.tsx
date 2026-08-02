@@ -171,11 +171,11 @@ const LocationBudgetPage: React.FC = () => {
 
       if (sicknessInfo) {
         if (!isHealthProfileComplete()) {
-          toast({
-            title: 'Complete Health Profile Required',
-            description:
-              'Please complete your health profile in Health info to auto-generate health-aware meal plans',
-            variant: 'destructive',
+          Swal.fire({
+            icon: 'info',
+            title: 'Health Profile Required',
+            text: 'Please complete your health profile in Health info to auto-generate health-aware meal plans.',
+            confirmButtonColor: '#0E3E77',
           });
           setIsGenerating(false);
           return;
