@@ -127,8 +127,8 @@ const LocationBudgetPage: React.FC = () => {
   const promptForSubscription = async () => {
     const result = await Swal.fire({
       icon: 'info',
-      title: 'Subscribe to generate more meal plans',
-      text: "You've already used your free 7-day meal plan. Subscribe to generate unlimited new meal plans.",
+      title: 'Subscribe to generate more meals',
+      text: "You've already used your free meal generation plan. Subscribe to generate unlimited new meals.",
       showCancelButton: true,
       confirmButtonText: 'Subscribe',
       cancelButtonText: 'Maybe later',

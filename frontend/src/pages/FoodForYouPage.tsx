@@ -307,8 +307,8 @@ const FoodForYouPage: React.FC = () => {
 
   // Same SweetAlert copy as meal-plan create flow
   const promptForSubscription = async (
-    title: string = 'Subscribe to generate more meal plans',
-    description: string = "You've already used your free 7-day meal plan. Subscribe to generate unlimited new meal plans.",
+    title: string = 'Subscribe to generate more meals',
+    description: string = "You've already used your free meal generation plan. Subscribe to generate unlimited new meals.",
   ) => {
     const result = await Swal.fire({
       icon: 'info',

@@ -309,8 +309,8 @@ const Index = () => {
   };
 
   const promptForSubscription = async (
-    title: string = "Subscribe to generate more meal plans",
-    description: string = "You've already used your free 7-day meal plan. Subscribe to generate unlimited new meal plans.",
+    title: string = "Subscribe to generate more meals",
+    description: string = "You've already used your free meal generation plan. Subscribe to generate unlimited new meals.",
   ) => {
     const result = await Swal.fire({
       icon: 'info',
@@ -618,7 +618,7 @@ const Index = () => {
         try { await refreshTrialStatus(); } catch (_) { /* noop */ }
         await promptForSubscription(
           'Subscription required',
-          error?.message || "You've already used your free 7-day meal plan. Subscribe to generate more.",
+          error?.message || "You've already used your free meal generation plan. Subscribe to generate more.",
         );
         return;
       }
