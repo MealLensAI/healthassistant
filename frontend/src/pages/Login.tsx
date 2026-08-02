@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff, Mail, Lock, Loader2, User, Building2 } from "lucide-react"
 import { useAuth, safeSetItem, safeGetItem } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
+import { seedHealthSettingsCache } from "@/hooks/useSicknessSettings"
 import Logo from "@/components/Logo"
 
 const Login = () => {
@@ -27,7 +28,7 @@ const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const from = location.state?.from?.pathname || "/ai-kitchen"
+      const from = location.state?.from?.pathname || "/food-for-you"
       navigate(from, { replace: true })
     }
   }, [isAuthenticated, navigate, location])
@@ -122,8 +123,20 @@ const Login = () => {
           // Continue with normal redirect on error - don't block login
         }
 
+        // Confirm health profile from backend before entering the dashboard
+        // so the incomplete-profile modal is not shown to users who already saved one.
+        try {
+          const healthResult = await api.getUserSettings('health_profile') as any
+          const userId = result.user_id || result.user_data?.id || ''
+          if (healthResult?.status === 'success' && healthResult.settings) {
+            seedHealthSettingsCache(healthResult.settings, userId)
+          }
+        } catch (err) {
+          console.warn('[Login] Health profile prefetch failed; dashboard will retry:', err)
+        }
+
         // Redirect to intended page (for regular users)
-        const from = location.state?.from?.pathname || "/ai-kitchen"
+        const from = location.state?.from?.pathname || "/food-for-you"
         console.log('🔄 Redirecting after login to:', from)
         navigate(from, { replace: true })
       } else {

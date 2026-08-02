@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, LayoutGrid, List, RefreshCw } from 'lucide-react';
+import { ChevronDown, LayoutGrid, List, RefreshCw, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 import CookingTutorialModal from '@/components/CookingTutorialModal';
 import { useAuth, safeGetItem, safeSetItem, safeRemoveItem } from '@/lib/utils';
@@ -275,12 +275,33 @@ const FoodForYouPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [foods, setFoods] = useState<FoodItem[]>([]);
+  // Hydrate from cache immediately so the page isn't empty while hooks settle
+  const [foods, setFoods] = useState<FoodItem[]>(() => {
+    try {
+      const raw = safeGetItem('user_data');
+      const uid = raw ? JSON.parse(raw)?.uid : undefined;
+      return readFoodCache(uid) || [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(false);
+  // Show the loading modal right away when we still need to resolve/generate food
+  const [isPreparing, setIsPreparing] = useState(() => {
+    try {
+      const raw = safeGetItem('user_data');
+      const uid = raw ? JSON.parse(raw)?.uid : undefined;
+      const cached = readFoodCache(uid);
+      return !(cached && cached.length > 0);
+    } catch {
+      return true;
+    }
+  });
+  const [loadingModalDismissed, setLoadingModalDismissed] = useState(false);
   const [viewMode, setViewMode] = useState<'box' | 'list'>(() => readViewMode());
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
-  const autoStarted = useRef(false);
+  const autoStarted = useRef(foods.length > 0);
   const trialPrompted = useRef(false);
 
   const {
@@ -288,6 +309,7 @@ const FoodForYouPage: React.FC = () => {
     isHealthProfileComplete,
     settings: sicknessSettings,
     loading: settingsLoading,
+    hasResolved: settingsResolved,
   } = useSicknessSettings();
 
   const {
@@ -299,6 +321,7 @@ const FoodForYouPage: React.FC = () => {
   } = useTrial();
 
   const blocked = !hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan);
+  const showLoadingModal = (loading || isPreparing) && !loadingModalDismissed;
 
   const selectViewMode = (mode: 'box' | 'list') => {
     setViewMode(mode);
@@ -430,22 +453,36 @@ const FoodForYouPage: React.FC = () => {
     }
   };
 
-  // Restore from cache first; only auto-generate once if free plan still available
+  // Restore from cache first; only auto-generate once if free plan still available.
+  // Same as clicking Refresh when the page opens empty — does not re-fetch if food is already showing.
   useEffect(() => {
-    if (autoStarted.current) return;
+    if (autoStarted.current) {
+      setIsPreparing(false);
+      return;
+    }
 
     const cached = readFoodCache(user?.uid);
     if (cached && cached.length > 0) {
       setFoods(cached);
       autoStarted.current = true;
+      setIsPreparing(false);
       return;
     }
 
-    if (settingsLoading || trialLoading) return;
+    // Already showing food (e.g. restored mid-session) — do not auto-refresh
+    if (foods.length > 0) {
+      autoStarted.current = true;
+      setIsPreparing(false);
+      return;
+    }
+
+    // Keep the loading modal up while trial status settles
+    if (trialLoading) return;
 
     // Free plan already used — same as meal plans: no auto-generate; prompt once
     if (blocked) {
       autoStarted.current = true;
+      setIsPreparing(false);
       if (!trialPrompted.current) {
         trialPrompted.current = true;
         void promptForSubscription();
@@ -453,15 +490,33 @@ const FoodForYouPage: React.FC = () => {
       return;
     }
 
-    if (!isHealthProfileComplete()) return;
+    // Start as soon as we know the profile is complete — do not wait for a
+    // background health-settings refetch (that was the long empty delay).
+    if (!isHealthProfileComplete()) {
+      // Still loading health settings from network/cache — keep preparing UI
+      if (settingsLoading || !settingsResolved) return;
+      // Resolved and incomplete — hand off to health UI / modal
+      setIsPreparing(false);
+      return;
+    }
 
     autoStarted.current = true;
-    fetchFoods(false);
+    // Same path as the Refresh button when nothing is on screen yet.
+    // Keep isPreparing until fetchFoods flips `loading` or exits early.
+    void (async () => {
+      try {
+        await fetchFoods(true);
+      } finally {
+        setIsPreparing(false);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     settingsLoading,
+    settingsResolved,
     trialLoading,
     blocked,
+    foods.length,
     sicknessSettings.hasSickness,
     sicknessSettings.age,
     sicknessSettings.location,
@@ -520,7 +575,10 @@ const FoodForYouPage: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => fetchFoods(true)}
+              onClick={() => {
+                setLoadingModalDismissed(false);
+                void fetchFoods(true);
+              }}
               disabled={loading}
               className="hidden sm:inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary disabled:opacity-50"
             >
@@ -569,8 +627,34 @@ const FoodForYouPage: React.FC = () => {
         </div>
       </header>
 
+      {/* Loading modal — immediate feedback while waiting on prereqs or generating */}
+      {showLoadingModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+          <div className="relative w-full max-w-sm rounded-3xl bg-white px-8 py-10 text-center shadow-xl">
+            <button
+              type="button"
+              onClick={() => setLoadingModalDismissed(true)}
+              aria-label="Close loading and browse other pages"
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin text-[#0E3E77]" />
+            <p className="text-lg font-bold text-[#0E3E77]">Loading food for you...</p>
+            <p className="mt-2 text-sm text-gray-500">Finding meals that fit your health</p>
+            <button
+              type="button"
+              onClick={() => setLoadingModalDismissed(true)}
+              className="mt-6 text-sm font-semibold text-[#0E3E77] hover:underline"
+            >
+              Continue browsing
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8">
-        {(loading || settingsLoading || trialLoading) && foods.length === 0 && !blocked && (
+        {showLoadingModal && foods.length === 0 && !blocked && (
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:gap-8">
             <div
               className={
@@ -602,7 +686,7 @@ const FoodForYouPage: React.FC = () => {
           </div>
         )}
 
-        {!blocked && !isHealthProfileComplete() && !settingsLoading && !trialLoading && foods.length === 0 && !loading && (
+        {!blocked && !isHealthProfileComplete() && !showLoadingModal && foods.length === 0 && (
           <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-soft max-w-lg mx-auto">
             <p className="text-muted-foreground mb-4">
               Complete your health profile in Health info to load food for you.

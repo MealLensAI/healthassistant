@@ -12,6 +12,7 @@ import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react"
 import { useAuth, safeSetItem, safeGetItem } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
 import { preloadHistory } from "@/lib/historyPreloader"
+import { seedHealthSettingsCache } from "@/hooks/useSicknessSettings"
 import Logo from "@/components/Logo"
 
 const Login = () => {
@@ -28,7 +29,7 @@ const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const from = location.state?.from?.pathname || "/ai-kitchen"
+      const from = location.state?.from?.pathname || "/food-for-you"
       navigate(from, { replace: true })
     }
   }, [isAuthenticated, navigate, location])
@@ -43,6 +44,21 @@ const Login = () => {
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         console.warn('[Login] Prefetch step failed', { step: index, reason: result.reason })
+        return
+      }
+      // Seed health-profile cache from prefetch (index 2)
+      if (index === 2 && result.status === 'fulfilled') {
+        const healthResult = result.value as any
+        const userRaw = safeGetItem('user_data')
+        let userId = ''
+        try {
+          userId = userRaw ? JSON.parse(userRaw)?.uid || '' : ''
+        } catch {
+          userId = ''
+        }
+        if (healthResult?.status === 'success' && healthResult.settings) {
+          seedHealthSettingsCache(healthResult.settings, userId)
+        }
       }
     })
   }

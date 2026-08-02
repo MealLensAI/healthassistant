@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/lib/utils';
-import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 
 const GATE_KEY_PREFIX = 'meallensai_health_gate_seen_';
 
@@ -41,27 +39,32 @@ export const clearHealthProfileGateFlags = () => {
   }
 };
 
+type HealthProfileGateProps = {
+  userId?: string;
+  /** True only after backend/cache health-profile check has finished. */
+  ready: boolean;
+  profileComplete: boolean;
+};
+
 /**
- * After sign-in, loads health profile from backend and prompts once if incomplete.
- * Mounted in MainLayout so users see it immediately — not only when they try a feature.
+ * Prompts once when health profile is confirmed incomplete.
+ * Parent (MainLayout) must wait for the backend check before mounting this ready.
  */
-const HealthProfileGate: React.FC = () => {
+const HealthProfileGate: React.FC<HealthProfileGateProps> = ({
+  userId,
+  ready,
+  profileComplete,
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { loading: settingsLoading, settings, isHealthProfileComplete } = useSicknessSettings();
   const [open, setOpen] = useState(false);
-
-  const userId = user?.uid;
   const onSettingsPage = location.pathname === '/settings';
-  const profileComplete = isHealthProfileComplete();
 
   useEffect(() => {
-    if (authLoading || settingsLoading || !isAuthenticated || !userId) {
+    if (!ready || !userId) {
       return;
     }
 
-    // Already on Health info — no need to interrupt
     if (onSettingsPage) {
       setOpen(false);
       return;
@@ -79,17 +82,7 @@ const HealthProfileGate: React.FC = () => {
 
     markGateSeen(userId);
     setOpen(true);
-  }, [
-    authLoading,
-    settingsLoading,
-    isAuthenticated,
-    userId,
-    onSettingsPage,
-    profileComplete,
-    settings.age,
-    settings.sicknessType,
-    settings.location,
-  ]);
+  }, [ready, userId, onSettingsPage, profileComplete]);
 
   const dismiss = () => setOpen(false);
 

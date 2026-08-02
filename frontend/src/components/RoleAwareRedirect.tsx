@@ -25,8 +25,8 @@ const RoleAwareRedirect = () => {
   }, [authLoading, roleLoading, isAuthenticated])
 
   if (hasTimedOut) {
-    // If timed out, just redirect to planner
-    return <Navigate to="/planner" replace />
+    // If timed out, just redirect to Food for you
+    return <Navigate to="/food-for-you" replace />
   }
 
   if (authLoading || roleLoading || !isAuthenticated || role === null) {
@@ -46,7 +46,7 @@ const RoleAwareRedirect = () => {
     )
   }
 
-  const destination = role === "organization" ? "/enterprise" : "/planner"
+  const destination = role === "organization" ? "/enterprise" : "/food-for-you"
   return <Navigate to={destination} replace />
 }
 

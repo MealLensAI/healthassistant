@@ -102,6 +102,41 @@ const writeCachedSettings = (settings: SicknessSettings, userId?: string) => {
   }
 };
 
+/** Parse API settings payload (object or JSON string) into usable data, or null. */
+const parseSettingsPayload = (raw: unknown): Partial<SicknessSettings> | null => {
+  let settingsToUse = raw;
+  if (typeof settingsToUse === 'string') {
+    try {
+      settingsToUse = JSON.parse(settingsToUse);
+    } catch {
+      return null;
+    }
+  }
+  if (
+    !settingsToUse ||
+    typeof settingsToUse !== 'object' ||
+    Array.isArray(settingsToUse) ||
+    Object.keys(settingsToUse as object).length === 0
+  ) {
+    return null;
+  }
+  return settingsToUse as Partial<SicknessSettings>;
+};
+
+/**
+ * Seed per-user health-settings cache from a login prefetch so the dashboard
+ * gate can resolve without flashing the incomplete-profile modal.
+ */
+export const seedHealthSettingsCache = (rawSettings: unknown, userId?: string): boolean => {
+  const uid = userId || resolveUserId();
+  if (!uid) return false;
+  const parsed = parseSettingsPayload(rawSettings);
+  if (!parsed) return false;
+  const normalized = normalizeSettings(parsed);
+  writeCachedSettings(normalized, uid);
+  return true;
+};
+
 const dropCachedSettings = (userId?: string) => {
   if (userId) {
     safeRemoveItem(getSettingsCacheKey(userId));
@@ -135,7 +170,10 @@ export const useSicknessSettings = () => {
   const previousUserIdRef = useRef<string | undefined>(undefined);
 
   const [settings, setSettings] = useState<SicknessSettings>(initialSettings);
-  const [loading, setLoading] = useState(false);
+  // Start true so gates never treat empty defaults as "checked incomplete"
+  // before the backend (or cache) resolve.
+  const [loading, setLoading] = useState(true);
+  const [hasResolved, setHasResolved] = useState(false);
   const [hasExistingData, setHasExistingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -144,6 +182,10 @@ export const useSicknessSettings = () => {
   const userId = resolveUserId(user);
 
   useEffect(() => {
+    // Must re-assert true on setup — React Strict Mode runs cleanup then re-runs
+    // effects on the same instance, which would otherwise leave this stuck false
+    // and block the dashboard forever on hasResolved.
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
@@ -168,6 +210,7 @@ export const useSicknessSettings = () => {
     if (isMountedRef.current) {
       setSettings(emptySettings);
       setHasExistingData(false);
+      setHasResolved(false);
       setError(null);
     }
   }, []);
@@ -177,6 +220,7 @@ export const useSicknessSettings = () => {
     if (authLoading || !isAuthenticated || !uid) {
       if (isMountedRef.current) {
         setLoading(false);
+        setHasResolved(true);
       }
       return;
     }
@@ -196,27 +240,11 @@ export const useSicknessSettings = () => {
 
     try {
       const result = await api.getUserSettings('health_profile') as any;
-
-      // Handle case where settings might be a string
-      let settingsToUse = result.settings;
-      if (typeof result.settings === 'string') {
-        try {
-          settingsToUse = JSON.parse(result.settings);
-        } catch (e) {
-          settingsToUse = {};
-        }
-      }
-
-      // If backend returned success and we have a settings object with data, use it
-      const isValidData = result.status === 'success' && 
-          settingsToUse && 
-          typeof settingsToUse === 'object' && 
-          !Array.isArray(settingsToUse) &&
-          Object.keys(settingsToUse).length > 0;
-
+      const settingsToUse = parseSettingsPayload(result.settings);
+      const isValidData = result.status === 'success' && !!settingsToUse;
       const isMounted = isMountedRef.current;
 
-      if (isValidData) {
+      if (isValidData && settingsToUse) {
         const normalized = normalizeSettings(settingsToUse);
         persistCache(normalized, uid);
         lastSavedRef.current = normalized;
@@ -251,17 +279,23 @@ export const useSicknessSettings = () => {
           setError('Unable to load your health settings. Please try again.');
           setHasExistingData(false);
         }
-        setLoading(false);
       }
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
+        setHasResolved(true);
       }
     }
   }, [authLoading, isAuthenticated, persistCache, user]);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) {
+      if (isMountedRef.current) {
+        setLoading(true);
+        setHasResolved(false);
+      }
+      return;
+    }
 
     if (!isAuthenticated || !userId) {
       // Logged out — wipe in-memory + local caches so the next account starts clean
@@ -269,6 +303,10 @@ export const useSicknessSettings = () => {
         dropCachedSettings(previousUserIdRef.current);
         previousUserIdRef.current = undefined;
         resetToEmpty();
+      }
+      if (isMountedRef.current) {
+        setLoading(false);
+        setHasResolved(true);
       }
       return;
     }
@@ -293,23 +331,28 @@ export const useSicknessSettings = () => {
       cacheRef.current = null;
     }
 
+    if (isMountedRef.current) {
+      setLoading(true);
+      setHasResolved(false);
+    }
     loadSettingsFromBackend(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAuthenticated, userId]);
 
-  // Safety mechanism: Force reset loading state after 10 seconds
+  // Safety mechanism: Force reset loading/resolved if a fetch hangs
   useEffect(() => {
-    if (loading) {
+    if (loading || !hasResolved) {
       const timeout = setTimeout(() => {
-        console.warn('⚠️ Loading state stuck, forcing reset');
+        console.warn('⚠️ Health settings load stuck, forcing resolve');
         if (isMountedRef.current) {
           setLoading(false);
+          setHasResolved(true);
         }
-      }, 10000); // 10 seconds
+      }, 10000);
 
       return () => clearTimeout(timeout);
     }
-  }, [loading]);
+  }, [loading, hasResolved]);
 
   const updateSettings = (newSettings: Partial<SicknessSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
@@ -429,6 +472,7 @@ export const useSicknessSettings = () => {
   return {
     settings,
     loading,
+    hasResolved,
     error,
     updateSettings,
     saveSettings,
