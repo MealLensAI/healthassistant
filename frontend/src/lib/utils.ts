@@ -154,6 +154,26 @@ export function useProvideAuth(): AuthContextType {
     safeRemoveItem('meallensai_food_for_you_v1')
     safeRemoveItem('meallensai_food_for_you_view_v1')
     safeRemoveItem('meallensai_free_generation_used_v1')
+    // Health profile must never leak across accounts (legacy global + per-user keys)
+    safeRemoveItem('meallensai_health_settings_v1')
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const keysToRemove: string[] = []
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i)
+          if (
+            key &&
+            (key.startsWith('meallensai_health_settings_v1_') ||
+              key.startsWith('meallensai_meal_plans_cache'))
+          ) {
+            keysToRemove.push(key)
+          }
+        }
+        keysToRemove.forEach((key) => safeRemoveItem(key))
+      }
+    } catch {
+      // ignore storage failures
+    }
     setUser(null)
     setToken(null)
   }, [])

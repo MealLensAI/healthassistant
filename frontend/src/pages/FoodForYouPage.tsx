@@ -46,8 +46,8 @@ const readFoodCache = (userId?: string): FoodItem[] | null => {
     if (!parsed || !Array.isArray(parsed.foods) || parsed.foods.length === 0) {
       return null;
     }
-    // If we know the user, only reuse their cache
-    if (userId && parsed.userId && parsed.userId !== userId) {
+    // Require a matching userId — never reuse another account's (or unscoped) cache
+    if (!userId || !parsed.userId || parsed.userId !== userId) {
       return null;
     }
     return parsed.foods;
@@ -57,6 +57,7 @@ const readFoodCache = (userId?: string): FoodItem[] | null => {
 };
 
 const writeFoodCache = (foods: FoodItem[], userId?: string) => {
+  if (!userId) return;
   try {
     const payload: FoodCachePayload = {
       userId,
@@ -331,7 +332,7 @@ const FoodForYouPage: React.FC = () => {
    */
   const fetchFoods = async (forceRefresh = false) => {
     if (!forceRefresh) {
-      const cached = readFoodCache(user?.id);
+      const cached = readFoodCache(user?.uid);
       if (cached && cached.length > 0) {
         setFoods(cached);
         return;
@@ -391,7 +392,7 @@ const FoodForYouPage: React.FC = () => {
 
       const nextFoods = flattenMealPlanToFoods(data.meal_plan);
       setFoods(nextFoods);
-      writeFoodCache(nextFoods, user?.id);
+      writeFoodCache(nextFoods, user?.uid);
 
       // Mark free plan used without saving to Saved meal plans
       try {
@@ -433,7 +434,7 @@ const FoodForYouPage: React.FC = () => {
   useEffect(() => {
     if (autoStarted.current) return;
 
-    const cached = readFoodCache(user?.id);
+    const cached = readFoodCache(user?.uid);
     if (cached && cached.length > 0) {
       setFoods(cached);
       autoStarted.current = true;
@@ -464,7 +465,7 @@ const FoodForYouPage: React.FC = () => {
     sicknessSettings.hasSickness,
     sicknessSettings.age,
     sicknessSettings.location,
-    user?.id,
+    user?.uid,
   ]);
 
   const featured = useMemo(() => {
