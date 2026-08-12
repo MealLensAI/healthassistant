@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
-    { "source": "/image-api/:path*", "destination": "https://api.meallensai.com/7016/:path*" },
+    { "source": "/image-api/:path*", "destination": "https://getimages-production-8c05.up.railway.app/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
