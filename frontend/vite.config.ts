@@ -1,13 +1,13 @@
-import { defineConfig, loadEnv } from "vite"
-import react from "@vitejs/plugin-react"
-import path from "path"
+import { defineConfig, loadEnv } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Pull every VITE_* / generic env var out of .env, .env.local, etc. so we
   // can use them when configuring the dev server proxy below.
-  const env = loadEnv(mode, process.cwd(), '')
-  const imagesApiUrl = env.VITE_IMAGES_API_URL || ''
+  const env = loadEnv(mode, process.cwd(), "");
+  const imagesApiUrl = env.VITE_IMAGES_API_URL || "";
 
   return {
     plugins: [react()],
@@ -18,21 +18,29 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
-        '/api': {
-          target: 'https://api.meallensai.com/5001',
+        "/api": {
+          target: "http://127.0.0.1:5001",
           changeOrigin: true,
           secure: false,
 
           ws: true,
           configure: (proxy, _options) => {
-            proxy.on('error', (err, _req, _res) => {
-              console.log('proxy error', err);
+            proxy.on("error", (err, _req, _res) => {
+              console.log("proxy error", err);
             });
-            proxy.on('proxyReq', (_proxyReq, req, _res) => {
-              console.log('Sending Request to the Target:', req.method, req.url);
+            proxy.on("proxyReq", (_proxyReq, req, _res) => {
+              console.log(
+                "Sending Request to the Target:",
+                req.method,
+                req.url,
+              );
             });
-            proxy.on('proxyRes', (proxyRes, req, _res) => {
-              console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+            proxy.on("proxyRes", (proxyRes, req, _res) => {
+              console.log(
+                "Received Response from the Target:",
+                proxyRes.statusCode,
+                req.url,
+              );
             });
           },
         },
@@ -42,15 +50,15 @@ export default defineConfig(({ mode }) => {
         // matching rewrite in vercel.json keeps prod consistent.
         ...(imagesApiUrl
           ? {
-              '/image-api': {
+              "/image-api": {
                 target: imagesApiUrl,
                 changeOrigin: true,
                 secure: true,
-                rewrite: (p: string) => p.replace(/^\/image-api/, ''),
+                rewrite: (p: string) => p.replace(/^\/image-api/, ""),
               },
             }
           : {}),
       },
     },
-  }
-})
+  };
+});

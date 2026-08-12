@@ -1,8 +1,25 @@
 import os
 import json
+import time
 from supabase import create_client, Client
 from werkzeug.datastructures import FileStorage
 from datetime import datetime
+
+
+def _is_transient_supabase_error(exc: Exception) -> bool:
+    """Windows/httpx flakiness and brief network blips."""
+    msg = str(exc).lower()
+    return (
+        '10035' in msg
+        or 'winerror' in msg
+        or 'temporarily unavailable' in msg
+        or 'connection reset' in msg
+        or 'timed out' in msg
+        or 'timeout' in msg
+        or 'connection aborted' in msg
+    )
+
+
 class SupabaseService:
     def __init__(self, supabase_url: str, supabase_key: str = None):
         """
@@ -1414,15 +1431,35 @@ class SupabaseService:
         except Exception as e:
             return False, str(e)
 
+    def _food_for_you_call(self, label: str, fn, retries: int = 3):
+        """Run a Supabase call with short retries for Windows WinError 10035 flakiness."""
+        last_exc = None
+        for attempt in range(1, retries + 1):
+            try:
+                return fn()
+            except Exception as exc:
+                last_exc = exc
+                if attempt < retries and _is_transient_supabase_error(exc):
+                    wait = 0.35 * attempt
+                    print(f"[FoodForYou] {label} attempt {attempt}/{retries} failed ({exc}); retry in {wait:.2f}s")
+                    time.sleep(wait)
+                    continue
+                raise
+        if last_exc:
+            raise last_exc
+
     def get_food_for_you(self, user_id: str) -> tuple[dict | None, str | None]:
         """Fetch the user's Food for you row (1:1). Returns (record|None, error|None)."""
         try:
-            result = (
-                self.supabase.table('food_for_you')
-                .select('*')
-                .eq('user_id', user_id)
-                .limit(1)
-                .execute()
+            result = self._food_for_you_call(
+                'get',
+                lambda: (
+                    self.supabase.table('food_for_you')
+                    .select('*')
+                    .eq('user_id', user_id)
+                    .limit(1)
+                    .execute()
+                ),
             )
             if not result.data:
                 return None, None
@@ -1443,8 +1480,13 @@ class SupabaseService:
             record['source_plan'] = source_plan
             return record, None
         except Exception as e:
-            print(f"[ERROR] get_food_for_you: {e}")
-            return None, str(e)
+            err = str(e)
+            print(f"[ERROR] get_food_for_you: {err}")
+            if 'food_for_you' in err.lower() and (
+                'does not exist' in err.lower() or 'undefined_table' in err.lower()
+            ):
+                return None, 'food_for_you table missing — run migrations/021_food_for_you.sql in Supabase'
+            return None, err
 
     def upsert_food_for_you(
         self,
@@ -1455,28 +1497,50 @@ class SupabaseService:
         """Insert or update the user's Food for you row."""
         try:
             now = datetime.utcnow().isoformat() + 'Z'
-            existing, existing_error = self.get_food_for_you(user_id)
-            if existing_error:
-                return None, existing_error
+            print(f"[FoodForYou] upsert for user={user_id} foods={len(foods) if isinstance(foods, list) else 'n/a'}")
 
             payload = {
                 'user_id': user_id,
                 'foods': foods,
                 'source_plan': source_plan,
+                'created_at': now,
                 'updated_at': now,
             }
 
-            if existing and existing.get('id'):
-                result = (
+            def do_upsert():
+                return (
                     self.supabase.table('food_for_you')
-                    .update(payload)
-                    .eq('id', existing['id'])
-                    .eq('user_id', user_id)
+                    .upsert(payload, on_conflict='user_id')
                     .execute()
                 )
-            else:
-                payload['created_at'] = now
-                result = self.supabase.table('food_for_you').insert(payload).execute()
+
+            try:
+                result = self._food_for_you_call('upsert', do_upsert)
+            except Exception as upsert_exc:
+                print(f"[FoodForYou] upsert() failed, falling back to select/update/insert: {upsert_exc}")
+                existing, existing_error = self.get_food_for_you(user_id)
+                if existing_error:
+                    return None, existing_error
+                if existing and existing.get('id'):
+                    result = self._food_for_you_call(
+                        'update',
+                        lambda: (
+                            self.supabase.table('food_for_you')
+                            .update({
+                                'foods': foods,
+                                'source_plan': source_plan,
+                                'updated_at': now,
+                            })
+                            .eq('id', existing['id'])
+                            .eq('user_id', user_id)
+                            .execute()
+                        ),
+                    )
+                else:
+                    result = self._food_for_you_call(
+                        'insert',
+                        lambda: self.supabase.table('food_for_you').insert(payload).execute(),
+                    )
 
             if result.data and len(result.data) > 0:
                 saved = result.data[0]
@@ -1487,18 +1551,34 @@ class SupabaseService:
                     except (json.JSONDecodeError, TypeError, ValueError):
                         foods_out = foods
                 saved['foods'] = foods_out if isinstance(foods_out, list) else foods
+                print(f"[FoodForYou] upsert ok id={saved.get('id')}")
                 return saved, None
 
             # Some clients return empty data on update; re-fetch
-            return self.get_food_for_you(user_id)
+            fetched, fetch_err = self.get_food_for_you(user_id)
+            if fetch_err:
+                return None, fetch_err
+            if not fetched:
+                return None, 'Save appeared to succeed but no food_for_you row was found. Run migrations/021_food_for_you.sql'
+            return fetched, None
         except Exception as e:
             print(f"[ERROR] upsert_food_for_you: {e}")
-            return None, str(e)
+            import traceback
+            print(traceback.format_exc())
+            err = str(e)
+            if 'food_for_you' in err.lower() and (
+                'does not exist' in err.lower() or 'undefined_table' in err.lower()
+            ):
+                return None, 'food_for_you table missing — run migrations/021_food_for_you.sql in Supabase'
+            return None, err
 
     def delete_food_for_you(self, user_id: str) -> tuple[bool, str | None]:
         """Delete the user's Food for you row. Idempotent."""
         try:
-            self.supabase.table('food_for_you').delete().eq('user_id', user_id).execute()
+            self._food_for_you_call(
+                'delete',
+                lambda: self.supabase.table('food_for_you').delete().eq('user_id', user_id).execute(),
+            )
             return True, None
         except Exception as e:
             print(f"[ERROR] delete_food_for_you: {e}")

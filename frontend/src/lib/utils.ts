@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
+import { clearFoodForYouMemory } from "@/lib/foodForYouCache"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -152,8 +153,10 @@ export function useProvideAuth(): AuthContextType {
     safeRemoveItem('meallensai_subscription_status')
     safeRemoveItem('meallensai_subscription_expires_at')
     safeRemoveItem('meallensai_food_for_you_v1')
+    safeRemoveItem('meallensai_food_for_you_db_v1')
     safeRemoveItem('meallensai_food_for_you_view_v1')
     safeRemoveItem('meallensai_free_generation_used_v1')
+    clearFoodForYouMemory()
     // Health profile must never leak across accounts (legacy global + per-user keys)
     safeRemoveItem('meallensai_health_settings_v1')
     try {

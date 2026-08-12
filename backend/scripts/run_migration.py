@@ -56,16 +56,16 @@ def main() -> int:
         return 1
 
     sql = migration_path.read_text(encoding="utf-8")
-    print(f"▶ Running migration: {migration_path.name}")
+    print(f"Running migration: {migration_path.name}")
 
     try:
         with psycopg.connect(database_url, autocommit=True) as conn:
             with conn.cursor() as cur:
                 cur.execute(sql)
-        print("✅ Migration completed successfully")
+        print("Migration completed successfully")
         return 0
     except Exception as exc:
-        print(f"❌ Migration failed: {exc}")
+        print(f"Migration failed: {exc}")
         return 1
 
 

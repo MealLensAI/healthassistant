@@ -46,6 +46,7 @@ def upsert_food_for_you():
 
         source_plan = payload.get('source_plan')
         supabase_service = current_app.supabase_service
+        current_app.logger.info(f"[FoodForYou] PUT save user={user_id} count={len(foods)}")
         record, upsert_error = supabase_service.upsert_food_for_you(
             user_id,
             foods=foods,
@@ -54,12 +55,17 @@ def upsert_food_for_you():
         if upsert_error:
             log_error(f"Failed to upsert food_for_you for user {user_id}", Exception(upsert_error))
             return jsonify({'status': 'error', 'message': upsert_error}), 500
+        if not record:
+            return jsonify({
+                'status': 'error',
+                'message': 'Save failed: food_for_you table missing or row not created. Run migrations/021_food_for_you.sql',
+            }), 500
 
         return jsonify({
             'status': 'success',
             'message': 'Food for you saved',
             'data': record,
-            'foods': (record or {}).get('foods') or foods,
+            'foods': record.get('foods') or foods,
         }), 200
     except Exception as e:
         log_error("Unexpected error in upsert_food_for_you", e)
