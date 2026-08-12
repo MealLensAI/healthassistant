@@ -60,19 +60,11 @@ const FEATURES = [
 // Free: one 7-day meal plan trial (handled separately via trial status).
 const PLANS = [
   {
-    label: '$10 Weekly',
+    label: '$10 Monthly',
     price: 10,
-    duration: 'per week',
-    durationMinutes: 10080,
-    paystackAmount: 10,
-    highlight: false,
-  },
-  {
-    label: '$20 Monthly',
-    price: 20,
     duration: 'per month',
     durationMinutes: 43200,
-    paystackAmount: 20,
+    paystackAmount: 10,
     highlight: true,
   },
   {
@@ -770,7 +762,7 @@ const Payment: React.FC = () => {
 
 
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
-        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Choose the plan that fits your needs. Start with one free 7-day meal plan, then subscribe from $10/week. Change anytime.</p>
+        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Choose the plan that fits your needs. Start with one free 7-day meal plan, then subscribe from $10/month. Change anytime.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 justify-center items-stretch w-full max-w-6xl mx-auto">

@@ -20,24 +20,9 @@ const PRICING_CARDS = [
     highlight: false,
   },
   {
-    id: "weekly",
-    name: "1 Week",
-    price: "$10",
-    period: "per week",
-    description: "Flexible short-term access",
-    features: [
-      "Everything in Free",
-      "Unlimited meal plans",
-      "Unlimited health meal generations",
-      "Cancel anytime",
-    ],
-    cta: "Get started",
-    highlight: false,
-  },
-  {
     id: "monthly",
     name: "1 Month",
-    price: "$20",
+    price: "$10",
     period: "per month",
     description: "Best for building a lasting habit",
     features: [
@@ -101,7 +86,7 @@ const PricingSection = () => {
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-5 max-w-6xl mx-auto">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-5xl mx-auto">
           {PRICING_CARDS.map((card) => (
             <div
               key={card.id}
