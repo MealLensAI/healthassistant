@@ -836,9 +836,9 @@ def invite_user(enterprise_id):
             # Check if email service is configured
             if not email_service.is_configured:
                 current_app.logger.warning(f"[INVITE] Email service not configured")
-                current_app.logger.warning(f"[INVITE] SMTP_USER: {'SET' if email_service.smtp_user else 'NOT SET'}")
-                current_app.logger.warning(f"[INVITE] SMTP_PASSWORD: {'SET' if email_service.smtp_password else 'NOT SET'}")
-                email_error_message = "Email service not configured. Please set SMTP_USER and SMTP_PASSWORD environment variables."
+                current_app.logger.warning(f"[INVITE] RESEND_API_KEY: {'SET' if email_service.api_key else 'NOT SET'}")
+                current_app.logger.warning(f"[INVITE] FROM_EMAIL: {email_service.from_email or 'NOT SET'}")
+                email_error_message = "Email service not configured. Please set RESEND_API_KEY and FROM_EMAIL environment variables."
             else:
                 # Use a thread to send email asynchronously with timeout
                 import threading
@@ -1001,13 +1001,10 @@ def test_email():
         # Check email service configuration
         email_config_status = {
             'is_configured': email_service.is_configured,
-            'smtp_host': email_service.smtp_host,
-            'smtp_port': email_service.smtp_port,
-            'smtp_user': email_service.smtp_user if email_service.smtp_user else 'NOT SET',
+            'provider': 'resend',
             'from_email': email_service.from_email,
             'from_name': email_service.from_name,
-            'port_candidates': email_service.smtp_port_candidates,
-            'timeout': email_service.smtp_timeout
+            'api_key': 'SET' if email_service.api_key else 'NOT SET',
         }
         
         current_app.logger.info(f"[TEST_EMAIL] Email config: {email_config_status}")
@@ -1015,45 +1012,38 @@ def test_email():
         if not email_service.is_configured:
             return jsonify({
                 'success': False,
-                'error': 'Email service is not configured. Please set SMTP_USER and SMTP_PASSWORD environment variables.',
+                'error': 'Email service is not configured. Please set RESEND_API_KEY and FROM_EMAIL environment variables.',
                 'config': email_config_status
             }), 400
         
-        # Create a simple test email
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = 'Test Email from MeallensAI'
-        msg['From'] = f'{email_service.from_name} <{email_service.from_email}>'
-        msg['To'] = test_email_address
-        
-        html_body = """
+        sent_at = datetime.now(timezone.utc).isoformat()
+        html_body = f"""
         <html>
         <body>
             <h2>Test Email from MeallensAI</h2>
             <p>This is a test email to verify that the email service is working correctly.</p>
-            <p>If you received this email, the SMTP configuration is correct!</p>
-            <p>Time sent: {}</p>
+            <p>If you received this email, the Resend configuration is correct!</p>
+            <p>Time sent: {sent_at}</p>
         </body>
         </html>
-        """.format(datetime.now(timezone.utc).isoformat())
+        """
         
         text_body = f"""
         Test Email from MeallensAI
         
         This is a test email to verify that the email service is working correctly.
         
-        If you received this email, the SMTP configuration is correct!
+        If you received this email, the Resend configuration is correct!
         
-        Time sent: {datetime.now(timezone.utc).isoformat()}
+        Time sent: {sent_at}
         """
         
-        msg.attach(MIMEText(text_body, 'plain'))
-        msg.attach(MIMEText(html_body, 'html'))
-        
-        # Try to send the email
-        result = email_service._send_email_message(msg, test_email_address)
+        result = email_service._send_email(
+            to_email=test_email_address,
+            subject='Test Email from MeallensAI',
+            html_body=html_body,
+            text_body=text_body,
+        )
         
         if result:
             return jsonify({
@@ -1068,7 +1058,6 @@ def test_email():
                 'error': f'Failed to send test email: {error_msg}',
                 'config': email_config_status,
                 'last_error': error_msg,
-                'last_error_port': email_service.last_error_port
             }), 500
             
     except Exception as e:
@@ -1759,6 +1748,14 @@ def delete_organization_user(user_relation_id):
         except Exception as e:
             current_app.logger.warning(f"Error deleting user_settings: {str(e)}")
             deletion_log.append(f"Error deleting user_settings: {str(e)}")
+
+        # Delete food for you recommendations
+        try:
+            result = admin_supabase.table('food_for_you').delete().eq('user_id', user_id).execute()
+            deletion_log.append(f"Deleted {len(result.data) if result.data else 0} food_for_you records")
+        except Exception as e:
+            current_app.logger.warning(f"Error deleting food_for_you: {str(e)}")
+            deletion_log.append(f"Error deleting food_for_you: {str(e)}")
         
         # Delete detection history
         try:
@@ -2133,6 +2130,13 @@ def update_user_settings_for_enterprise(enterprise_id, user_id):
         success, error = supabase_service.save_user_settings(user_id, settings_type, settings_data)
         
         if success:
+            if settings_type == 'health_profile':
+                try:
+                    supabase_service.delete_food_for_you(user_id)
+                except Exception as clear_error:
+                    current_app.logger.warning(
+                        f"Settings updated but failed to clear food_for_you for user {user_id}: {clear_error}"
+                    )
             return jsonify({
                 'success': True,
                 'message': 'User settings updated successfully'

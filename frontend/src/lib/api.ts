@@ -452,6 +452,26 @@ class APIService {
     return this.delete(`/settings/history/${recordId}`)
   }
 
+  // Food for you (DB-backed personalized recommendations)
+  async getFoodForYou(): Promise<APIResponse & { foods?: any[] }> {
+    return this.get('/food-for-you', { timeout: 30000 })
+  }
+
+  async saveFoodForYou(foods: any[], sourcePlan?: any): Promise<APIResponse & { foods?: any[] }> {
+    return this.put(
+      '/food-for-you',
+      {
+        foods,
+        source_plan: sourcePlan ?? null,
+      },
+      { timeout: 60000 },
+    )
+  }
+
+  async deleteFoodForYou(): Promise<APIResponse> {
+    return this.delete('/food-for-you', { timeout: 30000 })
+  }
+
   // Enterprise/Organization methods
   async canCreateOrganization(): Promise<APIResponse> {
     return this.get('/enterprise/can-create')

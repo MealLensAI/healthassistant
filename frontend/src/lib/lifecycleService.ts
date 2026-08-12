@@ -109,10 +109,10 @@ export class LifecycleService {
         }
     }
 
-    private static getAuthHeaders(): Record<string, string> {
+    private static getAuthHeaders(includeJsonContentType = true): Record<string, string> {
         const token = safeGetItem('supabase_token') || safeGetItem('access_token');
         return {
-            'Content-Type': 'application/json',
+            ...(includeJsonContentType ? { 'Content-Type': 'application/json' } : {}),
             ...(token && { 'Authorization': `Bearer ${token}` })
         };
     }
@@ -268,10 +268,13 @@ export class LifecycleService {
             }
 
             console.log('🔄 Marking trial as used from backend...');
+            // Always send a JSON body — Content-Type: application/json with an
+            // empty body can make Flask/Werkzeug return HTML 400 Bad Request.
             const response = await fetch(`${this.API_BASE_URL}/mark-trial-used`, {
                 method: 'POST',
-                headers: this.getAuthHeaders(),
-                credentials: 'include'
+                headers: this.getAuthHeaders(true),
+                credentials: 'include',
+                body: JSON.stringify({}),
             });
 
             if (response.ok) {
@@ -283,7 +286,8 @@ export class LifecycleService {
                     return { success: true, data: result.data };
                 }
             } else {
-                console.log('❌ Backend mark trial used failed:', response.status);
+                const errText = await response.text().catch(() => '');
+                console.log('❌ Backend mark trial used failed:', response.status, errText);
             }
         } catch (error) {
             console.error('❌ Error marking trial as used from backend:', error);
@@ -359,8 +363,9 @@ export class LifecycleService {
             console.log('🔄 Marking subscription as expired from backend...');
             const response = await fetch(`${this.API_BASE_URL}/mark-subscription-expired`, {
                 method: 'POST',
-                headers: this.getAuthHeaders(),
-                credentials: 'include'
+                headers: this.getAuthHeaders(true),
+                credentials: 'include',
+                body: JSON.stringify({}),
             });
 
             if (response.ok) {

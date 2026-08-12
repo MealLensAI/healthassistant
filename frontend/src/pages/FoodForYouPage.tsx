@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown, LayoutGrid, List, RefreshCw, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 import CookingTutorialModal from '@/components/CookingTutorialModal';
-import { useAuth, safeGetItem, safeSetItem, safeRemoveItem } from '@/lib/utils';
+import { useAuth, safeGetItem, safeSetItem } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 import { useTrial } from '@/hooks/useTrial';
@@ -11,15 +11,29 @@ import { LifecycleService } from '@/lib/lifecycleService';
 import { markLocalFreeGenerationUsed } from '@/lib/trialService';
 import { APP_CONFIG } from '@/lib/config';
 import { imageCache } from '@/lib/imageCache';
+import { api } from '@/lib/api';
+import {
+  clearFoodForYouMemory,
+  getFoodForYouMemory,
+  setFoodForYouMemory,
+} from '@/lib/foodForYouCache';
 
-const FOOD_FOR_YOU_CACHE_KEY = 'meallensai_food_for_you_v1';
 const FOOD_FOR_YOU_VIEW_KEY = 'meallensai_food_for_you_view_v1';
 
-type FoodCachePayload = {
-  userId?: string;
-  foods: FoodItem[];
-  savedAt: number;
-};
+type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+interface FoodItem {
+  id: string;
+  name: string;
+  mealType: MealType;
+  day: string;
+  ingredients: string[];
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  benefit?: string;
+}
 
 const readViewMode = (): 'box' | 'list' => {
   try {
@@ -38,56 +52,15 @@ const writeViewMode = (mode: 'box' | 'list') => {
   }
 };
 
-const readFoodCache = (userId?: string): FoodItem[] | null => {
-  try {
-    const raw = safeGetItem(FOOD_FOR_YOU_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as FoodCachePayload;
-    if (!parsed || !Array.isArray(parsed.foods) || parsed.foods.length === 0) {
-      return null;
+const extractFoodsFromResponse = (stored: any): FoodItem[] => {
+  const candidates = [stored?.foods, stored?.data?.foods, stored?.data];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate) && candidate.length > 0) {
+      return candidate as FoodItem[];
     }
-    // Require a matching userId — never reuse another account's (or unscoped) cache
-    if (!userId || !parsed.userId || parsed.userId !== userId) {
-      return null;
-    }
-    return parsed.foods;
-  } catch {
-    return null;
   }
+  return [];
 };
-
-const writeFoodCache = (foods: FoodItem[], userId?: string) => {
-  if (!userId) return;
-  try {
-    const payload: FoodCachePayload = {
-      userId,
-      foods,
-      savedAt: Date.now(),
-    };
-    safeSetItem(FOOD_FOR_YOU_CACHE_KEY, JSON.stringify(payload));
-  } catch {
-    /* ignore quota errors */
-  }
-};
-
-export const clearFoodForYouCache = () => {
-  safeRemoveItem(FOOD_FOR_YOU_CACHE_KEY);
-};
-
-type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
-
-interface FoodItem {
-  id: string;
-  name: string;
-  mealType: MealType;
-  day: string;
-  ingredients: string[];
-  calories?: number;
-  protein?: number;
-  carbs?: number;
-  fat?: number;
-  benefit?: string;
-}
 
 const mapGoalToBackendFormat = (goal: string | undefined): string => {
   if (!goal) return 'heal';
@@ -275,39 +248,32 @@ const FoodForYouPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  // Hydrate from cache immediately so the page isn't empty while hooks settle
   const [foods, setFoods] = useState<FoodItem[]>(() => {
-    try {
-      const raw = safeGetItem('user_data');
-      const uid = raw ? JSON.parse(raw)?.uid : undefined;
-      return readFoodCache(uid) || [];
-    } catch {
-      return [];
+    const cached = getFoodForYouMemory();
+    if (user?.uid && cached?.userId === user.uid) {
+      return cached.foods as FoodItem[];
     }
+    return [];
   });
   const [loading, setLoading] = useState(false);
-  // Show the loading modal right away when we still need to resolve/generate food
   const [isPreparing, setIsPreparing] = useState(() => {
-    try {
-      const raw = safeGetItem('user_data');
-      const uid = raw ? JSON.parse(raw)?.uid : undefined;
-      const cached = readFoodCache(uid);
-      return !(cached && cached.length > 0);
-    } catch {
-      return true;
+    const cached = getFoodForYouMemory();
+    if (user?.uid && cached?.userId === user.uid && cached.foods.length > 0) {
+      return false;
     }
+    return true;
   });
   const [loadingModalDismissed, setLoadingModalDismissed] = useState(false);
   const [viewMode, setViewMode] = useState<'box' | 'list'>(() => readViewMode());
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
-  const autoStarted = useRef(foods.length > 0);
   const trialPrompted = useRef(false);
+  const profilePrompted = useRef(false);
+  const generatingRef = useRef(false);
 
   const {
     getHealthProfilePayload,
     isHealthProfileComplete,
-    settings: sicknessSettings,
     loading: settingsLoading,
     hasResolved: settingsResolved,
   } = useSicknessSettings();
@@ -316,16 +282,57 @@ const FoodForYouPage: React.FC = () => {
     canGenerateMealPlan,
     hasActiveSubscription,
     freeMealPlanUsed,
-    isLoading: trialLoading,
     refreshStatus: refreshTrialStatus,
   } = useTrial();
 
   const blocked = !hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan);
-  const showLoadingModal = (loading || isPreparing) && !loadingModalDismissed;
+  const profileReady = settingsResolved && !settingsLoading;
+  const profileComplete = isHealthProfileComplete();
+  // Page skeleton while fetching saved list OR generating; modal only for AI generate
+  const showPageLoading = foods.length === 0 && (isPreparing || loading);
+  const showLoadingModal = loading && !loadingModalDismissed && foods.length === 0;
+  const showEmptyProfile =
+    !showPageLoading && foods.length === 0 && profileReady && !profileComplete;
+  const showEmptyBlocked =
+    !showPageLoading && foods.length === 0 && profileReady && profileComplete && blocked;
+  const showEmptyGenerate =
+    !showPageLoading && foods.length === 0 && profileReady && profileComplete && !blocked;
 
   const selectViewMode = (mode: 'box' | 'list') => {
     setViewMode(mode);
     writeViewMode(mode);
+  };
+
+  const applyFoods = (nextFoods: FoodItem[], userId?: string) => {
+    setFoods(nextFoods);
+    setLoading(false);
+    setIsPreparing(false);
+    if (userId && nextFoods.length > 0) {
+      setFoodForYouMemory(userId, nextFoods);
+    } else if (!nextFoods.length) {
+      clearFoodForYouMemory();
+    }
+  };
+
+  const persistFoodsToDb = async (nextFoods: FoodItem[], sourcePlan?: any) => {
+    // Prefer a slim payload first so the request is less likely to abort.
+    try {
+      const saveResult = await api.saveFoodForYou(nextFoods, sourcePlan ?? null);
+      if (saveResult?.status === 'error') {
+        throw new Error(saveResult.message || 'Failed to save recommendations');
+      }
+      return true;
+    } catch (err) {
+      // Retry without source_plan (smaller body)
+      if (sourcePlan != null) {
+        const retry = await api.saveFoodForYou(nextFoods, null);
+        if (retry?.status === 'error') {
+          throw new Error(retry.message || 'Failed to save recommendations');
+        }
+        return true;
+      }
+      throw err;
+    }
   };
 
   // Same SweetAlert copy as meal-plan create flow
@@ -348,48 +355,53 @@ const FoodForYouPage: React.FC = () => {
   };
 
   /**
-   * Same as meal-plan "From your health profile" auto-generate:
-   * POST /ai_nutrition_plan with the health profile JSON.
-   * Does NOT save a meal plan — only displays flattened foods.
-   * After first success, marks free trial used (lifecycle + local flag).
+   * Generate via AI and upsert into DB.
+   * Closes the loading UI as soon as foods are ready (before lifecycle side-effects).
    */
-  const fetchFoods = async (forceRefresh = false) => {
-    if (!forceRefresh) {
-      const cached = readFoodCache(user?.uid);
-      if (cached && cached.length > 0) {
-        setFoods(cached);
-        return;
-      }
-    }
+  const generateAndPersist = async () => {
+    if (generatingRef.current) return;
+    generatingRef.current = true;
 
-    // Same gate as meal plans / scan ingredients
     if (!hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan)) {
-      await promptForSubscription();
+      setIsPreparing(false);
+      setLoading(false);
+      generatingRef.current = false;
+      if (!trialPrompted.current) {
+        trialPrompted.current = true;
+        await promptForSubscription();
+      }
       return;
     }
 
     if (!isHealthProfileComplete()) {
-      Swal.fire({
-        icon: 'info',
-        title: 'Health Profile Required',
-        text: 'Please complete your health profile in Health info to get personalized food.',
-        confirmButtonColor: '#0E3E77',
-      });
+      setIsPreparing(false);
+      setLoading(false);
+      generatingRef.current = false;
+      if (!profilePrompted.current) {
+        profilePrompted.current = true;
+        Swal.fire({
+          icon: 'info',
+          title: 'Health Profile Required',
+          text: 'Please complete your health profile in Health info to get personalized food.',
+          confirmButtonColor: '#0E3E77',
+          confirmButtonText: 'Open Health info',
+        }).then((result) => {
+          if (result.isConfirmed) navigate('/settings');
+        });
+      }
       return;
     }
 
     const healthProfilePayload = getHealthProfilePayload();
     if (!healthProfilePayload) {
-      Swal.fire({
-        icon: 'info',
-        title: 'Health Profile Required',
-        text: 'Please complete your health profile in Health info to get personalized food.',
-        confirmButtonColor: '#0E3E77',
-      });
+      setIsPreparing(false);
+      setLoading(false);
+      generatingRef.current = false;
       return;
     }
 
     setLoading(true);
+    setIsPreparing(false);
     try {
       const mappedPayload = {
         ...healthProfilePayload,
@@ -414,114 +426,156 @@ const FoodForYouPage: React.FC = () => {
       }
 
       const nextFoods = flattenMealPlanToFoods(data.meal_plan);
-      setFoods(nextFoods);
-      writeFoodCache(nextFoods, user?.uid);
+      if (nextFoods.length === 0) {
+        throw new Error('AI returned no meals to display');
+      }
+      // Show + local backup immediately (survives refresh even if DB is slow)
+      applyFoods(nextFoods, user?.uid);
 
-      // Mark free plan used without saving to Saved meal plans
       try {
-        await LifecycleService.markTrialUsed();
-      } catch {
-        /* still set local gate below */
+        await persistFoodsToDb(nextFoods, data.meal_plan);
+        console.log('[FoodForYou] Saved recommendations to DB');
+      } catch (saveError: any) {
+        console.error('[FoodForYou] DB save failed:', saveError);
+        toast({
+          title: 'Could not save to your account',
+          description:
+            saveError?.message ||
+            'Food is shown now, but refresh may not restore it until save succeeds.',
+          variant: 'destructive',
+        });
       }
-      markLocalFreeGenerationUsed();
-      try {
-        await refreshTrialStatus();
-      } catch {
-        /* non-fatal */
-      }
+
+      // Lifecycle after UI already shows results — do not block the page
+      void (async () => {
+        try {
+          await LifecycleService.markTrialUsed();
+        } catch {
+          /* ignore */
+        }
+        markLocalFreeGenerationUsed();
+        try {
+          await refreshTrialStatus();
+        } catch {
+          /* ignore */
+        }
+      })();
     } catch (error: any) {
       console.error('[FoodForYou] Error:', error);
 
       if (error?.code === 'PAYMENT_REQUIRED' || error?.status === 402) {
-        try {
-          await refreshTrialStatus();
-        } catch {
-          /* noop */
-        }
+        setLoading(false);
+        setIsPreparing(false);
         await promptForSubscription();
         return;
       }
 
+      setLoading(false);
+      setIsPreparing(false);
       Swal.fire({
         icon: 'error',
         title: 'Could not load food',
-        text: 'Failed to get personalized food. Please try again.',
+        text: error?.message || 'Failed to get personalized food. Please try again.',
         confirmButtonColor: '#0E3E77',
       });
     } finally {
+      generatingRef.current = false;
       setLoading(false);
+      setIsPreparing(false);
     }
   };
 
-  // Restore from cache first; only auto-generate once if free plan still available.
-  // Same as clicking Refresh when the page opens empty — does not re-fetch if food is already showing.
-  useEffect(() => {
-    if (autoStarted.current) {
-      setIsPreparing(false);
-      return;
-    }
-
-    const cached = readFoodCache(user?.uid);
-    if (cached && cached.length > 0) {
-      setFoods(cached);
-      autoStarted.current = true;
-      setIsPreparing(false);
-      return;
-    }
-
-    // Already showing food (e.g. restored mid-session) — do not auto-refresh
-    if (foods.length > 0) {
-      autoStarted.current = true;
-      setIsPreparing(false);
-      return;
-    }
-
-    // Keep the loading modal up while trial status settles
-    if (trialLoading) return;
-
-    // Free plan already used — same as meal plans: no auto-generate; prompt once
-    if (blocked) {
-      autoStarted.current = true;
-      setIsPreparing(false);
-      if (!trialPrompted.current) {
-        trialPrompted.current = true;
-        void promptForSubscription();
+  const handleRegenerate = () => {
+    if (!profileComplete) {
+      if (!profilePrompted.current) {
+        profilePrompted.current = true;
+        Swal.fire({
+          icon: 'info',
+          title: 'Health Profile Required',
+          text: 'Please complete your health profile in Health info to get personalized food.',
+          confirmButtonColor: '#0E3E77',
+          confirmButtonText: 'Open Health info',
+        }).then((result) => {
+          if (result.isConfirmed) navigate('/settings');
+        });
       }
       return;
     }
+    if (blocked) {
+      void promptForSubscription();
+      return;
+    }
+    setLoadingModalDismissed(false);
+    setFoods([]);
+    clearFoodForYouMemory();
+    void generateAndPersist();
+  };
 
-    // Start as soon as we know the profile is complete — do not wait for a
-    // background health-settings refetch (that was the long empty delay).
-    if (!isHealthProfileComplete()) {
-      // Still loading health settings from network/cache — keep preparing UI
-      if (settingsLoading || !settingsResolved) return;
-      // Resolved and incomplete — hand off to health UI / modal
+  // Logout / no user: clear list so next login shows loading
+  useEffect(() => {
+    if (user?.uid) return;
+    clearFoodForYouMemory();
+    setFoods([]);
+    setLoading(false);
+    setIsPreparing(true);
+    setLoadingModalDismissed(false);
+  }, [user?.uid]);
+
+  // Load from DB when user is available (login / hard refresh).
+  useEffect(() => {
+    const userId = user?.uid;
+    if (!userId) return;
+
+    const cached = getFoodForYouMemory();
+    if (cached?.userId === userId && cached.foods.length > 0) {
+      setFoods(cached.foods as FoodItem[]);
       setIsPreparing(false);
       return;
     }
 
-    autoStarted.current = true;
-    // Same path as the Refresh button when nothing is on screen yet.
-    // Keep isPreparing until fetchFoods flips `loading` or exits early.
+    // Show skeleton while fetching saved foods
+    setFoods([]);
+    setIsPreparing(true);
+    setLoadingModalDismissed(false);
+
+    let cancelled = false;
+
     void (async () => {
       try {
-        await fetchFoods(true);
-      } finally {
+        const stored = await api.getFoodForYou();
+        if (cancelled) return;
+
+        if (stored?.status === 'error') {
+          throw new Error(stored.message || 'Failed to load food for you');
+        }
+
+        const dbFoods = extractFoodsFromResponse(stored);
+        if (dbFoods.length > 0) {
+          applyFoods(dbFoods, userId);
+          return;
+        }
+
+        // Empty DB: show empty-state CTAs (Generate / profile / subscribe).
+        setFoods([]);
+        clearFoodForYouMemory();
         setIsPreparing(false);
+      } catch (error) {
+        console.warn('[FoodForYou] DB load failed:', error);
+        if (cancelled) return;
+        setIsPreparing(false);
+        toast({
+          title: 'Could not load saved food',
+          description: 'Refresh the page or tap Generate to try again.',
+          variant: 'destructive',
+        });
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    settingsLoading,
-    settingsResolved,
-    trialLoading,
-    blocked,
-    foods.length,
-    sicknessSettings.hasSickness,
-    sicknessSettings.age,
-    sicknessSettings.location,
-    user?.uid,
-  ]);
+  }, [user?.uid]);
 
   const featured = useMemo(() => {
     if (foods.length === 0) return [];
@@ -575,15 +629,12 @@ const FoodForYouPage: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => {
-                setLoadingModalDismissed(false);
-                void fetchFoods(true);
-              }}
+              onClick={handleRegenerate}
               disabled={loading}
               className="hidden sm:inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              Regenerate
             </button>
 
             <div className="relative flex-shrink-0">
@@ -627,7 +678,7 @@ const FoodForYouPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Loading modal — immediate feedback while waiting on prereqs or generating */}
+      {/* Modal only while AI is generating a new list */}
       {showLoadingModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
           <div className="relative w-full max-w-sm rounded-3xl bg-white px-8 py-10 text-center shadow-xl">
@@ -640,8 +691,8 @@ const FoodForYouPage: React.FC = () => {
               <X className="h-5 w-5" />
             </button>
             <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin text-[#0E3E77]" />
-            <p className="text-lg font-bold text-[#0E3E77]">Loading food for you...</p>
-            <p className="mt-2 text-sm text-gray-500">Finding meals that fit your health</p>
+            <p className="text-lg font-bold text-[#0E3E77]">Generating food for you...</p>
+            <p className="mt-2 text-sm text-gray-500">This only shows while we create your list</p>
             <button
               type="button"
               onClick={() => setLoadingModalDismissed(true)}
@@ -654,39 +705,45 @@ const FoodForYouPage: React.FC = () => {
       )}
 
       <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8">
-        {showLoadingModal && foods.length === 0 && !blocked && (
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:gap-8">
-            <div
-              className={
-                viewMode === 'box'
-                  ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5'
-                  : 'space-y-3'
-              }
-            >
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`rounded-2xl border border-border bg-card overflow-hidden shadow-soft ${
-                    viewMode === 'list' ? 'flex gap-4 p-3' : ''
-                  }`}
-                >
-                  <div
-                    className={`bg-muted animate-pulse ${
-                      viewMode === 'list' ? 'w-24 h-24 rounded-xl flex-shrink-0' : 'h-40'
-                    }`}
-                  />
-                  <div className={`${viewMode === 'list' ? 'flex-1 py-2' : 'p-4'} space-y-3`}>
-                    <div className="h-4 w-2/3 bg-muted animate-pulse rounded" />
-                    <div className="h-3 w-1/2 bg-muted animate-pulse rounded" />
-                  </div>
-                </div>
-              ))}
+        {showPageLoading && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+              {loading ? 'Generating your food list…' : 'Loading your food list…'}
             </div>
-            <div className="hidden lg:block rounded-2xl border border-border bg-leaf-soft/60 h-[420px] animate-pulse" />
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:gap-8">
+              <div
+                className={
+                  viewMode === 'box'
+                    ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5'
+                    : 'space-y-3'
+                }
+              >
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-2xl border border-border bg-card overflow-hidden shadow-soft ${
+                      viewMode === 'list' ? 'flex gap-4 p-3' : ''
+                    }`}
+                  >
+                    <div
+                      className={`bg-muted animate-pulse ${
+                        viewMode === 'list' ? 'w-24 h-24 rounded-xl flex-shrink-0' : 'h-40'
+                      }`}
+                    />
+                    <div className={`${viewMode === 'list' ? 'flex-1 py-2' : 'p-4'} space-y-3`}>
+                      <div className="h-4 w-2/3 bg-muted animate-pulse rounded" />
+                      <div className="h-3 w-1/2 bg-muted animate-pulse rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden lg:block rounded-2xl border border-border bg-leaf-soft/60 h-[420px] animate-pulse" />
+            </div>
           </div>
         )}
 
-        {!blocked && !isHealthProfileComplete() && !showLoadingModal && foods.length === 0 && (
+        {showEmptyProfile && (
           <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-soft max-w-lg mx-auto">
             <p className="text-muted-foreground mb-4">
               Complete your health profile in Health info to load food for you.
@@ -697,6 +754,39 @@ const FoodForYouPage: React.FC = () => {
               className="rounded-full bg-primary text-white px-6 py-3 font-semibold"
             >
               Open Health info
+            </button>
+          </div>
+        )}
+
+        {showEmptyBlocked && (
+          <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-soft max-w-lg mx-auto">
+            <p className="text-muted-foreground mb-4">
+              You&apos;ve used your free food generation. Subscribe to generate personalized food for you.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/payment')}
+              className="rounded-full bg-primary text-white px-6 py-3 font-semibold"
+            >
+              Subscribe
+            </button>
+          </div>
+        )}
+
+        {showEmptyGenerate && (
+          <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-soft max-w-lg mx-auto">
+            <p className="text-lg font-semibold text-foreground mb-2">No food list yet</p>
+            <p className="text-muted-foreground mb-6">
+              Generate personalized meals based on your health profile.
+            </p>
+            <button
+              type="button"
+              onClick={handleRegenerate}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary text-white px-6 py-3 font-semibold disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Generate food for you
             </button>
           </div>
         )}

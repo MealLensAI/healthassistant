@@ -7,8 +7,8 @@ import os
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(env_path)  # This loads the environment variables from .env file
 print(f"[APP] Loading .env from: {env_path}")
-print(f"[APP] SMTP_USER: {'SET' if os.getenv('SMTP_USER') else 'NOT SET'}")
-print(f"[APP] SMTP_PASSWORD: {'SET' if os.getenv('SMTP_PASSWORD') else 'NOT SET'}")
+print(f"[APP] RESEND_API_KEY: {'SET' if os.getenv('RESEND_API_KEY') else 'NOT SET'}")
+print(f"[APP] FROM_EMAIL: {os.getenv('FROM_EMAIL') or os.getenv('RESEND_FROM_EMAIL') or 'NOT SET'}")
 print(f"[APP] FRONTEND_URL: {os.getenv('FRONTEND_URL', 'NOT SET')}")
 from supabase import create_client, Client
 
@@ -28,6 +28,7 @@ except ImportError:
 # Import blueprints for routes
 from routes.feedback_routes import feedback_bp
 from routes.meal_plan_routes import meal_plan_bp
+from routes.food_for_you_routes import food_for_you_bp
 from routes.auth_routes import auth_bp
 from routes.ai_session_routes import ai_session_bp
 from routes.user_settings_routes import user_settings_bp
@@ -230,6 +231,7 @@ def create_app():
   # Register blueprints with API prefix
   app.register_blueprint(feedback_bp, url_prefix='/api')
   app.register_blueprint(meal_plan_bp, url_prefix='/api')
+  app.register_blueprint(food_for_you_bp, url_prefix='/api')
   app.register_blueprint(auth_bp, url_prefix='/api')
   app.register_blueprint(ai_session_bp, url_prefix='/api')
   app.register_blueprint(user_settings_bp, url_prefix='/api')

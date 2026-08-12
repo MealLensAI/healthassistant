@@ -90,6 +90,12 @@ def initialize_trial():
 def mark_trial_used():
     """Mark trial as used and update user state"""
     try:
+        # Optional JSON body — ignore parse errors (empty body is fine)
+        try:
+            _ = request.get_json(silent=True)
+        except Exception:
+            pass
+
         user_id, error = get_user_id_from_token()
         if not user_id:
             return jsonify({
@@ -106,10 +112,20 @@ def mark_trial_used():
         
         result = lifecycle_service.mark_trial_used(user_id)
         
-        if result['success']:
-            return jsonify(result)
-        else:
-            return jsonify(result), 400
+        if result.get('success'):
+            return jsonify(result), 200
+
+        # Treat "already used" / missing trial as soft success so Food for you
+        # is not blocked by lifecycle edge cases after a successful generation.
+        err = (result.get('error') or '').lower()
+        if 'already' in err or 'not found' in err or 'no trial' in err:
+            return jsonify({
+                'success': True,
+                'data': result.get('data'),
+                'message': result.get('error') or 'Trial already marked',
+            }), 200
+
+        return jsonify(result), 400
             
     except Exception as e:
         print(f"Error in mark_trial_used: {str(e)}")

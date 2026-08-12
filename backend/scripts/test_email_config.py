@@ -11,22 +11,21 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from services.email_service import email_service
 
 def test_email():
-    print("Testing email configuration...")
-    
-    smtp_user = os.environ.get('SMTP_USER')
-    smtp_password = os.environ.get('SMTP_PASSWORD')
-    
-    if not smtp_user or not smtp_password:
-        print("❌ SMTP_USER or SMTP_PASSWORD not set in .env file")
+    print("Testing Resend email configuration...")
+
+    api_key = os.environ.get('RESEND_API_KEY')
+    from_email = os.environ.get('FROM_EMAIL') or os.environ.get('RESEND_FROM_EMAIL')
+
+    if not api_key or not from_email:
+        print("❌ RESEND_API_KEY or FROM_EMAIL not set in .env file")
         return
-    
-    print(f"SMTP User: {smtp_user}")
-    print(f"SMTP Password: {'*' * len(smtp_password) if smtp_password else 'None'}")
-    
-    # Use the SMTP user as the recipient for testing
-    to_email = smtp_user
+
+    print(f"Resend API key: {'SET' if api_key else 'NOT SET'}")
+    print(f"From email: {from_email}")
+
+    to_email = os.environ.get('TEST_EMAIL', from_email)
     print(f"Sending test email to {to_email}...")
-    
+
     try:
         success = email_service.send_meal_cooked_confirmation_email(
             to_email=to_email,
@@ -34,12 +33,12 @@ def test_email():
             meal_type="breakfast",
             meal_name="Test Pancakes"
         )
-        
+
         if success:
             print("✅ Test email sent successfully!")
         else:
-            print("❌ Failed to send test email. Check server logs for details.")
-            
+            print(f"❌ Failed to send test email: {email_service.last_error_message}")
+
     except Exception as e:
         print(f"❌ Exception occurred: {e}")
 

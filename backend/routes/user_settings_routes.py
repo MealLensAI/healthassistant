@@ -61,6 +61,16 @@ def save_user_settings():
         success, error = supabase_service.save_user_settings(user_id, settings_type, settings_data)
         
         if success:
+            # Health profile changes invalidate personalized Food for you recommendations
+            if settings_type == 'health_profile':
+                try:
+                    supabase_service.delete_food_for_you(user_id)
+                except Exception as clear_error:
+                    log_error(
+                        f"Settings saved but failed to clear food_for_you for user {user_id}",
+                        clear_error,
+                    )
+
             saved_record, fetch_error = supabase_service.get_user_settings(user_id, settings_type)
             if fetch_error:
                 log_error(f"Settings saved but failed to reload for user {user_id}", Exception(fetch_error))

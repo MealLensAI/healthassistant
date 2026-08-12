@@ -8,3 +8,5 @@ gunicorn
 pytz
 apscheduler
 pymysql
+resend
+psycopg[binary]
