@@ -65,7 +65,7 @@ const PLANS = [
     duration: 'per month',
     durationMinutes: 43200,
     paystackAmount: 20,
-    highlight: true,
+    highlight: false,
   },
   {
     label: '$120 Six Months',
@@ -73,7 +73,7 @@ const PLANS = [
     duration: 'per 6 months',
     durationMinutes: 259200,
     paystackAmount: 120,
-    highlight: false,
+    highlight: true,
   },
   {
     label: '$240 Yearly',

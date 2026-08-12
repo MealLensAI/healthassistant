@@ -33,7 +33,7 @@ const PRICING_CARDS = [
       "Cancel anytime",
     ],
     cta: "Get started",
-    highlight: true,
+    highlight: false,
   },
   {
     id: "six_months",
@@ -48,7 +48,7 @@ const PRICING_CARDS = [
       "Advanced health tracking",
     ],
     cta: "Get started",
-    highlight: false,
+    highlight: true,
   },
   {
     id: "yearly",
