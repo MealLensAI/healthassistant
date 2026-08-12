@@ -288,3 +288,19 @@ CREATE TABLE IF NOT EXISTS ai_sessions (
     INDEX idx_ai_sessions_timestamp (timestamp DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ============================================
+-- FOOD_FOR_YOU TABLE (1:1 with user)
+-- ============================================
+CREATE TABLE IF NOT EXISTS food_for_you (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    foods JSON NOT NULL,
+    source_plan JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_food_for_you_user (user_id),
+    INDEX idx_food_for_you_user (user_id),
+    INDEX idx_food_for_you_updated_at (updated_at DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

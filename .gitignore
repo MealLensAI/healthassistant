@@ -4,3 +4,12 @@
 .backend/.DS_Store
 .backend/__pycache__/
 .idea/
+
+# Env / secrets — never commit
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+

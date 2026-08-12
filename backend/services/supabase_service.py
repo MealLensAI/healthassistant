@@ -1413,3 +1413,93 @@ class SupabaseService:
             return False, 'Record not found or not authorized'
         except Exception as e:
             return False, str(e)
+
+    def get_food_for_you(self, user_id: str) -> tuple[dict | None, str | None]:
+        """Fetch the user's Food for you row (1:1). Returns (record|None, error|None)."""
+        try:
+            result = (
+                self.supabase.table('food_for_you')
+                .select('*')
+                .eq('user_id', user_id)
+                .limit(1)
+                .execute()
+            )
+            if not result.data:
+                return None, None
+            record = result.data[0]
+            foods = record.get('foods')
+            if isinstance(foods, str):
+                try:
+                    foods = json.loads(foods)
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    foods = []
+            source_plan = record.get('source_plan')
+            if isinstance(source_plan, str):
+                try:
+                    source_plan = json.loads(source_plan)
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    source_plan = None
+            record['foods'] = foods if isinstance(foods, list) else []
+            record['source_plan'] = source_plan
+            return record, None
+        except Exception as e:
+            print(f"[ERROR] get_food_for_you: {e}")
+            return None, str(e)
+
+    def upsert_food_for_you(
+        self,
+        user_id: str,
+        foods: list,
+        source_plan=None,
+    ) -> tuple[dict | None, str | None]:
+        """Insert or update the user's Food for you row."""
+        try:
+            now = datetime.utcnow().isoformat() + 'Z'
+            existing, existing_error = self.get_food_for_you(user_id)
+            if existing_error:
+                return None, existing_error
+
+            payload = {
+                'user_id': user_id,
+                'foods': foods,
+                'source_plan': source_plan,
+                'updated_at': now,
+            }
+
+            if existing and existing.get('id'):
+                result = (
+                    self.supabase.table('food_for_you')
+                    .update(payload)
+                    .eq('id', existing['id'])
+                    .eq('user_id', user_id)
+                    .execute()
+                )
+            else:
+                payload['created_at'] = now
+                result = self.supabase.table('food_for_you').insert(payload).execute()
+
+            if result.data and len(result.data) > 0:
+                saved = result.data[0]
+                foods_out = saved.get('foods')
+                if isinstance(foods_out, str):
+                    try:
+                        foods_out = json.loads(foods_out)
+                    except (json.JSONDecodeError, TypeError, ValueError):
+                        foods_out = foods
+                saved['foods'] = foods_out if isinstance(foods_out, list) else foods
+                return saved, None
+
+            # Some clients return empty data on update; re-fetch
+            return self.get_food_for_you(user_id)
+        except Exception as e:
+            print(f"[ERROR] upsert_food_for_you: {e}")
+            return None, str(e)
+
+    def delete_food_for_you(self, user_id: str) -> tuple[bool, str | None]:
+        """Delete the user's Food for you row. Idempotent."""
+        try:
+            self.supabase.table('food_for_you').delete().eq('user_id', user_id).execute()
+            return True, None
+        except Exception as e:
+            print(f"[ERROR] delete_food_for_you: {e}")
+            return False, str(e)

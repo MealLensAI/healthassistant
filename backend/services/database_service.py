@@ -144,7 +144,7 @@ class DatabaseService:
                         v = json.dumps(v)
                     vals.append(v)
                 cur.execute(sql, vals)
-                if "id" not in data and table not in ("feedback", "ai_sessions", "detection_history", "meal_plan_management", "user_sessions", "user_settings", "user_settings_history", "enterprises", "organization_users", "invitations", "user_trials", "payment_transactions", "user_subscriptions", "feature_usage", "shared_recipes"):
+                if "id" not in data and table not in ("feedback", "ai_sessions", "detection_history", "meal_plan_management", "user_sessions", "user_settings", "user_settings_history", "enterprises", "organization_users", "invitations", "user_trials", "payment_transactions", "user_subscriptions", "feature_usage", "shared_recipes", "food_for_you"):
                     pass  # no auto id
                 conn.commit()
                 # Try to return inserted row by primary key if we have one

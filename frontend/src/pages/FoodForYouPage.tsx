@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown, LayoutGrid, List, RefreshCw, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 import CookingTutorialModal from '@/components/CookingTutorialModal';
-import { useAuth, safeGetItem, safeSetItem, safeRemoveItem } from '@/lib/utils';
+import { useAuth, safeGetItem, safeSetItem } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 import { useTrial } from '@/hooks/useTrial';
@@ -11,15 +11,9 @@ import { LifecycleService } from '@/lib/lifecycleService';
 import { markLocalFreeGenerationUsed } from '@/lib/trialService';
 import { APP_CONFIG } from '@/lib/config';
 import { imageCache } from '@/lib/imageCache';
+import { api } from '@/lib/api';
 
-const FOOD_FOR_YOU_CACHE_KEY = 'meallensai_food_for_you_v1';
 const FOOD_FOR_YOU_VIEW_KEY = 'meallensai_food_for_you_view_v1';
-
-type FoodCachePayload = {
-  userId?: string;
-  foods: FoodItem[];
-  savedAt: number;
-};
 
 const readViewMode = (): 'box' | 'list' => {
   try {
@@ -36,42 +30,6 @@ const writeViewMode = (mode: 'box' | 'list') => {
   } catch {
     /* ignore */
   }
-};
-
-const readFoodCache = (userId?: string): FoodItem[] | null => {
-  try {
-    const raw = safeGetItem(FOOD_FOR_YOU_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as FoodCachePayload;
-    if (!parsed || !Array.isArray(parsed.foods) || parsed.foods.length === 0) {
-      return null;
-    }
-    // Require a matching userId — never reuse another account's (or unscoped) cache
-    if (!userId || !parsed.userId || parsed.userId !== userId) {
-      return null;
-    }
-    return parsed.foods;
-  } catch {
-    return null;
-  }
-};
-
-const writeFoodCache = (foods: FoodItem[], userId?: string) => {
-  if (!userId) return;
-  try {
-    const payload: FoodCachePayload = {
-      userId,
-      foods,
-      savedAt: Date.now(),
-    };
-    safeSetItem(FOOD_FOR_YOU_CACHE_KEY, JSON.stringify(payload));
-  } catch {
-    /* ignore quota errors */
-  }
-};
-
-export const clearFoodForYouCache = () => {
-  safeRemoveItem(FOOD_FOR_YOU_CACHE_KEY);
 };
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -275,33 +233,15 @@ const FoodForYouPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  // Hydrate from cache immediately so the page isn't empty while hooks settle
-  const [foods, setFoods] = useState<FoodItem[]>(() => {
-    try {
-      const raw = safeGetItem('user_data');
-      const uid = raw ? JSON.parse(raw)?.uid : undefined;
-      return readFoodCache(uid) || [];
-    } catch {
-      return [];
-    }
-  });
+  const [foods, setFoods] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(false);
-  // Show the loading modal right away when we still need to resolve/generate food
-  const [isPreparing, setIsPreparing] = useState(() => {
-    try {
-      const raw = safeGetItem('user_data');
-      const uid = raw ? JSON.parse(raw)?.uid : undefined;
-      const cached = readFoodCache(uid);
-      return !(cached && cached.length > 0);
-    } catch {
-      return true;
-    }
-  });
+  // Show preparing until DB load / generation resolves
+  const [isPreparing, setIsPreparing] = useState(true);
   const [loadingModalDismissed, setLoadingModalDismissed] = useState(false);
   const [viewMode, setViewMode] = useState<'box' | 'list'>(() => readViewMode());
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
-  const autoStarted = useRef(foods.length > 0);
+  const autoStarted = useRef(false);
   const trialPrompted = useRef(false);
 
   const {
@@ -348,17 +288,20 @@ const FoodForYouPage: React.FC = () => {
   };
 
   /**
-   * Same as meal-plan "From your health profile" auto-generate:
-   * POST /ai_nutrition_plan with the health profile JSON.
-   * Does NOT save a meal plan — only displays flattened foods.
-   * After first success, marks free trial used (lifecycle + local flag).
+   * Load Food for you from DB first. Only call AI when empty or regenerating.
+   * Regenerate (forceRefresh) overwrites the DB row.
    */
   const fetchFoods = async (forceRefresh = false) => {
     if (!forceRefresh) {
-      const cached = readFoodCache(user?.uid);
-      if (cached && cached.length > 0) {
-        setFoods(cached);
-        return;
+      try {
+        const stored = await api.getFoodForYou();
+        const dbFoods = Array.isArray(stored?.foods) ? stored.foods : [];
+        if (dbFoods.length > 0) {
+          setFoods(dbFoods as FoodItem[]);
+          return;
+        }
+      } catch (error) {
+        console.warn('[FoodForYou] DB load failed, will generate if allowed:', error);
       }
     }
 
@@ -415,7 +358,17 @@ const FoodForYouPage: React.FC = () => {
 
       const nextFoods = flattenMealPlanToFoods(data.meal_plan);
       setFoods(nextFoods);
-      writeFoodCache(nextFoods, user?.uid);
+
+      try {
+        await api.saveFoodForYou(nextFoods, data.meal_plan);
+      } catch (saveError) {
+        console.error('[FoodForYou] Failed to persist recommendations:', saveError);
+        toast({
+          title: 'Saved locally only',
+          description: 'Could not save recommendations to your account. They may regenerate next visit.',
+          variant: 'destructive',
+        });
+      }
 
       // Mark free plan used without saving to Saved meal plans
       try {
@@ -453,70 +406,78 @@ const FoodForYouPage: React.FC = () => {
     }
   };
 
-  // Restore from cache first; only auto-generate once if free plan still available.
-  // Same as clicking Refresh when the page opens empty — does not re-fetch if food is already showing.
+  // DB first on open; generate only when the row is empty.
   useEffect(() => {
     if (autoStarted.current) {
-      setIsPreparing(false);
-      return;
-    }
-
-    const cached = readFoodCache(user?.uid);
-    if (cached && cached.length > 0) {
-      setFoods(cached);
-      autoStarted.current = true;
-      setIsPreparing(false);
-      return;
-    }
-
-    // Already showing food (e.g. restored mid-session) — do not auto-refresh
-    if (foods.length > 0) {
-      autoStarted.current = true;
-      setIsPreparing(false);
       return;
     }
 
     // Keep the loading modal up while trial status settles
     if (trialLoading) return;
 
-    // Free plan already used — same as meal plans: no auto-generate; prompt once
-    if (blocked) {
-      autoStarted.current = true;
-      setIsPreparing(false);
-      if (!trialPrompted.current) {
-        trialPrompted.current = true;
-        void promptForSubscription();
-      }
-      return;
-    }
+    // Wait for auth user id before hitting the API
+    if (!user?.uid) return;
 
-    // Start as soon as we know the profile is complete — do not wait for a
-    // background health-settings refetch (that was the long empty delay).
-    if (!isHealthProfileComplete()) {
-      // Still loading health settings from network/cache — keep preparing UI
-      if (settingsLoading || !settingsResolved) return;
-      // Resolved and incomplete — hand off to health UI / modal
-      setIsPreparing(false);
-      return;
-    }
+    let cancelled = false;
 
-    autoStarted.current = true;
-    // Same path as the Refresh button when nothing is on screen yet.
-    // Keep isPreparing until fetchFoods flips `loading` or exits early.
     void (async () => {
       try {
+        // Always try DB first (no AI) before deciding to generate
+        try {
+          const stored = await api.getFoodForYou();
+          if (cancelled) return;
+          const dbFoods = Array.isArray(stored?.foods) ? stored.foods : [];
+          if (dbFoods.length > 0) {
+            setFoods(dbFoods as FoodItem[]);
+            autoStarted.current = true;
+            setIsPreparing(false);
+            return;
+          }
+        } catch (error) {
+          console.warn('[FoodForYou] Initial DB load failed:', error);
+        }
+
+        if (cancelled) return;
+
+        // Free plan already used — no auto-generate; prompt once
+        if (blocked) {
+          autoStarted.current = true;
+          setIsPreparing(false);
+          if (!trialPrompted.current) {
+            trialPrompted.current = true;
+            void promptForSubscription();
+          }
+          return;
+        }
+
+        if (!isHealthProfileComplete()) {
+          if (settingsLoading || !settingsResolved) {
+            // Stay in preparing state; effect will re-run when settings settle
+            return;
+          }
+          autoStarted.current = true;
+          setIsPreparing(false);
+          return;
+        }
+
+        autoStarted.current = true;
         await fetchFoods(true);
       } finally {
-        setIsPreparing(false);
+        if (!cancelled && autoStarted.current) {
+          setIsPreparing(false);
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     settingsLoading,
     settingsResolved,
     trialLoading,
     blocked,
-    foods.length,
     sicknessSettings.hasSickness,
     sicknessSettings.age,
     sicknessSettings.location,
@@ -583,7 +544,7 @@ const FoodForYouPage: React.FC = () => {
               className="hidden sm:inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              Regenerate
             </button>
 
             <div className="relative flex-shrink-0">

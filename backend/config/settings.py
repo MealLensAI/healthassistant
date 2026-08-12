@@ -45,12 +45,9 @@ class Config:
     PAYSTACK_SECRET_KEY = os.environ.get("PAYSTACK_SECRET_KEY")
     PAYSTACK_PUBLIC_KEY = os.environ.get("PAYSTACK_PUBLIC_KEY")
     
-    # Email Configuration
-    SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    SMTP_PORT = int(os.environ.get("SMTP_PORT", 465))
-    SMTP_USER = os.environ.get("SMTP_USER")
-    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
-    FROM_EMAIL = os.environ.get("FROM_EMAIL")
+    # Email Configuration (Resend)
+    RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+    FROM_EMAIL = os.environ.get("FROM_EMAIL") or os.environ.get("RESEND_FROM_EMAIL")
     FROM_NAME = os.environ.get("FROM_NAME", "MeallensAI")
     
     # Frontend Configuration - Must be set in environment
@@ -58,7 +55,7 @@ class Config:
     
     # Feature Flags
     PAYMENT_ENABLED = bool(PAYSTACK_SECRET_KEY)
-    EMAIL_ENABLED = bool(SMTP_USER and SMTP_PASSWORD)
+    EMAIL_ENABLED = bool(RESEND_API_KEY and FROM_EMAIL)
     
     @classmethod
     def validate(cls):
