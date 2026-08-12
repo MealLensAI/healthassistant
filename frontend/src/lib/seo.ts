@@ -48,8 +48,8 @@ export const ROUTE_SEO: Record<string, Partial<MetaConfig>> = {
         description: 'Review your detected ingredients and saved recipes.'
     },
     '/payment': {
-        title: 'Subscribe – MealLensAI | Plans from $10/week',
-        description: 'Get one free 7-day meal plan, then choose 1 Week ($10), 1 Month ($20), 6 Months ($120), or 1 Year ($240). Cancel anytime.'
+        title: 'Subscribe – MealLensAI | Plans from $20/month',
+        description: 'Get one free 7-day meal plan, then choose 1 Month ($20), 6 Months ($120), or 1 Year ($240). Cancel anytime.'
     },
     '/profile': {
         title: 'Profile - MealLensAI',
@@ -141,7 +141,7 @@ function ensureJsonLd() {
                 name: 'MealLensAI',
                 url: baseUrl,
                 logo: baseUrl + '/assets/images/logo.svg',
-                description: 'AI-powered recipe finder and meal planning for chronic conditions. Plans from $10/week after free meal plan.',
+                description: 'AI-powered recipe finder and meal planning for chronic conditions. Plans from $20/month after free meal plan.',
                 sameAs: ['https://x.com/MealLensAI']
             })
             document.head.appendChild(script)
@@ -158,7 +158,7 @@ function ensureJsonLd() {
                 '@type': 'WebSite',
                 name: 'MealLensAI',
                 url: baseUrl,
-                description: 'Snap ingredients, get recipes. AI meal plans for diabetes, hypertension, PCOS and more. One free 7-day meal plan, then plans from $10/week.',
+                description: 'Snap ingredients, get recipes. AI meal plans for diabetes, hypertension, PCOS and more. One free 7-day meal plan, then plans from $20/month.',
                 potentialAction: {
                     '@type': 'SearchAction',
                     target: baseUrl + '/search?q={search_term_string}',
@@ -181,7 +181,7 @@ function ensureJsonLd() {
                 applicationCategory: 'HealthApplication',
                 operatingSystem: 'Web',
                 url: baseUrl,
-                description: 'AI ingredient recognition, step-by-step recipes, and personalized 7-day meal plans for chronic conditions. Budget and location-based plans. One free 7-day meal plan, then plans from $10/week.',
+                description: 'AI ingredient recognition, step-by-step recipes, and personalized 7-day meal plans for chronic conditions. Budget and location-based plans. One free 7-day meal plan, then plans from $20/month.',
                 offers: {
                     '@type': 'Offer',
                     price: '20',

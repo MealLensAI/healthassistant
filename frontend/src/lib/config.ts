@@ -21,14 +21,13 @@ export const APP_CONFIG = {
     },
 
     // Subscription Plans
-    // Pricing: 1 Week $10 · 1 Month $20 · 6 Months $120 · 1 Year $240
+    // Pricing: 1 Month $20 · 6 Months $120 · 1 Year $240
     // Free: one 7-day meal plan trial (not a timed calendar trial)
     subscriptionPlans: [
         {
             id: 'free',
             name: 'free',
             display_name: 'Free Meal Plan',
-            price_weekly: 0,
             price_monthly: 0,
             price_six_months: 0,
             price_yearly: 0,
@@ -51,36 +50,9 @@ export const APP_CONFIG = {
             billing_cycle: 'free'
         },
         {
-            id: 'weekly',
-            name: 'weekly',
-            display_name: '1 Week',
-            price_weekly: 10.00,
-            price_monthly: 20.00,
-            price_six_months: 120.00,
-            price_yearly: 240.00,
-            currency: 'USD',
-            features: [
-                'Smart Ingredient Recognition',
-                'Recipe Suggestions & Cooking Instructions',
-                'Smart Food Detection',
-                'AI Meal Planning',
-                'AI Meal Plan for Chronic Sickness',
-                'Budget & Location Based Meal Plans',
-                'Full History Access'
-            ],
-            limits: {
-                health_meal_plans_per_month: -1,
-                health_meal_generations: -1
-            },
-            is_active: true,
-            duration_days: 7,
-            billing_cycle: 'weekly'
-        },
-        {
             id: 'monthly',
             name: 'monthly',
             display_name: '1 Month',
-            price_weekly: 10.00,
             price_monthly: 20.00,
             price_six_months: 120.00,
             price_yearly: 240.00,
@@ -108,7 +80,6 @@ export const APP_CONFIG = {
             id: 'six_months',
             name: 'six_months',
             display_name: '6 Months',
-            price_weekly: 10.00,
             price_monthly: 20.00,
             price_six_months: 120.00,
             price_yearly: 240.00,
@@ -136,7 +107,6 @@ export const APP_CONFIG = {
             id: 'yearly',
             name: 'yearly',
             display_name: '1 Year',
-            price_weekly: 10.00,
             price_monthly: 20.00,
             price_six_months: 120.00,
             price_yearly: 240.00,
@@ -346,8 +316,6 @@ export const getPlanPrice = (planName: string, billingCycle: string): number => 
     if (!plan) return 0;
 
     switch (billingCycle) {
-        case 'weekly':
-            return plan.price_weekly;
         case 'monthly':
             return plan.price_monthly;
         case 'six_months':
@@ -366,8 +334,6 @@ export const getPlanDisplayName = (planName: string): string => {
 
 export const getPlanDurationText = (billingCycle: string): string => {
     switch (billingCycle) {
-        case 'weekly':
-            return 'per week';
         case 'monthly':
             return 'per month';
         case 'six_months':

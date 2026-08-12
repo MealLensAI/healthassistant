@@ -106,7 +106,7 @@ const SubscriptionBlocker: React.FC<SubscriptionBlockerProps> = ({ children }) =
 };
 
 // Lightweight blocker UI for individual features
-export const FeatureBlocker: React.FC<{ featureName: string; requiredPlan?: 'weekly' | 'monthly' | 'six_months' | 'yearly'; children: React.ReactNode }> = ({ featureName, requiredPlan, children }) => {
+export const FeatureBlocker: React.FC<{ featureName: string; requiredPlan?: 'monthly' | 'six_months' | 'yearly'; children: React.ReactNode }> = ({ featureName, requiredPlan, children }) => {
     return (
         <div className="relative">
             {/* Blurred content preview */}
