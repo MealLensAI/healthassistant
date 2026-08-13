@@ -20,8 +20,8 @@ const HeroSection = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-[hsl(213_40%_12%/0.5)] via-transparent to-[hsl(40_20%_20%/0.15)]" />
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 lg:px-8 pt-28 pb-16 min-h-[100svh] flex items-end lg:items-center">
-        <div className="max-w-2xl text-white pb-8 lg:pb-0">
+      <div className="relative z-10 container mx-auto px-4 lg:px-8 pt-28 pb-16 min-h-[100svh] flex items-center justify-center">
+        <div className="max-w-2xl text-white text-center">
           <p className="font-display text-2xl sm:text-3xl lg:text-4xl font-semibold leading-snug tracking-tight mb-6 animate-fade-up">
             Super food platform for people with chronic conditions
           </p>
@@ -30,14 +30,14 @@ const HeroSection = () => {
             Eating right for your condition shouldn&apos;t feel like a chore.
           </h1>
 
-          <p className="text-base sm:text-lg text-white/85 leading-relaxed max-w-xl mb-8 animate-fade-up-delay-2">
+          <p className="text-base sm:text-lg text-white/85 leading-relaxed mx-auto max-w-xl mb-8 animate-fade-up-delay-2">
             When you wonder what to eat for your condition, wherever you are,
             MealLensAI is the answer. Get Food for you, cook with clear
             instructions, and build weekly plans that fit your health, budget,
             and life.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 animate-fade-up-delay-3">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-up-delay-3">
             <Button
               variant="hero"
               size="lg"
