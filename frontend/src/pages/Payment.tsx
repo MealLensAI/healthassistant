@@ -7,6 +7,8 @@ import { ChevronDown, Clock } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
 import { safeGetItem, useAuth } from '@/lib/utils';
 import EngagementBanners from '@/components/EngagementBanners';
+import { useLocalizedPricing } from '@/hooks/useLocalizedPricing';
+import { LocalizedPlan } from '@/lib/geoPricing';
 
 // Helper to resolve profile (email and name) from backend using cookie auth
 async function resolveProfileFromBackend(): Promise<{ email: string | null; name: string | null }> {
@@ -56,40 +58,14 @@ const FEATURES = [
 
 ];
 
-// Pricing plans (USD) — aligned with landing page (PricingSection).
-// Free: one 7-day meal plan trial (handled separately via trial status).
-const PLANS = [
-  {
-    label: '$20 Monthly',
-    price: 20,
-    duration: 'per month',
-    durationMinutes: 43200,
-    paystackAmount: 20,
-    highlight: false,
-  },
-  {
-    label: '$120 Six Months',
-    price: 120,
-    duration: 'per 6 months',
-    durationMinutes: 259200,
-    paystackAmount: 120,
-    highlight: true,
-  },
-  {
-    label: '$240 Yearly',
-    price: 240,
-    duration: 'per year',
-    durationMinutes: 525600,
-    paystackAmount: 240,
-    highlight: false,
-  },
-];
+// Paid plans are loaded from IP-based country pricing (see useLocalizedPricing).
 
 const Payment: React.FC = () => {
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, hasEverHadSubscription, subscriptionInfo, updateTrialInfo, isLoading } = useTrial();
   const { user } = useAuth();
+  const { pricing, plans, isLoading: isPricingLoading, monthlyPriceLabel, usedFallback, countryName } = useLocalizedPricing();
   const [showModal, setShowModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<LocalizedPlan | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
@@ -227,7 +203,7 @@ const Payment: React.FC = () => {
   }, []);
 
   // Show full-page skeletons while loading subscription/trial status from backend
-  if (isLoading) {
+  if (isLoading || isPricingLoading) {
     return (
       <section className="container mx-auto px-4 py-10">
         {/* Optional header skeletons */}
@@ -272,7 +248,7 @@ const Payment: React.FC = () => {
   };
 
 
-  const openPaymentModal = (plan: any) => {
+  const openPaymentModal = (plan: LocalizedPlan) => {
     console.log('🔍 Opening payment modal for plan:', plan);
     console.log('🔍 PaystackPop available:', typeof window.PaystackPop !== 'undefined');
     // Immediately start payment without showing a form/modal
@@ -281,7 +257,7 @@ const Payment: React.FC = () => {
     processPayment(plan);
   };
 
-  const processPayment = (planOverride?: any) => {
+  const processPayment = (planOverride?: LocalizedPlan | null) => {
     console.log('🔍 Starting payment process...');
 
     // Determine plan to use (from override or state)
@@ -395,7 +371,8 @@ const Payment: React.FC = () => {
     console.log(`✅ Using Paystack key: ${publicKey.slice(0, 7)}...`);
     console.log('📋 Payment details:', {
       email: resolvedEmail,
-      amount: plan.paystackAmount,
+      amount: plan.paystack_amount,
+      currency: plan.currency,
       plan: plan.label
     });
 
@@ -427,16 +404,18 @@ const Payment: React.FC = () => {
       console.log('🔧 Setting up Paystack payment...');
       console.log('🔑 Using Paystack key:', publicKey);
       console.log('📧 Email:', resolvedEmail);
-      console.log('💰 Amount:', plan.paystackAmount);
+      console.log('💰 Amount:', plan.paystack_amount, plan.currency);
       console.log('📋 Plan:', plan.label);
 
       const paymentOptions = {
         key: publicKey,
         email: resolvedEmail,
-        amount: Math.round(plan.paystackAmount * 100), // Convert to cents (smallest USD unit)
-        currency: 'USD',
+        amount: Math.round(plan.paystack_amount * 100),
+        currency: plan.currency,
         ref: '' + Math.floor(Math.random() * 1000000000 + 1),
         metadata: {
+          country: pricing?.country_code,
+          currency: plan.currency,
           custom_fields: [
             {
               display_name: 'Name',
@@ -447,6 +426,11 @@ const Payment: React.FC = () => {
               display_name: 'Plan',
               variable_name: 'plan',
               value: plan.label,
+            },
+            {
+              display_name: 'Currency',
+              variable_name: 'currency',
+              value: plan.currency,
             },
           ],
         },
@@ -524,7 +508,7 @@ const Payment: React.FC = () => {
               console.log(`👤 User: ${userId}`);
               console.log(`📧 Email: ${email}`);
               console.log(`📋 Plan: ${plan.label}`);
-              console.log(`⏰ Duration: ${plan.durationMinutes} minutes`);
+              console.log(`⏰ Duration: ${plan.duration_minutes} minutes`);
               console.log(`🔍 User data from localStorage:`, userData);
               console.log(`🔍 Supabase user ID:`, supabaseUserId);
               console.log(`🔍 Is valid UUID:`, isValidUuid);
@@ -582,13 +566,14 @@ const Payment: React.FC = () => {
               // Build backend payload; omit user_id if anonymous so backend derives from cookie
               const backendPayload: any = {
                 email: resolvedEmail,
-                plan_name: plan.label,
-                plan_duration_minutes: plan.durationMinutes || 30,
+                plan_name: plan.id || plan.name || plan.label,
+                plan_duration_minutes: plan.duration_minutes || 30,
                 paystack_data: {
                   reference: response.reference,
                   transaction_id: response.transaction_id,
-                  amount: plan.paystackAmount,
-                  plan: plan.label,
+                  amount: plan.paystack_amount,
+                  currency: plan.currency,
+                  plan: plan.id || plan.label,
                   status: response.status,
                   custom_fields: [
                     { display_name: 'Name', variable_name: 'name', value: resolvedName }
@@ -762,13 +747,22 @@ const Payment: React.FC = () => {
 
 
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
-        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Choose the plan that fits your needs. Start with one free 7-day meal plan, then subscribe from $20/month. Change anytime.</p>
+        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
+          Choose the plan that fits your needs. Start with one free 7-day meal plan, then subscribe from {monthlyPriceLabel}/month. Change anytime.
+        </p>
+        {pricing && (
+          <p className="text-xs sm:text-sm text-muted-foreground mb-4">
+            {usedFallback
+              ? `You'll pay in ${pricing.currency_name} (${pricing.currency}).`
+              : `You'll pay in ${pricing.currency_name} based on your location (${countryName}).`}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-center items-stretch w-full max-w-5xl mx-auto">
-        {PLANS.map((plan) => (
+        {plans.map((plan) => (
           <Card
-            key={plan.label}
+            key={plan.id}
             className={`flex flex-col justify-between items-center p-6 sm:p-8 bg-card shadow-soft rounded-2xl border border-border relative transition-all duration-300 hover:shadow-card ${plan.highlight ? 'ring-2 ring-primary/30' : ''}`}
           >
             {plan.highlight && (
@@ -778,10 +772,10 @@ const Payment: React.FC = () => {
             )}
 
             <div className="mb-6 text-center">
-              <div className="text-2xl sm:text-3xl font-bold text-foreground mb-2">{plan.label}</div>
-              <div className="text-muted-foreground text-sm mb-4">Billed {plan.duration}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-foreground mb-2">{plan.name}</div>
+              <div className="text-muted-foreground text-sm mb-4">Billed {plan.period}</div>
               <div className="text-4xl font-bold text-primary mb-2">
-                ${plan.price.toLocaleString()}
+                {plan.formatted_price}
               </div>
             </div>
 
@@ -849,7 +843,7 @@ const Payment: React.FC = () => {
                 {selectedPlan?.label}
               </div>
               <div className="text-sm text-gray-600 mt-1">
-                Amount: ${selectedPlan?.price?.toLocaleString()}
+                Amount: {selectedPlan?.formatted_price}
               </div>
             </div>
           </div>
@@ -857,7 +851,7 @@ const Payment: React.FC = () => {
           <DialogFooter>
             <Button
               className="w-full bg-primary hover:bg-blue-deep text-white text-lg font-semibold rounded-full py-3"
-              onClick={processPayment}
+              onClick={() => processPayment()}
             >
               Pay with Paystack
             </Button>

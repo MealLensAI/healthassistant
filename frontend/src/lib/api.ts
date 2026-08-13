@@ -554,6 +554,10 @@ class APIService {
     return this.get(`/enterprise/invitation/verify/${token}`, { skipAuth: true })
   }
 
+  async getLocalizedPlans(query = ''): Promise<any> {
+    return this.get(`/payment/localized-plans${query}`, { skipAuth: true, timeout: 8000 })
+  }
+
   async acceptInvitation(token: string): Promise<APIResponse> {
     return this.post('/enterprise/invitation/accept', { token }, { suppressAuthRedirect: true })
   }

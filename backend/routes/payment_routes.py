@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from services.payment_service import PaymentService
 from services.auth_service import AuthService
 from services.subscription_service import SubscriptionService
+from services.geo_pricing_service import get_localized_pricing, COUNTRY_PLANS, DEFAULT_COUNTRY_CODE
 from utils.auth_utils import get_user_id_from_token
 import uuid
 from datetime import datetime
@@ -28,6 +29,22 @@ def authenticate_user() -> Optional[str]:
         return user_id
     except Exception:
         return None
+
+@payment_bp.route('/localized-plans', methods=['GET'])
+def get_localized_plans():
+    """Return subscription prices in the visitor's country currency (from IP)."""
+    hint = (request.args.get('country') or '').strip().upper() or None
+    if hint and len(hint) != 2:
+        hint = None
+    try:
+        return jsonify(get_localized_pricing(hint_country=hint)), 200
+    except Exception as e:
+        current_app.logger.exception('Failed to resolve localized pricing')
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
 
 @payment_bp.route('/plans', methods=['GET'])
 def get_subscription_plans():
@@ -198,9 +215,15 @@ def initialize_payment():
         }), 400
     
     email = data.get('email')
-    amount = data.get('amount')  # Amount in KES
+    amount = data.get('amount')
     plan_id = data.get('plan_id')
     callback_url = data.get('callback_url')
+    currency = (data.get('currency') or 'USD').upper()
+
+    allowed_currencies = {plan['currency'] for plan in COUNTRY_PLANS.values()}
+    allowed_currencies.add(COUNTRY_PLANS.get(DEFAULT_COUNTRY_CODE, COUNTRY_PLANS['US'])['currency'])
+    if currency not in allowed_currencies:
+        currency = COUNTRY_PLANS.get(DEFAULT_COUNTRY_CODE, COUNTRY_PLANS['US'])['currency']
     
     if not all([email, amount, plan_id]):
         return jsonify({
@@ -211,8 +234,8 @@ def initialize_payment():
     # Generate unique reference
     reference = f"ML_{user_id}_{uuid.uuid4().hex[:8]}"
     
-    # Convert amount to kobo (Paystack uses smallest currency unit)
-    amount_kobo = int(amount * 100)
+    # Convert amount to the smallest currency unit Paystack expects
+    amount_kobo = int(float(amount) * 100)
     
     # Initialize transaction
     result = payment_service.initialize_transaction(
@@ -220,10 +243,12 @@ def initialize_payment():
         amount=amount_kobo,
         reference=reference,
         callback_url=callback_url,
+        currency=currency,
         metadata={
             'user_id': user_id,
             'plan_id': plan_id,
-            'amount_kes': amount
+            'amount': amount,
+            'currency': currency
         }
     )
     
@@ -233,7 +258,7 @@ def initialize_payment():
             'id': result['data']['id'],
             'reference': reference,
             'amount': amount_kobo,
-            'currency': 'KES',
+            'currency': currency,
             'status': 'pending',
             'description': f'Subscription payment for plan {plan_id}'
         }
@@ -469,11 +494,11 @@ def payment_status():
         'available_features': [
             'Subscription plans (Free, Basic, Premium, Enterprise)',
             'Usage tracking and limits',
-            'Paystack payment processing (KES)',
+            'Paystack payment processing (local currency from IP)',
             'Webhook handling',
             'Automatic limit enforcement'
         ],
-        'currency': 'KES',
+        'currency': COUNTRY_PLANS.get(DEFAULT_COUNTRY_CODE, COUNTRY_PLANS['US'])['currency'],
         'payment_provider': 'Paystack'
     }), 200
 

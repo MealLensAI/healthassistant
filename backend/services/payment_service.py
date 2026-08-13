@@ -54,15 +54,18 @@ class PaymentService:
         return self._make_paystack_request('/customer', 'POST', data)
     
     def initialize_transaction(self, email: str, amount: int, reference: str, 
-                             callback_url: str = None, metadata: Dict = None) -> Dict:
+                             callback_url: str = None, metadata: Dict = None,
+                             currency: str = 'USD') -> Dict:
         """Initialize a Paystack transaction."""
         data = {
             'email': email,
-            'amount': amount,  # Amount in kobo (smallest currency unit)
+            'amount': amount,  # Amount in smallest currency unit
             'reference': reference,
-            'callback_url': callback_url,
+            'currency': currency,
             'metadata': metadata or {}
         }
+        if callback_url:
+            data['callback_url'] = callback_url
         
         return self._make_paystack_request('/transaction/initialize', 'POST', data)
     

@@ -44,6 +44,8 @@ class Config:
     # Payment Configuration
     PAYSTACK_SECRET_KEY = os.environ.get("PAYSTACK_SECRET_KEY")
     PAYSTACK_PUBLIC_KEY = os.environ.get("PAYSTACK_PUBLIC_KEY")
+    # ISO country used when the visitor's country has no local Paystack price
+    DEFAULT_PRICING_COUNTRY = os.environ.get("DEFAULT_PRICING_COUNTRY", "US")
     
     # Email Configuration (Resend)
     RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
