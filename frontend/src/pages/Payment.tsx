@@ -762,7 +762,7 @@ const Payment: React.FC = () => {
 
 
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
-        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Choose the plan that fits your needs. Start with one free 7-day meal plan, then subscribe from $20/month. Change anytime.</p>
+        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Choose the plan that fits your needs. Start with three free 7-day meal plans, then subscribe from $20/month. Change anytime.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-center items-stretch w-full max-w-5xl mx-auto">

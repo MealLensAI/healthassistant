@@ -7,7 +7,7 @@ export interface TrialInfo {
   remainingTime: number; // legacy: kept for backward compatibility
   remainingHours: number; // legacy: kept for backward compatibility
   remainingMinutes: number; // legacy: kept for backward compatibility
-  // Free-plan budget (1 free 7-day meal plan per user)
+  // Free-plan budget (3 free 7-day meal plans per user)
   mealPlansUsed: number;
   mealPlansLimit: number;
   freeMealPlanUsed: boolean;
@@ -29,20 +29,39 @@ export interface SubscriptionInfo {
 import { APP_CONFIG } from '@/lib/config';
 import { safeGetItem, safeSetItem, safeRemoveItem } from '@/lib/utils';
 
-/** Set when a free generation is consumed without saving a meal plan (e.g. Food for you). */
+/** Free meal-plan budget for non-subscribers (must match backend free_plan_limit). */
+export const FREE_MEAL_PLAN_LIMIT =
+  APP_CONFIG.subscriptionPlans.find((p) => p.id === 'free')?.limits
+    ?.health_meal_plans_per_month ?? 3;
+
+/**
+ * Counts free generations consumed without saving a meal plan (e.g. Food for you).
+ * Legacy value `'1'` is treated as count 1.
+ */
 export const FREE_GENERATION_USED_KEY = 'meallensai_free_generation_used_v1';
 
-export function isLocalFreeGenerationUsed(): boolean {
+export function getLocalFreeGenerationCount(): number {
   try {
-    return safeGetItem(FREE_GENERATION_USED_KEY) === '1';
+    const raw = safeGetItem(FREE_GENERATION_USED_KEY);
+    if (raw == null || raw === '') return 0;
+    if (raw === 'true') return 1;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
   } catch {
-    return false;
+    return 0;
   }
+}
+
+export function isLocalFreeGenerationUsed(
+  limit: number = FREE_MEAL_PLAN_LIMIT
+): boolean {
+  return getLocalFreeGenerationCount() >= limit;
 }
 
 export function markLocalFreeGenerationUsed(): void {
   try {
-    safeSetItem(FREE_GENERATION_USED_KEY, '1');
+    const next = getLocalFreeGenerationCount() + 1;
+    safeSetItem(FREE_GENERATION_USED_KEY, String(next));
   } catch {
     /* ignore */
   }
@@ -161,8 +180,8 @@ export class TrialService {
   /**
    * Get current trial information from backend
    *
-   * Note: the trial is no longer time-based. A user gets ONE free 7-day meal
-   * plan; once they've generated it, the trial is considered "expired" and
+   * Note: the trial is no longer time-based. A user gets THREE free 7-day meal
+   * plans; once they've used that budget, the trial is considered "expired" and
    * they need to subscribe to generate more.
    */
   static async getTrialInfo(): Promise<TrialInfo | null> {
@@ -173,14 +192,12 @@ export class TrialService {
         const trial = backendResult.trialInfo as any;
 
         const mealPlansUsed = Number(trial.meal_plans_used ?? trial.mealPlansUsed ?? 0);
-        const mealPlansLimit = Number(trial.meal_plans_limit ?? trial.mealPlansLimit ?? 1);
-        const freeMealPlanUsed = Boolean(
-          trial.free_meal_plan_used ??
-            trial.freeMealPlanUsed ??
-            trial.is_used ??
-            trial.isUsed ??
-            mealPlansUsed >= mealPlansLimit
-        ) || isLocalFreeGenerationUsed();
+        const mealPlansLimit = Number(
+          trial.meal_plans_limit ?? trial.mealPlansLimit ?? FREE_MEAL_PLAN_LIMIT
+        );
+        const localFreeUsed = getLocalFreeGenerationCount();
+        const freeMealPlanUsed =
+          mealPlansUsed + localFreeUsed >= mealPlansLimit;
 
         const startDate = trial.start_date ? new Date(trial.start_date) : new Date();
         const endDate = trial.end_date ? new Date(trial.end_date) : new Date();
@@ -218,7 +235,7 @@ export class TrialService {
 
   /**
    * Whether the user can generate a new meal plan right now (active
-   * subscription OR they still have their free 7-day meal plan unused).
+   * subscription OR they still have free 7-day meal plan budget remaining).
    */
   static async canGenerateMealPlan(): Promise<boolean> {
     try {
@@ -226,13 +243,12 @@ export class TrialService {
       if (backendResult.hasActiveSubscription) return true;
       const trial = backendResult.trialInfo as any;
       if (!trial) return true; // no trial info yet — let the backend decide
-      const freeUsed = Boolean(
-        trial.free_meal_plan_used ??
-          trial.freeMealPlanUsed ??
-          trial.is_used ??
-          trial.isUsed ??
-          false
-      ) || isLocalFreeGenerationUsed();
+      const mealPlansUsed = Number(trial.meal_plans_used ?? trial.mealPlansUsed ?? 0);
+      const mealPlansLimit = Number(
+        trial.meal_plans_limit ?? trial.mealPlansLimit ?? FREE_MEAL_PLAN_LIMIT
+      );
+      const freeUsed =
+        mealPlansUsed + getLocalFreeGenerationCount() >= mealPlansLimit;
       return !freeUsed;
     } catch (error) {
       console.error('Error checking meal plan generation access:', error);

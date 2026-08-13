@@ -57,12 +57,12 @@ const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose, 
 
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {isSubscriptionExpired ? 'Your Subscription Has Ended' : "You've Used Your Free 7-Day Meal Plan"}
+                {isSubscriptionExpired ? 'Your Subscription Has Ended' : "You've Used Your Free Meal Plans"}
               </h3>
               <p className="text-gray-600 text-sm leading-relaxed">
                 {isSubscriptionExpired
                   ? 'Your subscription period has ended. To continue using all the amazing features, please renew your subscription.'
-                  : 'You\'ve already generated your one free 7-day meal plan. Subscribe to generate unlimited new meal plans whenever you need them.'
+                  : 'You\'ve already used your three free 7-day meal plans. Subscribe to generate unlimited new meal plans whenever you need them.'
                 }
               </p>
             </div>

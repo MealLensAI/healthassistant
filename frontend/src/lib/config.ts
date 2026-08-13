@@ -22,7 +22,7 @@ export const APP_CONFIG = {
 
     // Subscription Plans
     // Pricing: 1 Month $20 · 6 Months $120 · 1 Year $240
-    // Free: one 7-day meal plan trial (not a timed calendar trial)
+    // Free: three 7-day meal plan trials (not a timed calendar trial)
     subscriptionPlans: [
         {
             id: 'free',
@@ -33,7 +33,7 @@ export const APP_CONFIG = {
             price_yearly: 0,
             currency: 'USD',
             features: [
-                'One free 7-day meal plan',
+                'Three free 7-day meal plans',
                 'Health-Focused Meal Plans',
                 'Personalized Meal Plans for Chronic Conditions',
                 'BMI & BMR Calculations',
@@ -42,8 +42,8 @@ export const APP_CONFIG = {
                 'Full History Access'
             ],
             limits: {
-                health_meal_plans_per_month: 1,
-                health_meal_generations: 1
+                health_meal_plans_per_month: 3,
+                health_meal_generations: 3
             },
             is_active: true,
             duration_days: 7,

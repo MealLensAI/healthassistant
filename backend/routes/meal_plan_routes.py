@@ -11,7 +11,7 @@ def _enforce_meal_plan_quota(user_id: str):
     """Return a Flask response tuple (response, status) when the user is not
     allowed to create a new meal plan, or None when access is granted.
 
-    Policy: each user gets ONE free 7-day meal plan. After that, an active
+    Policy: each user gets THREE free 7-day meal plans. After that, an active
     subscription is required. Enterprise/organization members bypass the
     limit (handled inside SubscriptionService.can_user_generate_meal_plan).
     """

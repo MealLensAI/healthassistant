@@ -110,11 +110,11 @@ class SubscriptionService:
                             has_active_subscription = True
                             break
             
-            # Trial is no longer time-based: each new user gets to generate ONE
-            # 7-day meal plan for free, after which they must subscribe to
+            # Trial is no longer time-based: each new user gets to generate THREE
+            # 7-day meal plans for free, after which they must subscribe to
             # generate more. Determine "free meal plan used" by counting saved
             # meal plans for this user. This is the source of truth.
-            free_plan_limit = 1
+            free_plan_limit = 3
             meal_plans_used = 0
             try:
                 mp_result = self.supabase.table('meal_plan_management').select(
@@ -214,7 +214,7 @@ class SubscriptionService:
         """
         Decide whether a user is allowed to create a new meal plan.
 
-        Policy: a user may create at most ONE meal plan for free. After that,
+        Policy: a user may create at most THREE meal plans for free. After that,
         they must have an active subscription. Users in an organization
         (enterprise members) inherit access from their organization and are
         not subject to the free-plan limit.
@@ -257,15 +257,15 @@ class SubscriptionService:
                     'reason': 'free_plan_available',
                     'message': 'Free meal plan available.',
                     'meal_plans_used': data.get('meal_plans_used', 0),
-                    'meal_plans_limit': data.get('meal_plans_limit', 1),
+                    'meal_plans_limit': data.get('meal_plans_limit', 3),
                 }
 
             return {
                 'allowed': False,
                 'reason': 'free_plan_used',
-                'message': 'Your free meal plan has been used. Please subscribe to generate more meal plans.',
+                'message': 'Your free meal plans have been used. Please subscribe to generate more meal plans.',
                 'meal_plans_used': data.get('meal_plans_used', 0),
-                'meal_plans_limit': data.get('meal_plans_limit', 1),
+                'meal_plans_limit': data.get('meal_plans_limit', 3),
             }
         except Exception as e:
             print(f"Error in can_user_generate_meal_plan: {e}")

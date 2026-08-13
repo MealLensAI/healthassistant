@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { TrialService, TrialInfo, SubscriptionInfo, isLocalFreeGenerationUsed } from '@/lib/trialService';
+import { TrialService, TrialInfo, SubscriptionInfo, getLocalFreeGenerationCount, FREE_MEAL_PLAN_LIMIT } from '@/lib/trialService';
 import { safeGetItem, safeRemoveItem } from '@/lib/utils';
 
 // LocalStorage cache keys
@@ -79,16 +79,13 @@ export const useTrial = () => {
       const trialData = backendResult.trialInfo;
       const info = trialData ? (() => {
         const mealPlansUsed = Number(trialData.meal_plans_used ?? trialData.mealPlansUsed ?? 0);
-        const mealPlansLimit = Number(trialData.meal_plans_limit ?? trialData.mealPlansLimit ?? 1);
-        // Backend free_meal_plan_used is meal-plan-count based; also honor
-        // user_trials.is_used and the local flag set after Food for you / mark-trial-used.
-        const freeMealPlanUsed = Boolean(
-          trialData.free_meal_plan_used ??
-            trialData.freeMealPlanUsed ??
-            trialData.is_used ??
-            trialData.isUsed ??
-            mealPlansUsed >= mealPlansLimit
-        ) || isLocalFreeGenerationUsed();
+        const mealPlansLimit = Number(
+          trialData.meal_plans_limit ?? trialData.mealPlansLimit ?? FREE_MEAL_PLAN_LIMIT
+        );
+        // Backend counts saved meal plans; local count covers Food for you /
+        // other gens that do not write meal_plan_management.
+        const freeMealPlanUsed =
+          mealPlansUsed + getLocalFreeGenerationCount() >= mealPlansLimit;
         return {
           isActive: !freeMealPlanUsed,
           startDate: new Date(trialData.startDate || trialData.start_date || Date.now()),
@@ -218,16 +215,20 @@ export const useTrial = () => {
       return subscriptionInfo.formattedRemainingTime;
     }
 
-    // The "trial" is no longer time-based: each user gets ONE free 7-day meal
-    // plan. Show whether that free plan is still available.
+    // The "trial" is no longer time-based: each user gets THREE free 7-day meal
+    // plans. Show whether that free budget is still available.
     const trial: any = trialInfo || cachedData?.trialInfo;
     if (trial) {
-      const freeUsed = Boolean(trial.freeMealPlanUsed ?? trial.isExpired);
-      if (freeUsed) return 'Free meal plan used';
-      return '1 free meal plan available';
+      const used = Number(trial.mealPlansUsed ?? 0) + getLocalFreeGenerationCount();
+      const limit = Number(trial.mealPlansLimit ?? FREE_MEAL_PLAN_LIMIT);
+      const remaining = Math.max(0, limit - used);
+      if (remaining <= 0) return 'Free meal plans used';
+      return remaining === 1
+        ? '1 free meal plan available'
+        : `${remaining} free meal plans available`;
     }
 
-    return 'Free meal plan available';
+    return 'Free meal plans available';
   };
 
   // Suppress the "currentTime" lint warning by referencing it (we no longer
@@ -239,7 +240,7 @@ export const useTrial = () => {
 
   const freeMealPlanUsed = trialInfo?.freeMealPlanUsed ?? false;
   const mealPlansUsed = trialInfo?.mealPlansUsed ?? 0;
-  const mealPlansLimit = trialInfo?.mealPlansLimit ?? 1;
+  const mealPlansLimit = trialInfo?.mealPlansLimit ?? FREE_MEAL_PLAN_LIMIT;
   const canGenerateMealPlan = hasActiveSubscription || !freeMealPlanUsed;
 
   return {

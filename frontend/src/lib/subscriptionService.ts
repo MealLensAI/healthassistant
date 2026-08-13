@@ -382,7 +382,13 @@ class SubscriptionService {
             }
         } else if (status.trial) {
             const freeUsed = status.trial.free_meal_plan_used ?? !status.trial.is_active;
-            return freeUsed ? 'Free meal plan used' : '1 free meal plan available';
+            if (freeUsed) return 'Free meal plans used';
+            const limit = status.trial.meal_plans_limit ?? 3;
+            const used = status.trial.meal_plans_used ?? 0;
+            const remaining = Math.max(0, limit - used);
+            return remaining === 1
+              ? '1 free meal plan available'
+              : `${remaining} free meal plans available`;
         }
 
         return 'No active subscription';

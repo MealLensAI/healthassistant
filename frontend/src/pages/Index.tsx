@@ -245,7 +245,7 @@ const Index = () => {
   };
 
   const handleNewPlan = async () => {
-    // Free-plan budget: a user gets ONE free 7-day meal plan. Once used,
+    // Free-plan budget: a user gets THREE free 7-day meal plans. Once used,
     // they need an active subscription before opening the create modal.
     if (!hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan)) {
       await promptForSubscription();
@@ -329,7 +329,7 @@ const Index = () => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    // Free-plan budget check: a user gets ONE free 7-day meal plan. After
+    // Free-plan budget check: a user gets THREE free 7-day meal plans. After
     // that, they need an active subscription to generate more.
     if (!hasActiveSubscription && (freeMealPlanUsed || !canGenerateMealPlan)) {
       await promptForSubscription();

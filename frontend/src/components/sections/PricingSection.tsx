@@ -7,12 +7,12 @@ const PRICING_CARDS = [
     id: "trial",
     name: "Free",
     price: "$0",
-    period: "1 free meal plan",
-    description: "Try a full 7-day meal plan on us",
+    period: "3 free meal plans",
+    description: "Try full 7-day meal plans on us",
     features: [
       "AI ingredient recognition",
       "Step-by-step recipes",
-      "One free 7-day meal plan",
+      "Three free 7-day meal plans",
       "Chronic condition meal planning",
       "Budget & location-based plans",
     ],
@@ -81,7 +81,7 @@ const PricingSection = () => {
             Simple pricing. One subscription.
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Get one free 7-day meal plan when you sign up. Then choose a plan
+            Get three free 7-day meal plans when you sign up. Then choose a plan
             that fits, with cooking and health features included.
           </p>
         </div>
@@ -135,7 +135,7 @@ const PricingSection = () => {
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-8">
-          No credit card required for your free meal plan. Cancel anytime.
+          No credit card required for your free meal plans. Cancel anytime.
         </p>
       </div>
     </section>

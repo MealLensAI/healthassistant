@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 import { useTrial } from '@/hooks/useTrial';
 import { LifecycleService } from '@/lib/lifecycleService';
-import { markLocalFreeGenerationUsed } from '@/lib/trialService';
+import { markLocalFreeGenerationUsed, getLocalFreeGenerationCount, FREE_MEAL_PLAN_LIMIT } from '@/lib/trialService';
 import { APP_CONFIG } from '@/lib/config';
 import { imageCache } from '@/lib/imageCache';
 import { api } from '@/lib/api';
@@ -448,12 +448,15 @@ const FoodForYouPage: React.FC = () => {
 
       // Lifecycle after UI already shows results — do not block the page
       void (async () => {
-        try {
-          await LifecycleService.markTrialUsed();
-        } catch {
-          /* ignore */
-        }
         markLocalFreeGenerationUsed();
+        // Only mark the trial fully used once the free budget is exhausted.
+        if (getLocalFreeGenerationCount() >= FREE_MEAL_PLAN_LIMIT) {
+          try {
+            await LifecycleService.markTrialUsed();
+          } catch {
+            /* ignore */
+          }
+        }
         try {
           await refreshTrialStatus();
         } catch {
@@ -761,7 +764,7 @@ const FoodForYouPage: React.FC = () => {
         {showEmptyBlocked && (
           <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-soft max-w-lg mx-auto">
             <p className="text-muted-foreground mb-4">
-              You&apos;ve used your free food generation. Subscribe to generate personalized food for you.
+              You&apos;ve used your free food generations. Subscribe to generate personalized food for you.
             </p>
             <button
               type="button"
