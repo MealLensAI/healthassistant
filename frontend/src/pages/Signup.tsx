@@ -345,6 +345,7 @@ const Signup = () => {
             </button>
           </div>
 
+
           {/* Signup Form */}
           <form onSubmit={handleEmailSignup} className="space-y-4">
             {!isOrganizationSignup ? (
