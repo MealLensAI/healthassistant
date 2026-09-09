@@ -223,7 +223,7 @@ const Login = () => {
               style={{ padding: '10px' }}
             >
               <Building2 className="h-4 w-4" />
-              <span className="font-medium text-sm">Organization</span>
+              <span className="font-medium text-sm">organization/Dietitian</span>
             </button>
           </div>
 
