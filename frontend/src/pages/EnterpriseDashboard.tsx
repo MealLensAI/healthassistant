@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { EnterpriseRegistrationForm } from "@/components/enterprise/EnterpriseRegistrationForm";
 import { InviteUserForm } from "@/components/enterprise/InviteUserForm";
 import AdminDietPlanner from "@/components/enterprise/AdminDietPlanner";
+import AdminFoodForYou from "@/components/enterprise/AdminFoodForYou";
 import AdminFoodHistory from "@/components/enterprise/AdminFoodHistory";
 import { api } from "@/lib/api";
 import { useAuth, safeGetItem } from "@/lib/utils";
@@ -132,7 +133,7 @@ export default function EnterpriseDashboard() {
 
   // misc
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeSidebarItem, setActiveSidebarItem] = useState<"overview" | "activity" | "members" | "settings" | "history" | "meal-plans" | "food-history">("overview");
+  const [activeSidebarItem, setActiveSidebarItem] = useState<"overview" | "activity" | "members" | "settings" | "history" | "meal-plans" | "food-for-you" | "food-history">("overview");
   const [activeTab, setActiveTab] = useState<"users" | "invitations">("invitations");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(PERIOD_OPTIONS[0]);
@@ -1457,6 +1458,34 @@ export default function EnterpriseDashboard() {
                     role: u.role
                   }))}
                   onRefresh={() => loadEnterpriseDetails(selectedEnterprise.id)}
+                />
+              )}
+            </section>
+          )}
+
+          {/* Food for you View - Member Food for you recommendations */}
+          {activeSidebarItem === "food-for-you" && (
+            <section className="mt-6 sm:mt-12">
+              <div className="mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Food for you</h2>
+                <p className="mt-1 text-sm text-slate-500">See the Food for you list each organization member currently sees</p>
+              </div>
+
+              {!selectedEnterprise ? (
+                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-12 sm:p-24 text-center shadow-sm">
+                  <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
+                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
+                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view Food for you</p>
+                </div>
+              ) : (
+                <AdminFoodForYou
+                  users={users.map(u => ({
+                    user_id: u.user_id,
+                    email: u.email,
+                    first_name: u.first_name,
+                    last_name: u.last_name,
+                    role: u.role
+                  }))}
                 />
               )}
             </section>
