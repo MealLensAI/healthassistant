@@ -29,16 +29,33 @@ class EmailService:
         self.last_error_message: Optional[str] = None
         self._notification_client = None
 
+    DEFAULT_FROM_EMAIL = 'info@meallensai.com'
+    RETIRED_FROM_ADDRESSES = {'hello@meallensai.com'}
+
     def _load_config(self):
         """Load email configuration from environment variables"""
         self.api_key = os.environ.get('RESEND_API_KEY')
-        self.from_email = os.environ.get('FROM_EMAIL') or os.environ.get('RESEND_FROM_EMAIL')
+        raw_from = (
+            os.environ.get('FROM_EMAIL')
+            or os.environ.get('RESEND_FROM_EMAIL')
+            or self.DEFAULT_FROM_EMAIL
+        )
+        self.from_email = (raw_from or '').strip().strip('"').strip("'")
+        if self.from_email.lower() in self.RETIRED_FROM_ADDRESSES:
+            print(f"[EmailService] Replacing retired From address {self.from_email} with {self.DEFAULT_FROM_EMAIL}")
+            self.from_email = self.DEFAULT_FROM_EMAIL
         self.from_name = os.environ.get('FROM_NAME', 'MeallensAI')
+        self.reply_to = (
+            os.environ.get('REPLY_TO_EMAIL')
+            or os.environ.get('REPLY_TO')
+            or self.from_email
+        ).strip().strip('"').strip("'")
 
         print("[EmailService] Config loaded:")
         print(f"  RESEND_API_KEY: {'SET' if self.api_key else 'NOT SET'}")
         print(f"  FROM_EMAIL: {self.from_email or 'NOT SET'}")
         print(f"  FROM_NAME: {self.from_name}")
+        print(f"  REPLY_TO: {self.reply_to}")
 
         self.is_configured = bool(self.api_key and self.from_email)
 
@@ -198,6 +215,7 @@ class EmailService:
                 "from": f"{self.from_name} <{self.from_email}>",
                 "to": [to_email],
                 "subject": subject,
+                "reply_to": self.reply_to or self.from_email,
             }
             if html_body:
                 params["html"] = html_body

@@ -47,8 +47,9 @@ class Config:
     
     # Email Configuration (Resend)
     RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
-    FROM_EMAIL = os.environ.get("FROM_EMAIL") or os.environ.get("RESEND_FROM_EMAIL")
+    FROM_EMAIL = os.environ.get("FROM_EMAIL") or os.environ.get("RESEND_FROM_EMAIL") or "info@meallensai.com"
     FROM_NAME = os.environ.get("FROM_NAME", "MeallensAI")
+    REPLY_TO_EMAIL = os.environ.get("REPLY_TO_EMAIL") or os.environ.get("REPLY_TO") or FROM_EMAIL
     
     # Frontend Configuration - Must be set in environment
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
