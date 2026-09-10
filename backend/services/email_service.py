@@ -5,6 +5,7 @@ Email Service for sending invitations and notifications via Resend
 import os
 import uuid
 import json
+import html
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
@@ -262,6 +263,12 @@ class EmailService:
             msg['Subject'] = f'Invitation to join {enterprise_name} on MeallensAI'
             msg['From'] = f'{self.from_name} <{self.from_email}>'
             msg['To'] = to_email
+
+            safe_enterprise = html.escape(enterprise_name or '')
+            safe_inviter = html.escape(inviter_name or '')
+            safe_email = html.escape(to_email or '')
+            safe_link = html.escape(invitation_link or '', quote=True)
+            safe_message = html.escape(custom_message) if custom_message else None
             
             # Create HTML email body
             html_body = f"""
@@ -341,26 +348,26 @@ class EmailService:
                         
                         <p>Hello,</p>
                         
-                        <p><strong>{inviter_name}</strong> has invited you to join <strong>{enterprise_name}</strong> on MeallensAI.</p>
+                        <p><strong>{safe_inviter}</strong> has invited you to join <strong>{safe_enterprise}</strong> on MeallensAI.</p>
                         
-                        {f'<div class="custom-message"><strong>Personal message:</strong><br>{custom_message}</div>' if custom_message else ''}
+                        {f'<div class="custom-message"><strong>Personal message:</strong><br>{safe_message}</div>' if safe_message else ''}
                         
                         <p>MeallensAI is an AI-powered nutrition and meal planning platform that helps you make healthier food choices and create personalized meal plans.</p>
                         
                         <p>Click the button below to accept the invitation and get started:</p>
                         
                         <div style="text-align: center;">
-                            <a href="{invitation_link}" class="button">Accept Invitation</a>
+                            <a href="{safe_link}" class="button">Accept Invitation</a>
                         </div>
                         
                         <p>Or copy and paste this link into your browser:</p>
-                        <p class="link">{invitation_link}</p>
+                        <p class="link">{safe_link}</p>
                         
                         <p><small>This invitation will expire in 30 days.</small></p>
                     </div>
                     
                     <div class="footer">
-                        <p>This email was sent to {to_email} because {inviter_name} invited you to join their organization on MeallensAI.</p>
+                        <p>This email was sent to {safe_email} because {safe_inviter} invited you to join their organization on MeallensAI.</p>
                         <p>&copy; 2025 MeallensAI. All rights reserved.</p>
                     </div>
                 </div>

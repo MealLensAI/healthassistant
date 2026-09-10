@@ -10,6 +10,7 @@ import uuid
 import secrets
 import os
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote, unquote
 from services.email_service import email_service
 from supabase import Client
 
@@ -26,7 +27,7 @@ def get_frontend_url():
     # Only use FRONTEND_URL from environment variable
     frontend_url = os.environ.get('FRONTEND_URL')
     if frontend_url:
-        frontend_url = frontend_url.strip()
+        frontend_url = frontend_url.strip().strip('"').strip("'")
         if frontend_url:
             if not frontend_url.startswith(('http://', 'https://')):
                 frontend_url = f'https://{frontend_url}'
@@ -37,6 +38,47 @@ def get_frontend_url():
     print(f"⚠️ WARNING: FRONTEND_URL not set in environment.")
     print(f"⚠️ Please set FRONTEND_URL in backend/.env file")
     return ''
+
+
+def _normalize_invitation_token(raw: Optional[str]) -> str:
+    """Repair tokens mangled by email clients, encoding, or URL wrapping.
+
+    Outlook/Word often turns `--` into an em/en dash inside links. Email
+    clients also insert whitespace when wrapping long URLs. Either change
+    makes a valid invite look like an invalid token.
+    """
+    if not raw:
+        return ''
+    token = unquote(str(raw)).strip()
+    token = token.replace('\u00ad', '')  # soft hyphen
+    return ''.join(token.split())
+
+
+def _invitation_token_candidates(raw: str) -> list:
+    """Build lookup variants for tokens that email clients may have altered."""
+    normalized = _normalize_invitation_token(raw)
+    original = (raw or '').strip()
+    candidates = []
+    for candidate in (
+        normalized,
+        original,
+        normalized.replace('\u2014', '--').replace('\u2013', '--').replace('\u2212', '-'),
+        normalized.replace('\u2014', '-').replace('\u2013', '-').replace('\u2212', '-'),
+    ):
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+
+def _find_invitation_by_token(supabase, raw_token: str):
+    """Look up an invitation, trying normalized token variants."""
+    last_result = None
+    for candidate in _invitation_token_candidates(raw_token):
+        result = supabase.table('invitations').select('*').eq('invitation_token', candidate).execute()
+        last_result = result
+        if result.data:
+            return result
+    return last_result
 
 enterprise_bp = Blueprint('enterprise', __name__)
 
@@ -765,41 +807,52 @@ def invite_user(enterprise_id):
             # We'll catch duplicates later if needed
             current_app.logger.warning(f"[INVITE] Could not check if user exists: {str(user_check_error)}")
         
-        # Check if user is already invited
-        current_app.logger.info(f"[INVITE] Checking for existing invitation")
-        existing_invitation = supabase.table('invitations').select('id').eq('enterprise_id', enterprise_id).eq('email', email).eq('status', 'pending').execute()
-        if existing_invitation.data:
-            current_app.logger.warning(f"[INVITE] User already has pending invitation")
-            return jsonify({'success': False, 'error': 'User already has a pending invitation'}), 400
-        
-        # Generate unique invitation token
-        invitation_token = secrets.token_urlsafe(32)
+        # Hex-only tokens: email clients (especially Outlook) mangle URL-safe
+        # tokens that contain `-` / `_` (e.g. converting `--` to an em dash).
+        invitation_token = secrets.token_hex(32)
         current_app.logger.info(f"[INVITE] Generated invitation token")
         
-        # Create invitation
+        expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
         invitation_data = {
             'enterprise_id': enterprise_id,
             'email': email,
             'invited_by': request.user_id,
             'invitation_token': invitation_token,
             'role': role,  # Use validated role
+            'status': 'pending',
             'message': data.get('message'),
-            'expires_at': (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+            'expires_at': expires_at
         }
         
-        current_app.logger.info(f"[INVITE] Creating invitation with data: {invitation_data}")
+        # If a pending invite already exists, refresh its token and resend.
+        # This recovers from previously mailed links that email clients mangled.
+        current_app.logger.info(f"[INVITE] Checking for existing invitation")
+        existing_invitation = supabase.table('invitations').select('*').eq('enterprise_id', enterprise_id).eq('email', email).eq('status', 'pending').execute()
         
-        # Wrap in try/except for unique constraint violations
         try:
-            result = supabase.table('invitations').insert(invitation_data).execute()
-            current_app.logger.info(f"[INVITE] Invitation insert result: {result}")
-            
-            if not result.data:
-                current_app.logger.error(f"[INVITE] Failed to create invitation - no data returned")
-                return jsonify({'success': False, 'error': 'Failed to create invitation'}), 500
-            
-            invitation = result.data[0]
-            current_app.logger.info(f"[INVITE] ✅ Invitation created successfully: {invitation['id']}")
+            if existing_invitation.data:
+                existing_id = existing_invitation.data[0]['id']
+                current_app.logger.info(f"[INVITE] Refreshing existing pending invitation {existing_id}")
+                result = supabase.table('invitations').update({
+                    'invitation_token': invitation_token,
+                    'role': role,
+                    'message': data.get('message'),
+                    'expires_at': expires_at,
+                    'invited_by': request.user_id,
+                }).eq('id', existing_id).execute()
+                invitation = result.data[0] if result.data else {**existing_invitation.data[0], **invitation_data, 'id': existing_id}
+                current_app.logger.info(f"[INVITE] ✅ Invitation token refreshed: {existing_id}")
+            else:
+                current_app.logger.info(f"[INVITE] Creating invitation with data: {invitation_data}")
+                result = supabase.table('invitations').insert(invitation_data).execute()
+                current_app.logger.info(f"[INVITE] Invitation insert result: {result}")
+                
+                if not result.data:
+                    current_app.logger.error(f"[INVITE] Failed to create invitation - no data returned")
+                    return jsonify({'success': False, 'error': 'Failed to create invitation'}), 500
+                
+                invitation = result.data[0]
+                current_app.logger.info(f"[INVITE] ✅ Invitation created successfully: {invitation['id']}")
             
         except Exception as insert_error:
             current_app.logger.error(f"[INVITE] ❌ Invitation insert failed: {str(insert_error)}", exc_info=True)
@@ -813,7 +866,7 @@ def invite_user(enterprise_id):
         
         # Create invitation link using dynamic URL detection
         frontend_url = get_frontend_url()
-        invitation_link = f"{frontend_url}/accept-invitation?token={invitation_token}"
+        invitation_link = f"{frontend_url}/accept-invitation?token={quote(invitation_token, safe='')}"
         current_app.logger.info(f"[INVITE] Invitation link: {invitation_link}")
         
         # Get inviter name from user (with error handling for rate limits)
@@ -1068,26 +1121,18 @@ def test_email():
         }), 500
 
 
-@enterprise_bp.route('/api/enterprise/invitation/verify/<token>', methods=['GET'])
+@enterprise_bp.route('/api/enterprise/invitation/verify/<path:token>', methods=['GET'])
 @enterprise_bp.route('/api/enterprise/invitation/verify', methods=['GET'])
 def verify_invitation(token=None):
     """Verify an invitation token (public endpoint)
     Supports both path parameter and query parameter for token
     """
     try:
-        from urllib.parse import unquote
-        
         # Get token from path parameter or query parameter
         if not token:
-            token = request.args.get('token', '').strip()
+            token = request.args.get('token', '')
         
-        # URL decode the token (Flask should do this automatically, but be explicit)
-        # Try both decoded and as-is in case it's already decoded
-        token_decoded = unquote(token).strip() if token else ''
-        token_original = token.strip() if token else ''
-        
-        # Use the decoded version, but we'll try both if needed
-        token = token_decoded or token_original
+        token = _normalize_invitation_token(token)
         
         current_app.logger.info(f"[VERIFY_INVITE] Verifying invitation token (length: {len(token)}, first 20 chars: {token[:20] if len(token) >= 20 else token}...)")
         
@@ -1095,42 +1140,18 @@ def verify_invitation(token=None):
             current_app.logger.warning("[VERIFY_INVITE] Empty token received")
             return jsonify({'error': 'Invalid invitation token'}), 404
         
-        supabase = get_supabase_client()
+        # Admin client bypasses RLS so invitees (who are not logged in) can verify
+        supabase = get_supabase_client(use_admin=True)
         if not supabase:
             current_app.logger.error("[VERIFY_INVITE] Supabase client not available")
             return jsonify({'error': 'Service unavailable'}), 500
         
-        # Get invitation details - try with the decoded token first
-        result = supabase.table('invitations').select('''
-            *,
-            enterprise:enterprise_id (
-                id,
-                name,
-                organization_type
-            )
-        ''').eq('invitation_token', token).execute()
+        result = _find_invitation_by_token(supabase, token)
         
-        # If not found with decoded token, try with original token (in case it wasn't encoded)
-        if not result.data and token_decoded != token_original and token_original:
-            current_app.logger.info(f"[VERIFY_INVITE] Retrying with original token format")
-            result = supabase.table('invitations').select('''
-                *,
-                enterprise:enterprise_id (
-                    id,
-                    name,
-                    organization_type
-                )
-            ''').eq('invitation_token', token_original).execute()
-            # If found with original, use that token
-            if result.data:
-                token = token_original
+        current_app.logger.info(f"[VERIFY_INVITE] Query result: {len(result.data) if result and result.data else 0} invitations found")
         
-        current_app.logger.info(f"[VERIFY_INVITE] Query result: {len(result.data) if result.data else 0} invitations found")
-        
-        if not result.data:
-            # Try to find any invitations with similar tokens for debugging
+        if not result or not result.data:
             current_app.logger.warning(f"[VERIFY_INVITE] No invitation found for token: {token[:20] if len(token) >= 20 else token}...")
-            # Log the full token length for debugging (but not the full token for security)
             current_app.logger.warning(f"[VERIFY_INVITE] Token length: {len(token)}, Token ends with: ...{token[-10:] if len(token) > 10 else token}")
             return jsonify({'error': 'Invalid invitation token'}), 404
         
@@ -1145,20 +1166,20 @@ def verify_invitation(token=None):
         if now > expires_at:
             return jsonify({'error': 'Invitation has expired'}), 400
         
-        # Ensure enterprise data is present, fetch if missing
-        enterprise_data = invitation.get('enterprise')
+        enterprise_data = None
+        try:
+            enterprise_result = supabase.table('enterprises').select('id, name, organization_type').eq('id', invitation['enterprise_id']).execute()
+            if enterprise_result.data:
+                enterprise_data = enterprise_result.data[0]
+        except Exception as enterprise_error:
+            current_app.logger.warning(f"[VERIFY_INVITE] Could not fetch enterprise: {enterprise_error}")
+        
         if not enterprise_data:
-            # Fallback: fetch enterprise directly
-            try:
-                enterprise_result = supabase.table('enterprises').select('id, name, organization_type').eq('id', invitation['enterprise_id']).execute()
-                if enterprise_result.data:
-                    enterprise_data = enterprise_result.data[0]
-            except:
-                enterprise_data = {
-                    'id': invitation.get('enterprise_id', ''),
-                    'name': 'Unknown Organization',
-                    'organization_type': 'organization'
-                }
+            enterprise_data = {
+                'id': invitation.get('enterprise_id', ''),
+                'name': 'Unknown Organization',
+                'organization_type': 'organization'
+            }
         
         return jsonify({
             'success': True,
@@ -1174,6 +1195,7 @@ def verify_invitation(token=None):
         }), 200
         
     except Exception as e:
+        current_app.logger.error(f"[VERIFY_INVITE] Failed to verify invitation: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to verify invitation: {str(e)}'}), 500
 
 
@@ -1186,12 +1208,12 @@ def accept_invitation():
         if 'token' not in data:
             return jsonify({'error': 'Invitation token is required'}), 400
         
-        supabase = get_supabase_client()
+        supabase = get_supabase_client(use_admin=True)
         
-        # Find the invitation by token
-        invitation_result = supabase.table('invitations').select('*, enterprises(*)').eq('invitation_token', data['token']).execute()
+        # Find the invitation by token (admin client + normalized variants)
+        invitation_result = _find_invitation_by_token(supabase, data.get('token', ''))
         
-        if not invitation_result.data:
+        if not invitation_result or not invitation_result.data:
             return jsonify({'error': 'Invalid or expired invitation'}), 400
         
         invitation = invitation_result.data[0]
@@ -1351,10 +1373,16 @@ def accept_invitation():
             }), 200
         else:
             # User is not authenticated - return invitation details for registration
-            # Get enterprise name safely
             enterprise_name = 'Unknown Organization'
             if invitation.get('enterprises') and isinstance(invitation['enterprises'], dict):
                 enterprise_name = invitation['enterprises'].get('name', 'Unknown Organization')
+            else:
+                try:
+                    enterprise_result = supabase.table('enterprises').select('name').eq('id', invitation['enterprise_id']).execute()
+                    if enterprise_result.data:
+                        enterprise_name = enterprise_result.data[0].get('name', 'Unknown Organization')
+                except Exception:
+                    pass
             
             return jsonify({
                 'success': True,
@@ -1383,10 +1411,10 @@ def complete_invitation():
         if 'invitation_id' not in data:
             return jsonify({'error': 'Invitation ID is required'}), 400
         
-        supabase = get_supabase_client()
+        supabase = get_supabase_client(use_admin=True)
         
         # Get invitation details
-        invitation_result = supabase.table('invitations').select('*, enterprises(*)').eq('id', data['invitation_id']).execute()
+        invitation_result = supabase.table('invitations').select('*').eq('id', data['invitation_id']).execute()
         
         if not invitation_result.data or len(invitation_result.data) == 0:
             return jsonify({'error': 'Invalid invitation ID'}), 400

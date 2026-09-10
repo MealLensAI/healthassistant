@@ -551,7 +551,7 @@ class APIService {
   }
 
   async verifyInvitation(token: string): Promise<APIResponse> {
-    return this.get(`/enterprise/invitation/verify/${token}`, { skipAuth: true })
+    return this.get(`/enterprise/invitation/verify?token=${encodeURIComponent(token)}`, { skipAuth: true })
   }
 
   async acceptInvitation(token: string): Promise<APIResponse> {

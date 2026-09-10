@@ -28,7 +28,11 @@ export default function AcceptInvitation() {
     const { toast } = useToast();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const token = searchParams.get('token');
+    const token = (searchParams.get('token') || '')
+        .replace(/\u2014|\u2013/g, '--')
+        .replace(/\u2212/g, '-')
+        .replace(/\s+/g, '')
+        .trim();
 
     const [invitation, setInvitation] = useState<InvitationDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -53,9 +57,8 @@ export default function AcceptInvitation() {
 
     const verifyInvitation = async () => {
         try {
-            // Properly encode the token for URL path
-            const encodedToken = encodeURIComponent(token || '');
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/invitation/verify/${encodedToken}`);
+            const params = new URLSearchParams({ token: token || '' });
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/invitation/verify?${params.toString()}`);
             const data = await response.json();
 
             if (!response.ok) {
