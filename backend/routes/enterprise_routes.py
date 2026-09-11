@@ -14,6 +14,35 @@ from urllib.parse import quote, unquote
 from services.email_service import email_service
 from supabase import Client
 
+# Platform default seat allowance for organizations (not a paid plan).
+DEFAULT_ORG_MAX_USERS = 100
+# Older orgs were created with this value before the platform default changed.
+LEGACY_ORG_MAX_USERS = 10
+
+
+def _resolve_org_max_users(enterprise: dict, supabase: Optional[Client] = None) -> int:
+    """Return the effective seat limit, upgrading legacy max_users=10 to 100."""
+    raw = enterprise.get('max_users')
+    try:
+        max_users = int(raw) if raw is not None else DEFAULT_ORG_MAX_USERS
+    except (TypeError, ValueError):
+        max_users = DEFAULT_ORG_MAX_USERS
+
+    if max_users <= 0 or max_users == LEGACY_ORG_MAX_USERS:
+        max_users = DEFAULT_ORG_MAX_USERS
+        enterprise_id = enterprise.get('id')
+        if supabase is not None and enterprise_id:
+            try:
+                supabase.table('enterprises').update({
+                    'max_users': DEFAULT_ORG_MAX_USERS,
+                }).eq('id', enterprise_id).execute()
+                enterprise['max_users'] = DEFAULT_ORG_MAX_USERS
+            except Exception:
+                pass
+
+    return max_users
+
+
 def get_frontend_url():
     """Get the frontend URL from FRONTEND_URL environment variable only"""
     # Ensure .env is loaded (in case function is called before app initialization)
@@ -403,6 +432,7 @@ def register_enterprise():
             'phone': data.get('phone'),
             'address': data.get('address'),
             'organization_type': data['organization_type'],
+            'max_users': DEFAULT_ORG_MAX_USERS,
             'created_by': request.user_id
         }
         
@@ -763,13 +793,13 @@ def invite_user(enterprise_id):
         
         # Get enterprise details (already fetched above, use that data)
         enterprise_data = enterprise_check.data[0]
-        current_app.logger.info(f"[INVITE] Enterprise max_users: {enterprise_data.get('max_users', 100)}")
-        
+        max_users = _resolve_org_max_users(enterprise_data, supabase)
+        current_app.logger.info(f"[INVITE] Enterprise max_users: {max_users}")
+
         # Check user limit
         current_app.logger.info(f"[INVITE] Checking user limit")
         current_users = supabase.table('organization_users').select('id', count='exact').eq('enterprise_id', enterprise_id).execute()
         current_count = current_users.count if current_users.count is not None else 0
-        max_users = enterprise_data.get('max_users', 100)
         
         current_app.logger.info(f"[INVITE] Current users: {current_count}, Max users: {max_users}")
         
@@ -2359,6 +2389,7 @@ def get_enterprise_statistics(enterprise_id):
         pending_invitations = sum(1 for inv in invitations_result.data if inv.get('status') == 'pending')
         accepted_invitations = sum(1 for inv in invitations_result.data if inv.get('status') == 'accepted')
         
+        max_users = _resolve_org_max_users(enterprise, supabase)
         statistics = {
             'total_users': total_users,
             'active_users': active_users,
@@ -2366,8 +2397,8 @@ def get_enterprise_statistics(enterprise_id):
             'pending_invitations': pending_invitations,
             'accepted_invitations': accepted_invitations,
             'total_invitations': total_invitations,
-            'max_users': enterprise.get('max_users', 100),
-            'capacity_percentage': round((total_users / enterprise.get('max_users', 100)) * 100, 1) if enterprise.get('max_users', 100) > 0 else 0,
+            'max_users': max_users,
+            'capacity_percentage': round((total_users / max_users) * 100, 1) if max_users > 0 else 0,
             'owner_info': owner_info,
             'enterprise_name': enterprise.get('name', 'Unknown'),
             'organization_type': enterprise.get('organization_type', 'Unknown')
