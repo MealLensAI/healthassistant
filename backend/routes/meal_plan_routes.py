@@ -3,6 +3,8 @@ import json
 from utils.auth_utils import get_user_id_from_token, log_error
 from services.notification_service import notification_service
 from services.subscription_service import SubscriptionService
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 meal_plan_bp = Blueprint('meal_plan', __name__)
 
@@ -43,6 +45,7 @@ def _enforce_meal_plan_quota(user_id: str):
     )
 
 @meal_plan_bp.route('/meal_plan', methods=['POST'])
+@swag_from(swagger_path('meal_plan/create.yml'))
 def save_meal_plan():
     """
     Saves a user's meal plan to the public.meal_plan_management table. Requires authentication.
@@ -94,6 +97,7 @@ def save_meal_plan():
         return jsonify({'status': 'error', 'message': error_message}), 500
 
 @meal_plan_bp.route('/meal_plan', methods=['GET'])
+@swag_from(swagger_path('meal_plan/list.yml'))
 def get_meal_plan():
     """
     Retrieves a user's meal plans from the public.meal_plan_management table. Requires authentication.
@@ -158,6 +162,7 @@ def get_meal_plan():
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @meal_plan_bp.route('/meal_plans', methods=['POST'])
+@swag_from(swagger_path('meal_plan/create_many.yml'))
 def create_meal_plan():
     """
     Receives meal plan data from the frontend and inserts it into meal_plan_management via Supabase.
@@ -208,6 +213,7 @@ def create_meal_plan():
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @meal_plan_bp.route('/meal_plans/<id>', methods=['PUT'])
+@swag_from(swagger_path('meal_plan/update.yml'))
 def update_meal_plan(id):
     """
     Updates an existing meal plan. Requires authentication.
@@ -235,6 +241,7 @@ def update_meal_plan(id):
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @meal_plan_bp.route('/meal_plans/<id>', methods=['DELETE'])
+@swag_from(swagger_path('meal_plan/delete.yml'))
 def delete_meal_plan(id):
     """
     Deletes a meal plan. Requires authentication.
@@ -257,6 +264,7 @@ def delete_meal_plan(id):
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @meal_plan_bp.route('/meal_plans/clear', methods=['DELETE'])
+@swag_from(swagger_path('meal_plan/clear.yml'))
 def clear_meal_plans():
     """
     Clears all meal plans for a user. Requires authentication.
@@ -279,6 +287,7 @@ def clear_meal_plans():
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @meal_plan_bp.route('/meal_plan/<plan_id>', methods=['GET'])
+@swag_from(swagger_path('meal_plan/get_by_id.yml'))
 def get_single_meal_plan(plan_id):
     """
     Retrieves a single meal plan by ID for the authenticated user.
@@ -324,6 +333,7 @@ def get_single_meal_plan(plan_id):
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @meal_plan_bp.route('/meal_plan/<plan_id>/<day>', methods=['GET'])
+@swag_from(swagger_path('meal_plan/get_day.yml'))
 def get_single_day_plan(plan_id, day):
     """
     Retrieves a single day's plan from a meal plan by ID and day name.
@@ -365,6 +375,7 @@ def get_single_day_plan(plan_id, day):
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @meal_plan_bp.route('/meal_plan/<plan_id>/<day>/<meal_type>', methods=['GET'])
+@swag_from(swagger_path('meal_plan/get_meal.yml'))
 def get_single_meal(plan_id, day, meal_type):
     """
     Retrieves a single meal from a day's plan by meal type (breakfast, lunch, dinner, snack).

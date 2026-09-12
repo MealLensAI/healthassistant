@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify
 from services.lifecycle_subscription_service import LifecycleSubscriptionService
 from utils.auth_utils import get_user_id_from_token
 import uuid
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 # Create blueprint
 lifecycle_bp = Blueprint('lifecycle', __name__)
@@ -15,6 +17,7 @@ def get_lifecycle_service():
         return None
 
 @lifecycle_bp.route('/status', methods=['GET'])
+@swag_from(swagger_path('lifecycle/status.yml'))
 def get_user_lifecycle_status():
     """Get user's lifecycle status"""
     try:
@@ -47,6 +50,7 @@ def get_user_lifecycle_status():
         }), 500
 
 @lifecycle_bp.route('/initialize-trial', methods=['POST'])
+@swag_from(swagger_path('lifecycle/initialize_trial.yml'))
 def initialize_trial():
     """Initialize trial for a new user"""
     try:
@@ -87,6 +91,7 @@ def initialize_trial():
         }), 500
 
 @lifecycle_bp.route('/mark-trial-used', methods=['POST'])
+@swag_from(swagger_path('lifecycle/mark_trial_used.yml'))
 def mark_trial_used():
     """Mark trial as used and update user state"""
     try:
@@ -135,6 +140,7 @@ def mark_trial_used():
         }), 500
 
 @lifecycle_bp.route('/activate-subscription', methods=['POST'])
+@swag_from(swagger_path('lifecycle/activate_subscription.yml'))
 def activate_subscription():
     """Activate subscription and update user state to paid"""
     try:
@@ -184,6 +190,7 @@ def activate_subscription():
         }), 500
 
 @lifecycle_bp.route('/mark-subscription-expired', methods=['POST'])
+@swag_from(swagger_path('lifecycle/mark_subscription_expired.yml'))
 def mark_subscription_expired():
     """Mark subscription as expired and update user state"""
     try:
@@ -216,6 +223,7 @@ def mark_subscription_expired():
         }), 500
 
 @lifecycle_bp.route('/set-test-mode', methods=['POST'])
+@swag_from(swagger_path('lifecycle/set_test_mode.yml'))
 def set_test_mode():
     """Enable/disable test mode with 1-minute durations"""
     try:
@@ -251,6 +259,7 @@ def set_test_mode():
         }), 500
 
 @lifecycle_bp.route('/user-state-display', methods=['GET'])
+@swag_from(swagger_path('lifecycle/user_state_display.yml'))
 def get_user_state_display():
     """Get user state display information for UI"""
     try:
@@ -283,6 +292,7 @@ def get_user_state_display():
         }), 500
 
 @lifecycle_bp.route('/check-expired-trials', methods=['POST'])
+@swag_from(swagger_path('lifecycle/check_expired_trials.yml'))
 def check_expired_trials():
     """Check for expired trials and mark them as used (admin function)"""
     try:
@@ -315,6 +325,7 @@ def check_expired_trials():
         }), 500
 
 @lifecycle_bp.route('/check-expired-subscriptions', methods=['POST'])
+@swag_from(swagger_path('lifecycle/check_expired_subscriptions.yml'))
 def check_expired_subscriptions():
     """Check for expired subscriptions and mark them as expired (admin function)"""
     try:
@@ -347,6 +358,7 @@ def check_expired_subscriptions():
         }), 500
 
 @lifecycle_bp.route('/plans', methods=['GET'])
+@swag_from(swagger_path('lifecycle/plans.yml'))
 def get_subscription_plans():
     """Get all available subscription plans"""
     try:
@@ -372,6 +384,7 @@ def get_subscription_plans():
         }), 500
 
 @lifecycle_bp.route('/verify-payment', methods=['POST'])
+@swag_from(swagger_path('lifecycle/verify_payment.yml'))
 def verify_payment():
     """Verify Paystack payment"""
     try:

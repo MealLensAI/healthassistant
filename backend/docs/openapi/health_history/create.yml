@@ -1,0 +1,44 @@
+tags:
+  - Health History
+summary: Create health history record
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - recipe_type
+      properties:
+        recipe_type:
+          type: string
+        suggestion:
+          type: string
+        instructions:
+          type: string
+        ingredients:
+          type: string
+        detected_foods:
+          type: string
+        analysis_id:
+          type: string
+        youtube_link:
+          type: string
+        google_link:
+          type: string
+        resources_link:
+          type: string
+responses:
+  201:
+    description: Created
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

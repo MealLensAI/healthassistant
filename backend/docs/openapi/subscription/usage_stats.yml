@@ -1,0 +1,17 @@
+tags:
+  - Subscription
+summary: Get usage stats
+security: []
+parameters:
+  - in: query
+    name: user_id
+    type: string
+    required: true
+    description: User id
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

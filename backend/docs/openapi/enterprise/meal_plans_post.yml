@@ -1,0 +1,49 @@
+tags:
+  - Enterprise
+summary: Create user meal plan in enterprise
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: path
+    name: enterprise_id
+    type: string
+    required: true
+    description: Enterprise id
+  - in: path
+    name: user_id
+    type: string
+    required: true
+    description: User id
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      properties:
+        name:
+          type: string
+        start_date:
+          type: string
+        startDate:
+          type: string
+        end_date:
+          type: string
+        endDate:
+          type: string
+        meal_plan:
+          type: object
+        mealPlan:
+          type: object
+        user_info:
+          type: object
+responses:
+  201:
+    description: Created
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

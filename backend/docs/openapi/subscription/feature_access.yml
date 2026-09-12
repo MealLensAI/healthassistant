@@ -1,0 +1,28 @@
+tags:
+  - Subscription
+summary: Check feature access
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - feature_name
+      properties:
+        user_id:
+          type: string
+        feature_name:
+          type: string
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

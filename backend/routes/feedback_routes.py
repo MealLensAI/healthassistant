@@ -1,9 +1,12 @@
 from flask import Blueprint, request, jsonify, current_app
 from utils.auth_utils import get_user_id_from_token
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 feedback_bp = Blueprint('feedback', __name__)
 
 @feedback_bp.route('/feedback', methods=['POST'])
+@swag_from(swagger_path('feedback/create.yml'))
 def feedback():
     """
     Handles user feedback submission and stores it in the database.

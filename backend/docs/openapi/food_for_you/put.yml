@@ -1,0 +1,31 @@
+tags:
+  - Food For You
+summary: Update saved foods
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - foods
+      properties:
+        foods:
+          type: array
+          description: List of foods
+        source_plan:
+          type: object
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

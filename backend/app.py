@@ -296,11 +296,16 @@ def create_app():
   else:
       print("Meal reminder service not available.")
 
+  from core.swagger import init_swagger
+  init_swagger(app)
+
   return app
 
+
+# Module-level app for gunicorn (Procfile: app:app)
+app = create_app()
+
 if __name__ == '__main__':
-  import os
-  app = create_app()
   # Use environment variables for production
   port = int(os.environ.get('PORT', 5001))
   debug = os.environ.get('FLASK_ENV', 'production') != 'production'

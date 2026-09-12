@@ -1,0 +1,36 @@
+tags:
+  - Payment
+summary: Initialize Paystack payment
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - email
+        - amount
+        - plan_id
+      properties:
+        email:
+          type: string
+        amount:
+          type: number
+        plan_id:
+          type: string
+        callback_url:
+          type: string
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

@@ -1,0 +1,38 @@
+tags:
+  - Enterprise
+summary: Register enterprise
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - name
+        - email
+        - organization_type
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        organization_type:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+responses:
+  201:
+    description: Created
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

@@ -1,10 +1,13 @@
 from flask import Blueprint, request, jsonify, current_app
 from utils.auth_utils import get_user_id_from_token, log_error
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 food_for_you_bp = Blueprint('food_for_you', __name__)
 
 
 @food_for_you_bp.route('/food-for-you', methods=['GET'])
+@swag_from(swagger_path('food_for_you/get.yml'))
 def get_food_for_you():
     """Return the signed-in user's Food for you recommendations (1:1)."""
     try:
@@ -32,6 +35,7 @@ def get_food_for_you():
 
 
 @food_for_you_bp.route('/food-for-you', methods=['PUT'])
+@swag_from(swagger_path('food_for_you/put.yml'))
 def upsert_food_for_you():
     """Upsert Food for you recommendations for the signed-in user."""
     try:
@@ -73,6 +77,7 @@ def upsert_food_for_you():
 
 
 @food_for_you_bp.route('/food-for-you', methods=['DELETE'])
+@swag_from(swagger_path('food_for_you/delete.yml'))
 def delete_food_for_you():
     """Clear Food for you recommendations for the signed-in user."""
     try:

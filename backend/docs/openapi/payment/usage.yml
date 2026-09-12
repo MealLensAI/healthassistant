@@ -1,0 +1,14 @@
+tags:
+  - Payment
+summary: Get usage
+security:
+  - Bearer: []
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

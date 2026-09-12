@@ -1,0 +1,27 @@
+tags:
+  - Subscription
+summary: Create trial
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+        duration_days:
+          type: integer
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

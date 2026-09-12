@@ -1,0 +1,25 @@
+tags:
+  - Enterprise
+summary: Verify invitation token (path or query)
+description: >
+  Supports GET /api/enterprise/invitation/verify/{token} and
+  GET /api/enterprise/invitation/verify?token=...
+security: []
+parameters:
+  - in: path
+    name: token
+    type: string
+    required: false
+    description: Invitation token (path form)
+  - in: query
+    name: token
+    type: string
+    required: false
+    description: Invitation token (query form)
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

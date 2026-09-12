@@ -6,6 +6,8 @@ from services.auth_service import AuthService
 from services.subscription_service import SubscriptionService
 from supabase import Client
 from utils.auth_utils import get_user_id_from_token
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -233,6 +235,7 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
 
 
 @auth_bp.route('/login', methods=['POST'])
+@swag_from(swagger_path('auth/login.yml'))
 def login_user():
     """
     Supabase email/password login. Returns access and refresh tokens; also sets httpOnly cookie.
@@ -261,6 +264,7 @@ def login_user():
     return jsonify({'status': 'error', 'message': 'Email and password are required.'}), 400
 
 @auth_bp.route('/logout', methods=['POST'])
+@swag_from(swagger_path('auth/logout.yml'))
 def logout_user():
     """
     Logout by clearing the httpOnly access_token cookie. Clients should also clear local storage tokens.
@@ -275,6 +279,7 @@ def logout_user():
 
 
 @auth_bp.route('/refresh-token', methods=['POST'])
+@swag_from(swagger_path('auth/refresh_token.yml'))
 def refresh_token():
     """
     Refresh the session using a refresh token.
@@ -648,6 +653,7 @@ def _create_user_profile(supabase: Client, user_id: str, email: str,
 
 
 @auth_bp.route('/register', methods=['POST'])
+@swag_from(swagger_path('auth/register.yml'))
 def register_user():
     """
     Register a new user with email and password using Supabase Auth.
@@ -793,6 +799,7 @@ def register_user():
 
 
 @auth_bp.route('/profile', methods=['GET'])
+@swag_from(swagger_path('auth/profile.yml'))
 def get_user_profile():
     """
     Get the current user's profile information.
@@ -848,6 +855,7 @@ def get_user_profile():
 
 
 @auth_bp.route('/change-password', methods=['POST'])
+@swag_from(swagger_path('auth/change_password.yml'))
 def change_password():
     """
     Change current user's password.
@@ -922,6 +930,7 @@ def change_password():
 
 
 @auth_bp.route('/forgot-password', methods=['POST'])
+@swag_from(swagger_path('auth/forgot_password.yml'))
 def forgot_password():
     """
     Request a password reset email to be sent via Supabase Auth.
@@ -1000,6 +1009,7 @@ def forgot_password():
 
 
 @auth_bp.route('/reset-password', methods=['POST'])
+@swag_from(swagger_path('auth/reset_password.yml'))
 def reset_password():
     """
     Complete password reset using a Supabase recovery access token from the email link.

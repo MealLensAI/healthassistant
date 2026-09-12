@@ -1,0 +1,35 @@
+tags:
+  - Payment
+summary: Record payment success
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - email
+        - plan_name
+      properties:
+        user_id:
+          type: string
+        email:
+          type: string
+        plan_name:
+          type: string
+        plan_duration_minutes:
+          type: integer
+        paystack_data:
+          type: object
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

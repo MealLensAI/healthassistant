@@ -1,10 +1,13 @@
 from flask import Blueprint, request, jsonify
 from services.supabase_service import SupabaseService
 from services.auth_service import AuthService
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 ai_session_bp = Blueprint('ai_session', __name__)
 
 @ai_session_bp.route('/api/store-session', methods=['POST'])
+@swag_from(swagger_path('ai_session/store.yml'))
 def store_session():
     """
     Store AI session data in Supabase.

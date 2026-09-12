@@ -1,0 +1,25 @@
+tags:
+  - Enterprise
+summary: Accept invitation
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

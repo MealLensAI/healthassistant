@@ -1,0 +1,20 @@
+tags:
+  - Mock AI
+summary: Mock sick smart meal plan
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: body
+    name: body
+    description: Body ignored by mock
+    required: true
+    schema:
+      type: object
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

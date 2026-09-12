@@ -1,0 +1,28 @@
+tags:
+  - Lifecycle
+summary: Set lifecycle test mode
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - test_mode
+      properties:
+        test_mode:
+          type: boolean
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

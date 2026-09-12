@@ -1,0 +1,25 @@
+tags:
+  - Auth
+summary: Refresh access token
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

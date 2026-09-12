@@ -1,0 +1,41 @@
+tags:
+  - Enterprise
+summary: Update enterprise user membership
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: path
+    name: enterprise_id
+    type: string
+    required: true
+    description: Enterprise id
+  - in: path
+    name: user_relation_id
+    type: string
+    required: true
+    description: User relation id
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      properties:
+        status:
+          type: string
+        role:
+          type: string
+        notes:
+          type: string
+        metadata:
+          type: object
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

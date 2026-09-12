@@ -1,0 +1,30 @@
+tags:
+  - Subscription
+summary: Record feature usage
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - feature_name
+      properties:
+        user_id:
+          type: string
+        feature_name:
+          type: string
+        count:
+          type: integer
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

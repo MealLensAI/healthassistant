@@ -1,0 +1,7 @@
+tags:
+  - Payment
+summary: Payment service status
+security: []
+responses:
+  200:
+    description: Success

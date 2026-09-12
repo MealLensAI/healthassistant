@@ -1,0 +1,43 @@
+tags:
+  - Enterprise
+summary: Create enterprise user
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - enterprise_id
+        - first_name
+        - last_name
+        - email
+        - password
+        - role
+      properties:
+        enterprise_id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+responses:
+  201:
+    description: Created
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error
