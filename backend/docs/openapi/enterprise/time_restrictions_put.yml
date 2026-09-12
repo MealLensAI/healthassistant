@@ -1,0 +1,34 @@
+tags:
+  - Enterprise
+summary: Update time restrictions
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: path
+    name: enterprise_id
+    type: string
+    required: true
+    description: Enterprise id
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        timezone:
+          type: string
+        windows:
+          type: array
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

@@ -1,0 +1,7 @@
+tags:
+  - Auth
+summary: Logout and clear access token cookie
+security: []
+responses:
+  200:
+    description: Success

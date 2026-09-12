@@ -1,0 +1,23 @@
+tags:
+  - Meal Plans
+summary: Create meal plan (single)
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Meal plan object (opaque JSON payload)
+    required: true
+    schema:
+      type: object
+responses:
+  201:
+    description: Created
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

@@ -1,0 +1,28 @@
+tags:
+  - Auth
+summary: Login with email and password
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

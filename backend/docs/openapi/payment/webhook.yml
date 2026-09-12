@@ -1,0 +1,23 @@
+tags:
+  - Payment
+summary: Paystack payment webhook
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: header
+    name: X-Paystack-Signature
+    type: string
+    required: false
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

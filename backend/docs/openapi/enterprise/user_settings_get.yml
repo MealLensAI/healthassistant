@@ -1,0 +1,25 @@
+tags:
+  - Enterprise
+summary: Get user settings in enterprise
+security:
+  - Bearer: []
+parameters:
+  - in: path
+    name: enterprise_id
+    type: string
+    required: true
+    description: Enterprise id
+  - in: path
+    name: user_id
+    type: string
+    required: true
+    description: User id
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

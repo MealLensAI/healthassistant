@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify, current_app
 import json
 from marshmallow import Schema, fields, ValidationError
 from utils.auth_utils import get_user_id_from_token, log_error
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 health_history_bp = Blueprint('health_history', __name__)
 
@@ -17,6 +19,7 @@ class HealthHistorySchema(Schema):
     resources_link = fields.Str(required=False, allow_none=True, load_default="")
 
 @health_history_bp.route('/health_history', methods=['GET'])
+@swag_from(swagger_path('health_history/list.yml'))
 def get_health_history():
     """
     Retrieves a user's health meal history from the database. Requires authentication.
@@ -53,6 +56,7 @@ def get_health_history():
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @health_history_bp.route('/health_history', methods=['POST'])
+@swag_from(swagger_path('health_history/create.yml'))
 def create_health_history():
     """
     Saves health meal history. Allows saving health meal generation results.
@@ -109,6 +113,7 @@ def create_health_history():
     return jsonify({'status': 'success', 'message': 'Health history saved.'}), 201
 
 @health_history_bp.route('/health_history/<record_id>', methods=['GET'])
+@swag_from(swagger_path('health_history/get.yml'))
 def get_health_history_by_id(record_id):
     """
     Retrieves a specific health history record by ID. Requires authentication.
@@ -150,6 +155,7 @@ def get_health_history_by_id(record_id):
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @health_history_bp.route('/health_history/<record_id>', methods=['DELETE'])
+@swag_from(swagger_path('health_history/delete.yml'))
 def delete_health_history(record_id):
     """
     Deletes a specific health history record. Requires authentication.

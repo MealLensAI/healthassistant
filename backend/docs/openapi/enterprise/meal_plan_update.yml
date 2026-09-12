@@ -1,0 +1,43 @@
+tags:
+  - Enterprise
+summary: Update enterprise meal plan
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: path
+    name: enterprise_id
+    type: string
+    required: true
+    description: Enterprise id
+  - in: path
+    name: plan_id
+    type: string
+    required: true
+    description: Plan id
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      properties:
+        name:
+          type: string
+        start_date:
+          type: string
+        end_date:
+          type: string
+        meal_plan:
+          type: object
+        status:
+          type: string
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

@@ -1,0 +1,7 @@
+tags:
+  - Enterprise
+summary: Redirect to logout-and-login
+security: []
+responses:
+  302:
+    description: Redirect to frontend

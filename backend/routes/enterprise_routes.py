@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, unquote
 from services.email_service import email_service
 from supabase import Client
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 # Platform default seat allowance for organizations (not a paid plan).
 DEFAULT_ORG_MAX_USERS = 100
@@ -375,6 +377,7 @@ def check_user_can_create_organizations(user_id: str, supabase: Client, user_met
 
 @enterprise_bp.route('/api/enterprise/register', methods=['POST'])
 @require_auth
+@swag_from(swagger_path('enterprise/register.yml'))
 def register_enterprise():
     """Register a new enterprise/organization"""
     try:
@@ -473,6 +476,7 @@ def register_enterprise():
 
 @enterprise_bp.route('/api/enterprise/can-create', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/can_create.yml'))
 def can_create_organization():
     """Check if the current user can create organizations"""
     try:
@@ -491,6 +495,7 @@ def can_create_organization():
 
 @enterprise_bp.route('/api/enterprise/my-enterprises', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/my_enterprises.yml'))
 def get_my_enterprises():
     """Get all enterprises owned by the current user"""
     user_id = getattr(request, 'user_id', None)
@@ -555,6 +560,7 @@ def get_my_enterprises():
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/get.yml'))
 def get_enterprise(enterprise_id):
     """Get enterprise details"""
     try:
@@ -583,6 +589,7 @@ def get_enterprise(enterprise_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>', methods=['PUT'])
 @require_auth
+@swag_from(swagger_path('enterprise/update.yml'))
 def update_enterprise(enterprise_id):
     """Update enterprise details"""
     try:
@@ -615,6 +622,7 @@ def update_enterprise(enterprise_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/users', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/users.yml'))
 def get_enterprise_users(enterprise_id):
     """
     Get all users in an enterprise (organization_users table only).
@@ -710,6 +718,7 @@ def get_enterprise_users(enterprise_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/invite', methods=['POST'])
 @require_auth
+@swag_from(swagger_path('enterprise/invite.yml'))
 def invite_user(enterprise_id):
     """Invite a user to the enterprise"""
     print(f"[INVITE] ========== ROUTE HANDLER CALLED ==========")
@@ -989,6 +998,7 @@ def invite_user(enterprise_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/invitations', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/invitations.yml'))
 def get_invitations(enterprise_id):
     """Get all invitations for an enterprise"""
     try:
@@ -1014,6 +1024,7 @@ def get_invitations(enterprise_id):
 
 @enterprise_bp.route('/api/enterprise/invitation/<invitation_id>/cancel', methods=['POST'])
 @require_auth
+@swag_from(swagger_path('enterprise/cancel_invitation.yml'))
 def cancel_invitation(invitation_id):
     """Cancel a pending invitation"""
     try:
@@ -1073,6 +1084,7 @@ def cancel_invitation(invitation_id):
 
 @enterprise_bp.route('/api/test-email', methods=['POST'])
 @require_auth
+@swag_from(swagger_path('enterprise/test_email.yml'))
 def test_email():
     """Test endpoint to send a test email"""
     try:
@@ -1153,6 +1165,7 @@ def test_email():
 
 @enterprise_bp.route('/api/enterprise/invitation/verify/<path:token>', methods=['GET'])
 @enterprise_bp.route('/api/enterprise/invitation/verify', methods=['GET'])
+@swag_from(swagger_path('enterprise/verify_invitation_token.yml'))
 def verify_invitation(token=None):
     """Verify an invitation token (public endpoint)
     Supports both path parameter and query parameter for token
@@ -1230,6 +1243,7 @@ def verify_invitation(token=None):
 
 
 @enterprise_bp.route('/api/enterprise/invitation/accept', methods=['POST'])
+@swag_from(swagger_path('enterprise/accept_invitation.yml'))
 def accept_invitation():
     """Accept an invitation - handles both registered and unregistered users"""
     try:
@@ -1433,6 +1447,7 @@ def accept_invitation():
 
 @enterprise_bp.route('/api/enterprise/invitation/complete', methods=['POST'])
 @require_auth
+@swag_from(swagger_path('enterprise/complete_invitation.yml'))
 def complete_invitation():
     """Complete invitation acceptance after user registration"""
     try:
@@ -1589,6 +1604,7 @@ def complete_invitation():
 
 @enterprise_bp.route('/api/enterprise/create-user', methods=['POST'])
 @require_auth
+@swag_from(swagger_path('enterprise/create_user.yml'))
 def create_user():
     """Create a new user and add them to the organization"""
     try:
@@ -1741,6 +1757,7 @@ def create_user():
 
 @enterprise_bp.route('/api/enterprise/user/<user_relation_id>', methods=['DELETE'])
 @require_auth
+@swag_from(swagger_path('enterprise/delete_user.yml'))
 def delete_organization_user(user_relation_id):
     """
     Delete a user from the organization and completely remove all their data from Supabase.
@@ -1950,6 +1967,7 @@ def delete_organization_user(user_relation_id):
 
 
 @enterprise_bp.route('/api/enterprise/logout-and-login', methods=['GET'])
+@swag_from(swagger_path('enterprise/logout_and_login.yml'))
 def logout_and_login():
     """Logout any existing user and redirect to login page"""
     from flask import redirect, url_for
@@ -1963,6 +1981,7 @@ def logout_and_login():
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_relation_id>', methods=['PUT'])
 @require_auth
+@swag_from(swagger_path('enterprise/update_user.yml'))
 def update_user_relation(enterprise_id, user_relation_id):
     """Update a user's relationship with the enterprise (notes, status, etc.)"""
     try:
@@ -1994,6 +2013,7 @@ def update_user_relation(enterprise_id, user_relation_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_relation_id>', methods=['DELETE'])
 @require_auth
+@swag_from(swagger_path('enterprise/remove_user.yml'))
 def remove_user(enterprise_id, user_relation_id):
     """Remove a user from the enterprise"""
     try:
@@ -2018,6 +2038,7 @@ def remove_user(enterprise_id, user_relation_id):
 
 @enterprise_bp.route('/api/my-enterprises', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/my_enterprises_alias.yml'))
 def get_user_enterprises():
     """Get all enterprises the user is part of (as owner or member)"""
     try:
@@ -2038,6 +2059,7 @@ def get_user_enterprises():
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/settings-history', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/settings_history.yml'))
 def get_enterprise_settings_history(enterprise_id):
     """Get settings change history for an enterprise"""
     try:
@@ -2110,6 +2132,7 @@ def get_enterprise_settings_history(enterprise_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/settings', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/user_settings_get.yml'))
 def get_user_settings_for_enterprise(enterprise_id, user_id):
     """Get user settings for a specific user in the enterprise"""
     try:
@@ -2160,6 +2183,7 @@ def get_user_settings_for_enterprise(enterprise_id, user_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/settings', methods=['PUT'])
 @require_auth
+@swag_from(swagger_path('enterprise/user_settings_put.yml'))
 def update_user_settings_for_enterprise(enterprise_id, user_id):
     """Update user settings for a specific user in the enterprise"""
     try:
@@ -2209,6 +2233,7 @@ def update_user_settings_for_enterprise(enterprise_id, user_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/settings', methods=['DELETE'])
 @require_auth
+@swag_from(swagger_path('enterprise/user_settings_delete.yml'))
 def delete_user_settings_for_enterprise(enterprise_id, user_id):
     """Delete user settings for a specific user in the enterprise"""
     try:
@@ -2246,6 +2271,7 @@ def delete_user_settings_for_enterprise(enterprise_id, user_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/time-restrictions', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/time_restrictions_get.yml'))
 def get_enterprise_time_restrictions(enterprise_id):
     """Get time restrictions for an enterprise"""
     try:
@@ -2282,6 +2308,7 @@ def get_enterprise_time_restrictions(enterprise_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/time-restrictions', methods=['PUT'])
 @require_auth
+@swag_from(swagger_path('enterprise/time_restrictions_put.yml'))
 def update_enterprise_time_restrictions(enterprise_id):
     """Update time restrictions for an enterprise"""
     try:
@@ -2330,6 +2357,7 @@ def update_enterprise_time_restrictions(enterprise_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/statistics', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/statistics.yml'))
 def get_enterprise_statistics(enterprise_id):
     """
     Get comprehensive statistics for an enterprise.
@@ -2423,6 +2451,7 @@ def get_enterprise_statistics(enterprise_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/meal-plans', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/meal_plans_get.yml'))
 def get_user_meal_plans(enterprise_id, user_id):
     """
     Get all meal plans for a specific user in the enterprise.
@@ -2493,6 +2522,7 @@ def get_user_meal_plans(enterprise_id, user_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/meal-plans', methods=['POST'])
 @require_auth
+@swag_from(swagger_path('enterprise/meal_plans_post.yml'))
 def create_user_meal_plan(enterprise_id, user_id):
     """
     Create a meal plan for a specific user in the enterprise.
@@ -2605,6 +2635,7 @@ def create_user_meal_plan(enterprise_id, user_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/meal-plan/<plan_id>/approve', methods=['POST'])
 @require_auth
+@swag_from(swagger_path('enterprise/meal_plan_approve.yml'))
 def approve_meal_plan(enterprise_id, plan_id):
     """
     Approve a meal plan for a user.
@@ -2679,6 +2710,7 @@ def approve_meal_plan(enterprise_id, plan_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/meal-plan/<plan_id>/reject', methods=['POST'])
 @require_auth
+@swag_from(swagger_path('enterprise/meal_plan_reject.yml'))
 def reject_meal_plan(enterprise_id, plan_id):
     """
     Reject a meal plan for a user.
@@ -2737,6 +2769,7 @@ def reject_meal_plan(enterprise_id, plan_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/meal-plan/<plan_id>', methods=['PUT'])
 @require_auth
+@swag_from(swagger_path('enterprise/meal_plan_update.yml'))
 def update_user_meal_plan(enterprise_id, plan_id):
     """
     Update a meal plan for a user in the enterprise.
@@ -2818,6 +2851,7 @@ def update_user_meal_plan(enterprise_id, plan_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/meal-plan/<plan_id>', methods=['DELETE'])
 @require_auth
+@swag_from(swagger_path('enterprise/meal_plan_delete.yml'))
 def delete_user_meal_plan(enterprise_id, plan_id):
     """
     Delete a meal plan for a user in the enterprise.
@@ -2879,6 +2913,7 @@ def delete_user_meal_plan(enterprise_id, plan_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/detection-history', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/detection_history.yml'))
 def get_user_detection_history(enterprise_id, user_id):
     """
     Get all food detection history for a specific user in the enterprise.
@@ -2924,6 +2959,7 @@ def get_user_detection_history(enterprise_id, user_id):
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/health-history', methods=['GET'])
 @require_auth
+@swag_from(swagger_path('enterprise/health_history.yml'))
 def get_user_health_history(enterprise_id, user_id):
     """
     Get health settings history for a specific user in the enterprise.

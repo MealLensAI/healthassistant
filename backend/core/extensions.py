@@ -59,6 +59,6 @@ def init_extensions(app: Flask) -> None:
     """
     # Initialize CORS
     init_cors(app, app.config['ALLOWED_ORIGINS'])
-    
-    # Add more extensions here as needed
-    # Example: init_database(app), init_cache(app), etc.
+
+    from core.swagger import init_swagger
+    init_swagger(app)

@@ -4,6 +4,8 @@ These routes simulate the AI meal planning endpoints when the actual AI server i
 """
 from flask import Blueprint, request, jsonify
 import random
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 mock_ai_bp = Blueprint('mock_ai', __name__)
 
@@ -102,6 +104,7 @@ def generate_mock_therapeutic_meal_plan():
     return meal_plan
 
 @mock_ai_bp.route('/smart_plan', methods=['POST'])
+@swag_from(swagger_path('mock_ai/smart_plan.yml'))
 def smart_plan():
     """Mock endpoint for regular meal plan generation"""
     try:
@@ -121,6 +124,7 @@ def smart_plan():
         }), 500
 
 @mock_ai_bp.route('/sick_smart_plan', methods=['POST'])
+@swag_from(swagger_path('mock_ai/sick_smart_plan.yml'))
 def sick_smart_plan():
     """Mock endpoint for therapeutic meal plan generation"""
     try:
@@ -159,6 +163,7 @@ def sick_smart_plan():
         }), 500
 
 @mock_ai_bp.route('/ai_nutrition_plan', methods=['POST'])
+@swag_from(swagger_path('mock_ai/ai_nutrition_plan.yml'))
 def ai_nutrition_plan():
     """Mock endpoint for medical AI nutrition plan"""
     try:
@@ -197,6 +202,7 @@ def ai_nutrition_plan():
         }), 500
 
 @mock_ai_bp.route('/auto_generate_plan', methods=['POST'])
+@swag_from(swagger_path('mock_ai/auto_generate_plan.yml'))
 def auto_generate_plan():
     """Mock endpoint for auto-generated meal plan"""
     try:

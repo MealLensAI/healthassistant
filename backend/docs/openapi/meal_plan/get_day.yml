@@ -1,0 +1,25 @@
+tags:
+  - Meal Plans
+summary: Get meal plan for a day
+security:
+  - Bearer: []
+parameters:
+  - in: path
+    name: plan_id
+    type: string
+    required: true
+    description: Meal plan id
+  - in: path
+    name: day
+    type: string
+    required: true
+    description: Day key
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

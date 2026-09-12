@@ -1,0 +1,28 @@
+tags:
+  - Settings
+summary: Mark one notification read
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - notification_id
+      properties:
+        notification_id:
+          type: string
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

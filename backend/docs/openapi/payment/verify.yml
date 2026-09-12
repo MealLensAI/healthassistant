@@ -1,0 +1,20 @@
+tags:
+  - Payment
+summary: Verify Paystack payment
+security:
+  - Bearer: []
+parameters:
+  - in: path
+    name: reference
+    type: string
+    required: true
+    description: Payment reference
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

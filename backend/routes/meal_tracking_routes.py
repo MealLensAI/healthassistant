@@ -9,11 +9,14 @@ from utils.auth_utils import get_user_id_from_token, log_error
 from services.email_service import email_service
 from services.meal_reminder_service import get_meal_reminder_service
 from services.notification_service import notification_service
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 meal_tracking_bp = Blueprint('meal_tracking', __name__)
 
 
 @meal_tracking_bp.route('/meal_tracking/mark_cooked', methods=['POST'])
+@swag_from(swagger_path('meal_tracking/mark_cooked.yml'))
 def mark_meal_cooked():
     """
     Mark a meal as cooked. Creates or updates the tracking record.
@@ -133,6 +136,7 @@ def mark_meal_cooked():
 
 
 @meal_tracking_bp.route('/meal_tracking/send_cooked_email', methods=['POST'])
+@swag_from(swagger_path('meal_tracking/send_cooked_email.yml'))
 def send_cooked_email():
     """
     Send a congratulations email when a user cooks a meal.
@@ -232,6 +236,7 @@ def send_cooked_email():
 
 
 @meal_tracking_bp.route('/meal_tracking/unmark_cooked', methods=['POST'])
+@swag_from(swagger_path('meal_tracking/unmark_cooked.yml'))
 def unmark_meal_cooked():
     """
     Unmark a meal as cooked (remove the cooked_at timestamp).
@@ -282,6 +287,7 @@ def unmark_meal_cooked():
 
 
 @meal_tracking_bp.route('/meal_tracking/<meal_plan_id>', methods=['GET'])
+@swag_from(swagger_path('meal_tracking/get.yml'))
 def get_meal_tracking_status(meal_plan_id):
     """
     Get tracking status for all meals in a meal plan.
@@ -311,6 +317,7 @@ def get_meal_tracking_status(meal_plan_id):
 
 
 @meal_tracking_bp.route('/meal_tracking/week_progress/<meal_plan_id>', methods=['GET'])
+@swag_from(swagger_path('meal_tracking/week_progress.yml'))
 def get_week_progress(meal_plan_id):
     """
     Get the weekly progress for a meal plan.
@@ -344,6 +351,7 @@ def get_week_progress(meal_plan_id):
 
 
 @meal_tracking_bp.route('/meal_tracking/reminder_settings', methods=['GET'])
+@swag_from(swagger_path('meal_tracking/reminder_settings_get.yml'))
 def get_reminder_settings():
     """
     Get the user's meal reminder settings.
@@ -371,6 +379,7 @@ def get_reminder_settings():
 
 
 @meal_tracking_bp.route('/meal_tracking/reminder_settings', methods=['PUT'])
+@swag_from(swagger_path('meal_tracking/reminder_settings_put.yml'))
 def update_reminder_settings():
     """
     Update the user's meal reminder settings.
@@ -413,6 +422,7 @@ def update_reminder_settings():
 
 
 @meal_tracking_bp.route('/meal_tracking/trigger_reminders', methods=['POST'])
+@swag_from(swagger_path('meal_tracking/trigger_reminders.yml'))
 def trigger_reminders():
     """
     Manually trigger the reminder check right now.

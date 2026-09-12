@@ -1,0 +1,36 @@
+tags:
+  - Meal Tracking
+summary: Update reminder settings
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      properties:
+        reminders_enabled:
+          type: boolean
+        breakfast_reminder_time:
+          type: string
+        lunch_reminder_time:
+          type: string
+        dinner_reminder_time:
+          type: string
+        followup_delay_hours:
+          type: number
+        timezone:
+          type: string
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

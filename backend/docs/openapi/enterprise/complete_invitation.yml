@@ -1,0 +1,28 @@
+tags:
+  - Enterprise
+summary: Complete invitation acceptance
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - invitation_id
+      properties:
+        invitation_id:
+          type: string
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

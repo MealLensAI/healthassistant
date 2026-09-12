@@ -1,0 +1,29 @@
+tags:
+  - Settings
+summary: Save user settings
+consumes:
+  - application/json
+security:
+  - Bearer: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      properties:
+        settings_type:
+          type: string
+          description: Defaults to health_profile
+        settings_data:
+          type: object
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

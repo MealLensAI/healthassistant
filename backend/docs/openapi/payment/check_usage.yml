@@ -1,0 +1,20 @@
+tags:
+  - Payment
+summary: Check feature usage
+security:
+  - Bearer: []
+parameters:
+  - in: path
+    name: feature_name
+    type: string
+    required: true
+    description: Feature name
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

@@ -6,6 +6,8 @@ from utils.auth_utils import get_user_id_from_token
 import uuid
 from datetime import datetime
 from typing import Optional
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 payment_bp = Blueprint('payment', __name__)
 
@@ -30,6 +32,7 @@ def authenticate_user() -> Optional[str]:
         return None
 
 @payment_bp.route('/plans', methods=['GET'])
+@swag_from(swagger_path('payment/plans.yml'))
 def get_subscription_plans():
     """Get all available subscription plans."""
     payment_service = get_payment_service()
@@ -52,6 +55,7 @@ def get_subscription_plans():
         }), 500
 
 @payment_bp.route('/subscription', methods=['GET'])
+@swag_from(swagger_path('payment/subscription.yml'))
 def get_user_subscription():
     """Get current user's subscription."""
     user_id = authenticate_user()
@@ -75,6 +79,7 @@ def get_user_subscription():
     }), 200
 
 @payment_bp.route('/usage', methods=['GET'])
+@swag_from(swagger_path('payment/usage.yml'))
 def get_user_usage():
     """Get current user's usage summary."""
     user_id = authenticate_user()
@@ -104,6 +109,7 @@ def get_user_usage():
         }), 500
 
 @payment_bp.route('/check-usage/<feature_name>', methods=['GET'])
+@swag_from(swagger_path('payment/check_usage.yml'))
 def check_feature_usage(feature_name):
     """Check if user can use a specific feature."""
     user_id = authenticate_user()
@@ -131,6 +137,7 @@ def check_feature_usage(feature_name):
     }), 200
 
 @payment_bp.route('/record-usage/<feature_name>', methods=['POST'])
+@swag_from(swagger_path('payment/record_usage.yml'))
 def record_feature_usage(feature_name):
     """Record usage of a feature."""
     user_id = authenticate_user()
@@ -174,6 +181,7 @@ def record_feature_usage(feature_name):
         }), 500
 
 @payment_bp.route('/initialize-payment', methods=['POST'])
+@swag_from(swagger_path('payment/initialize.yml'))
 def initialize_payment():
     """Initialize a Paystack payment."""
     user_id = authenticate_user()
@@ -255,6 +263,7 @@ def initialize_payment():
         }), 500
 
 @payment_bp.route('/verify-payment/<reference>', methods=['GET'])
+@swag_from(swagger_path('payment/verify.yml'))
 def verify_payment(reference):
     """Verify a payment transaction."""
     user_id = authenticate_user()
@@ -316,6 +325,7 @@ def verify_payment(reference):
         }), 400
 
 @payment_bp.route('/webhook', methods=['POST'])
+@swag_from(swagger_path('payment/webhook.yml'))
 def paystack_webhook():
     """Handle Paystack webhook events."""
     payment_service = get_payment_service()
@@ -360,6 +370,7 @@ def paystack_webhook():
         }), 500
 
 @payment_bp.route('/cancel-subscription', methods=['POST'])
+@swag_from(swagger_path('payment/cancel.yml'))
 def cancel_subscription():
     """Cancel user's subscription."""
     user_id = authenticate_user()
@@ -401,6 +412,7 @@ def cancel_subscription():
         }), 500
 
 @payment_bp.route('/upgrade-subscription', methods=['POST'])
+@swag_from(swagger_path('payment/upgrade.yml'))
 def upgrade_subscription():
     """Upgrade user's subscription."""
     user_id = authenticate_user()
@@ -461,6 +473,7 @@ def upgrade_subscription():
         }), 500
 
 @payment_bp.route('/status', methods=['GET'])
+@swag_from(swagger_path('payment/status.yml'))
 def payment_status():
     """Payment system status endpoint."""
     return jsonify({
@@ -478,6 +491,7 @@ def payment_status():
     }), 200
 
 @payment_bp.route('/success', methods=['POST'])
+@swag_from(swagger_path('payment/success.yml'))
 def handle_payment_success():
     """
     Handle successful payment and activate subscription

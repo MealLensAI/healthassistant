@@ -1,0 +1,25 @@
+tags:
+  - Settings
+summary: Get settings history
+security:
+  - Bearer: []
+parameters:
+  - in: query
+    name: settings_type
+    type: string
+    required: false
+    description: Settings type filter
+  - in: query
+    name: limit
+    type: integer
+    required: false
+    description: Max records (default 50)
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  401:
+    description: Unauthorized
+  500:
+    description: Server error

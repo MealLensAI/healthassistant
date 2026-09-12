@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify, current_app
 from utils.auth_utils import get_user_id_from_token, log_error
 import json
+from flasgger import swag_from
+from core.swagger import swagger_path
 
 user_settings_bp = Blueprint('user_settings', __name__)
 
@@ -38,6 +40,7 @@ def _normalize_notifications(settings_record):
     }
 
 @user_settings_bp.route('/settings', methods=['POST'])
+@swag_from(swagger_path('user_settings/create.yml'))
 def save_user_settings():
     """
     Saves user settings to the database. Requires authentication.
@@ -104,6 +107,7 @@ def save_user_settings():
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @user_settings_bp.route('/settings', methods=['GET'])
+@swag_from(swagger_path('user_settings/get.yml'))
 def get_user_settings():
     """
     Retrieves user settings from the database. Requires authentication.
@@ -141,6 +145,7 @@ def get_user_settings():
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @user_settings_bp.route('/settings', methods=['DELETE'])
+@swag_from(swagger_path('user_settings/delete.yml'))
 def delete_user_settings():
     """
     Deletes user settings from the database. Requires authentication.
@@ -170,6 +175,7 @@ def delete_user_settings():
 
 
 @user_settings_bp.route('/settings/history', methods=['GET'])
+@swag_from(swagger_path('user_settings/history.yml'))
 def get_user_settings_history():
     """
     Retrieves user settings history from the database. Requires authentication.
@@ -224,6 +230,7 @@ def get_user_settings_history():
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @user_settings_bp.route('/settings/history/<record_id>', methods=['DELETE'])
+@swag_from(swagger_path('user_settings/history_delete.yml'))
 def delete_user_settings_history(record_id):
     """
     Deletes a specific settings history record. Requires authentication.
@@ -251,6 +258,7 @@ def delete_user_settings_history(record_id):
 
 
 @user_settings_bp.route('/notifications', methods=['GET'])
+@swag_from(swagger_path('user_settings/notifications.yml'))
 def get_notifications():
     """Retrieve in-app notifications for the authenticated user."""
     try:
@@ -276,6 +284,7 @@ def get_notifications():
 
 
 @user_settings_bp.route('/notifications/read-all', methods=['POST'])
+@swag_from(swagger_path('user_settings/notifications_read_all.yml'))
 def mark_notifications_read():
     """Mark all notifications as read for the authenticated user."""
     try:
@@ -312,6 +321,7 @@ def mark_notifications_read():
 
 
 @user_settings_bp.route('/notifications/read', methods=['POST'])
+@swag_from(swagger_path('user_settings/notifications_read.yml'))
 def mark_notification_read():
     """Mark a single notification as read for the authenticated user."""
     try:

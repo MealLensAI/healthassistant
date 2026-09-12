@@ -1,0 +1,30 @@
+tags:
+  - Subscription
+summary: Activate subscription for days
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - duration_days
+      properties:
+        user_id:
+          type: string
+        duration_days:
+          type: integer
+        paystack_data:
+          type: object
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error

@@ -1,0 +1,30 @@
+tags:
+  - Subscription
+summary: Activate subscription
+consumes:
+  - application/json
+security: []
+parameters:
+  - in: body
+    name: body
+    description: Request body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - plan_name
+      properties:
+        user_id:
+          type: string
+        plan_name:
+          type: string
+        paystack_data:
+          type: object
+responses:
+  200:
+    description: Success
+  400:
+    description: Bad request
+  500:
+    description: Server error
