@@ -16,6 +16,7 @@ import CookingTutorialModal from "@/components/CookingTutorialModal"
 import MealDetailsModal from "@/components/MealDetailsModal"
 import EngagementBanners from "@/components/EngagementBanners"
 import { imageCache } from "@/lib/imageCache"
+import { usePageHeader } from "@/components/PageHeaderContext"
 
 // Map new goal values to backend API format
 const mapGoalToBackendFormat = (goal: string | undefined): string => {
@@ -194,7 +195,6 @@ const AIResponsePage: FC = () => {
   const [detectedIngredients, setDetectedIngredients] = useState<DetectedIngredient[]>([])
   const [healthMeals, setHealthMeals] = useState<HealthMeal[]>([])
   const [showResults, setShowResults] = useState(false)
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [showCookingModal, setShowCookingModal] = useState(false)
   const [showMealDetailsModal, setShowMealDetailsModal] = useState(false)
   const [selectedMeal, setSelectedMeal] = useState<HealthMeal | null>(null)
@@ -596,47 +596,11 @@ const AIResponsePage: FC = () => {
     setShowCookingModal(false)
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[88px] flex items-center border-b bg-card border-border">
-        <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
-          <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-foreground tracking-tight truncate">
-            Scan ingredients
-          </h1>
-          
-          {/* Profile Dropdown */}
-          <div className="relative flex-shrink-0">
-            <button
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[36px] sm:h-[40px] md:h-[48px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-full border border-border bg-card hover:bg-secondary transition-colors"
-            >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-leaf-soft rounded-full flex items-center justify-center text-primary font-semibold text-[10px] sm:text-xs md:text-sm border border-border">
-                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
-              </div>
-              <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
-                {user?.displayName || user?.email?.split('@')[0] || 'User'}
-              </span>
-              <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {showProfileDropdown && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowProfileDropdown(false)}
-                />
-                <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-[12px] sm:rounded-[15px] shadow-lg border border-gray-200 py-2 sm:py-3 z-50">
-                  <a href="/settings" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">Settings</a>
-                  <a href="/history" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">History</a>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <EngagementBanners />
+  
+  usePageHeader('Scan ingredients');
+return (
+    <div className="min-h-full bg-background">
+<EngagementBanners />
 
       {/* Main Content */}
       <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6 md:py-8">

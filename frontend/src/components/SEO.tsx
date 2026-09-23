@@ -15,7 +15,7 @@ const SEO: React.FC<SEOProps> = ({
     description = 'Transform your health with MealLensAI - AI-powered personalized meal planning for chronic conditions like diabetes, hypertension, and heart disease. Get food recommendations that maintain and improve your health. One free 7-day meal plan, plans from $20/month.',
     keywords = 'chronic condition meal planning, AI nutrition diabetes, personalized diet planner, food for chronic diseases, AI meal planning, diabetes diet, hypertension nutrition, health condition food recommendations, nutritionist tools, dietitian software, automated meal planning',
     canonicalUrl = 'https://healthassistant.meallensai.com',
-    ogImage = 'https://healthassistant.meallensai.com/assets/og-image.jpg',
+    ogImage = 'https://healthassistant.meallensai.com/care/logo.png',
     ogType = 'website',
     structuredData
 }) => {
@@ -29,7 +29,7 @@ const SEO: React.FC<SEOProps> = ({
                 url: 'https://healthassistant.meallensai.com',
                 logo: {
                     '@type': 'ImageObject',
-                    url: 'https://healthassistant.meallensai.com/assets/logo.png',
+                    url: 'https://healthassistant.meallensai.com/care/logo.png',
                     width: 512,
                     height: 512
                 },

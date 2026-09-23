@@ -8,6 +8,7 @@ import { APP_CONFIG } from '@/lib/config';
 import { safeGetItem, useAuth } from '@/lib/utils';
 import EngagementBanners from '@/components/EngagementBanners';
 
+import { usePageHeader } from '@/components/PageHeaderContext';
 // Helper to resolve profile (email and name) from backend using cookie auth
 async function resolveProfileFromBackend(): Promise<{ email: string | null; name: string | null }> {
   try {
@@ -92,7 +93,6 @@ const Payment: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Auto-populate email from logged-in user
   React.useEffect(() => {
@@ -690,46 +690,11 @@ const Payment: React.FC = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header - Matching other pages */}
-      <header className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[88px] flex items-center border-b bg-card border-border">
-        <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
-          <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-foreground tracking-tight truncate">
-            Payment
-          </h1>
-          
-          {/* Profile Dropdown */}
-          <div className="relative flex-shrink-0">
-            <button
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[36px] sm:h-[40px] md:h-[48px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-full border border-border bg-card hover:bg-secondary transition-colors"
-            >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-leaf-soft rounded-full flex items-center justify-center text-primary font-semibold text-[10px] sm:text-xs md:text-sm border border-border">
-                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
-              </div>
-              <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
-                {user?.displayName || user?.email?.split('@')[0] || 'User'}
-              </span>
-              <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {showProfileDropdown && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowProfileDropdown(false)}
-                />
-                <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-[12px] sm:rounded-[15px] shadow-lg border border-gray-200 py-2 sm:py-3 z-50">
-                  <a href="/profile" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <EngagementBanners />
+  
+  usePageHeader('Payment');
+return (
+    <div className="min-h-full bg-background">
+<EngagementBanners />
 
       {/* Main Content */}
       <section className="w-full min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#f5f5f5] to-[#e8e8e8] py-8 sm:py-12 md:py-20 px-4 sm:px-6">

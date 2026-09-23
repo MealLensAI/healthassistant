@@ -1,285 +1,656 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
-import { Eye, EyeOff, Mail, ChevronDown } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { api } from '@/lib/api'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { Camera } from 'lucide-react'
+import { Button } from '@/marketplace/components/ui/Button'
+import { ProfilePhoto } from '@/marketplace/components/ui/PhotoViewer'
+import { Pill } from '@/marketplace/components/ui/Primitives'
+import { useApp } from '@/marketplace/context'
+import { formatDate } from '@/marketplace/lib/utils'
+import { emptyPatientProfile } from '@/marketplace/lib/patients'
+import type { PatientProfile } from '@/marketplace/types'
 import { useAuth } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
+import {
+  useSicknessSettings,
+  type SicknessSettings,
+} from '@/hooks/useSicknessSettings'
 import EngagementBanners from '@/components/EngagementBanners'
-
-const Profile: React.FC = () => {
-    const { toast } = useToast()
-    const { user } = useAuth()
-
-    // Email state - prioritize current user's email, make editable if not available
-    const [email, setEmail] = useState('')
-    const [isEmailEditable, setIsEmailEditable] = useState(false)
-    const [showProfileDropdown, setShowProfileDropdown] = useState(false)
-
-    // Form state
-    const [currentPassword, setCurrentPassword] = useState('')
-    const [newPassword, setNewPassword] = useState('')
-    const [confirmPassword, setConfirmPassword] = useState('')
-    const [changing, setChanging] = useState(false)
-
-    // Visibility toggles
-    const [showCurrent, setShowCurrent] = useState(false)
-    const [showNew, setShowNew] = useState(false)
-    const [showConfirm, setShowConfirm] = useState(false)
-
-    // Set email from current signed-in user first, then try API, then make editable
-    useEffect(() => {
-        // Priority 1: Use email from current signed-in user (useAuth hook)
-        if (user?.email) {
-            console.log('[Profile] Using email from current signed-in user:', user.email)
-            setEmail(user.email)
-            setIsEmailEditable(false) // User is signed in, email is known
-            return
-        }
-
-        // Priority 2: Try to fetch from API
-        const fetchProfile = async () => {
-            try {
-                console.log('[Profile] Fetching user profile...')
-                const result: any = await api.getUserProfile()
-                console.log('[Profile] Profile result:', result)
-                
-                if (result.status === 'success' && result.profile) {
-                    // Use the email from the API response
-                    const profileEmail = result.profile.email || result.profile.user?.email
-                    if (profileEmail) {
-                        console.log('[Profile] Setting email from API:', profileEmail)
-                        setEmail(profileEmail)
-                        setIsEmailEditable(false)
-                        return
-                    }
-                }
-            } catch (error) {
-                console.error('[Profile] Error fetching user profile:', error)
-            }
-
-            // Priority 3: Try localStorage fallback
-            try {
-                const raw = localStorage.getItem('user_data')
-                if (raw) {
-                    const storedUser = JSON.parse(raw)
-                    const fallbackEmail = storedUser?.email
-                    if (fallbackEmail) {
-                        console.log('[Profile] Using fallback email from localStorage:', fallbackEmail)
-                        setEmail(fallbackEmail)
-                        setIsEmailEditable(false)
-                        return
-                    }
-                }
-            } catch (err) {
-                console.error('[Profile] Error reading from localStorage:', err)
-            }
-
-            // Priority 4: If no email found anywhere, make field editable
-            console.log('[Profile] No email found, making field editable')
-            setIsEmailEditable(true)
-        }
-
-        fetchProfile()
-    }, [user])
-
-    const handleChangePassword = async () => {
-        if (!currentPassword || !newPassword || !confirmPassword) {
-            toast({ title: 'Error', description: 'Fill all password fields.', variant: 'destructive' })
-            return
-        }
-        if (newPassword.length < 6) {
-            toast({ title: 'Error', description: 'New password must be at least 6 characters.', variant: 'destructive' })
-            return
-        }
-        if (newPassword !== confirmPassword) {
-            toast({ title: 'Error', description: 'New passwords do not match.', variant: 'destructive' })
-            return
-        }
-        try {
-            setChanging(true)
-            const res: any = await api.post('/change-password', {
-                current_password: currentPassword,
-                new_password: newPassword
-            })
-            if (res.status === 'success') {
-                toast({ title: 'Password Updated', description: 'Please sign in again.' })
-                // Clear session & caches then redirect to login
-                localStorage.removeItem('access_token')
-                localStorage.removeItem('user_data')
-                localStorage.removeItem('supabase_refresh_token')
-                localStorage.removeItem('supabase_session_id')
-                localStorage.removeItem('supabase_user_id')
-                localStorage.removeItem('meallensai_user_access_status')
-                localStorage.removeItem('meallensai_trial_start')
-                localStorage.removeItem('meallensai_subscription_status')
-                localStorage.removeItem('meallensai_subscription_expires_at')
-                window.location.href = '/login'
-            } else {
-                toast({ title: 'Error', description: res.message || 'Failed to update password.', variant: 'destructive' })
-            }
-        } catch (e: any) {
-            toast({ title: 'Error', description: e?.message || 'Failed to update password.', variant: 'destructive' })
-        } finally {
-            setChanging(false)
-        }
-    }
-
-    return (
-        <div className="min-h-screen bg-background">
-            {/* Header - Matching other pages */}
-            <header className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[88px] flex items-center border-b bg-card border-b border-border">
-                <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
-                    <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-foreground tracking-tight truncate">
-                        Profile
-                    </h1>
-                    
-                    {/* Profile Dropdown */}
-                    <div className="relative flex-shrink-0">
-                        <button
-                            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                            className="flex items-center h-[36px] sm:h-[40px] md:h-[48px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-5 rounded-full border border-border bg-card hover:bg-secondary transition-colors"
-                        >
-                            <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-leaf-soft rounded-full flex items-center justify-center text-primary font-semibold text-[10px] sm:text-xs md:text-sm border border-border">
-                                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
-                            </div>
-                            <span className="text-xs sm:text-sm md:text-[16px] font-medium text-gray-600 hidden lg:block">
-                                {user?.displayName || user?.email?.split('@')[0] || 'User'}
-                            </span>
-                            <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
-                        </button>
-                        
-                        {showProfileDropdown && (
-                            <>
-                                <div 
-                                    className="fixed inset-0 z-40" 
-                                    onClick={() => setShowProfileDropdown(false)}
-                                />
-                                <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-[12px] sm:rounded-[15px] shadow-lg border border-gray-200 py-2 sm:py-3 z-50">
-                                    <a href="/profile" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </header>
-
-            <EngagementBanners />
-
-            {/* Main Content */}
-            <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6 md:py-8">
-                <div className="max-w-4xl mx-auto space-y-6">
-                    {/* Subtitle */}
-                    <p className="text-gray-600 text-[16px]">
-                        Manage your account details
-                    </p>
-
-                    <Card className="bg-white border border-[#E7E7E7] rounded-[15px] shadow-sm">
-                    <CardHeader>
-                        <CardTitle>Account</CardTitle>
-                        <CardDescription>View your email and update your password.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-5">
-                        {/* Email */}
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <Input 
-                                    id="email" 
-                                    type="email"
-                                    value={email} 
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    disabled={!isEmailEditable}
-                                    placeholder={isEmailEditable ? "Enter your email" : ""}
-                                    className="pl-9" 
-                                />
-                            </div>
-                            {isEmailEditable && (
-                                <p className="text-xs text-gray-500">
-                                    Please enter your email address
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Passwords stacked vertically */}
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="current-password">Current Password</Label>
-                                <div className="relative">
-                                    <Input
-                                        id="current-password"
-                                        type={showCurrent ? 'text' : 'password'}
-                                        value={currentPassword}
-                                        onChange={(e) => setCurrentPassword(e.target.value)}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCurrent((v) => !v)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                                        aria-label={showCurrent ? 'Hide password' : 'Show password'}
-                                    >
-                                        {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="new-password">New Password</Label>
-                                <div className="relative">
-                                    <Input
-                                        id="new-password"
-                                        type={showNew ? 'text' : 'password'}
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowNew((v) => !v)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                                        aria-label={showNew ? 'Hide password' : 'Show password'}
-                                    >
-                                        {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="confirm-password">Confirm New Password</Label>
-                                <div className="relative">
-                                    <Input
-                                        id="confirm-password"
-                                        type={showConfirm ? 'text' : 'password'}
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirm((v) => !v)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                                        aria-label={showConfirm ? 'Hide password' : 'Show password'}
-                                    >
-                                        {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <Button className="w-full" onClick={handleChangePassword} disabled={changing}>
-                            {changing ? 'Updating...' : 'Update Password'}
-                        </Button>
-                    </CardContent>
-                    </Card>
-                </div>
-            </div>
-        </div>
-    )
+import { usePageHeader } from '@/components/PageHeaderContext'
+import {
+  readStoredProfilePhoto,
+  writeStoredProfilePhoto,
+} from '@/components/AppTopBar'
+function genderFromSettings(gender?: SicknessSettings['gender']) {
+  if (gender === 'male') return 'Male'
+  if (gender === 'female') return 'Female'
+  if (gender === 'other') return 'Other'
+  return ''
 }
 
-export default Profile
+function genderToSettings(value: string): SicknessSettings['gender'] | undefined {
+  const lower = value.trim().toLowerCase()
+  if (lower === 'male' || lower === 'm') return 'male'
+  if (lower === 'female' || lower === 'f' || lower === 'woman') return 'female'
+  if (lower) return 'other'
+  return undefined
+}
 
+function activityLabel(level?: SicknessSettings['activityLevel']) {
+  switch (level) {
+    case 'sedentary':
+      return 'Sedentary'
+    case 'light':
+      return 'Light'
+    case 'moderate':
+      return 'Moderate'
+    case 'active':
+      return 'Active'
+    case 'very_active':
+      return 'Very Active'
+    default:
+      return ''
+  }
+}
 
+/**
+ * Patient profile — marketplace clinical UI + MealLens meal-recommendation health fields.
+ */
+export default function Profile() {
+  const { toast } = useToast()
+  const { user } = useAuth()
+  const { currentUser, appointments, files, patientProfiles, savePatientProfile, saveAccount } = useApp()
+  const {
+    settings,
+    loading: healthLoading,
+    saveSettings,
+    hasResolved,
+  } = useSicknessSettings()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  usePageHeader('Profile')
+
+  const stored = patientProfiles.find((item) => item.userId === currentUser?.id)
+  const [draft, setDraft] = useState<PatientProfile | null>(null)
+  const [waist, setWaist] = useState('')
+  const [activityLevel, setActivityLevel] = useState<SicknessSettings['activityLevel'] | ''>('')
+  const [healthGoal, setHealthGoal] = useState('')
+  const [location, setLocation] = useState('')
+  const [healthCondition, setHealthCondition] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [seededFromHealth, setSeededFromHealth] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState(() => readStoredProfilePhoto())
+
+  const displayName =
+    currentUser?.name || user?.displayName || user?.email?.split('@')[0] || 'Member'
+  const email = currentUser?.email || user?.email || ''
+  const avatar = photoUrl || currentUser?.avatar || user?.photoURL || ''
+  const careUserId = currentUser?.id || user?.uid || 'local'
+
+  function handlePhotoPick(file: File | null) {
+    if (!file || !file.type.startsWith('image/')) {
+      toast({ title: 'Invalid file', description: 'Please choose an image.', variant: 'destructive' })
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Too large', description: 'Please use an image under 5MB.', variant: 'destructive' })
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '')
+      if (!dataUrl) return
+      setPhotoUrl(dataUrl)
+      writeStoredProfilePhoto(dataUrl)
+      window.dispatchEvent(new Event('meallensai-profile-photo'))
+      if (currentUser) {
+        saveAccount({ avatar: dataUrl }, 'Profile photo updated.')
+      } else {
+        toast({ title: 'Photo saved', description: 'Your profile picture was updated.' })
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const mine = files.filter((file) => file.ownerId === currentUser?.id)
+  const recordFiles = mine.filter(
+    (file) => file.category === 'labs' || file.name.toLowerCase().includes('referral'),
+  )
+
+  const stats = useMemo(
+    () => ({
+      appointments: appointments.filter((item) => item.patientId === currentUser?.id).length,
+      files: mine.length,
+    }),
+    [appointments, currentUser, mine.length],
+  )
+
+  // Seed draft from care profile + MealLens health settings once loaded
+  useEffect(() => {
+    if (!hasResolved || seededFromHealth) return
+    const base =
+      stored ??
+      emptyPatientProfile(careUserId, displayName, {
+        age: settings.age || 0,
+        biologicalSex: genderFromSettings(settings.gender),
+        genderIdentity: genderFromSettings(settings.gender),
+        heightCm: settings.height || 0,
+        weightKg: settings.weight || 0,
+        conditions: settings.sicknessType
+          ? [{ name: settings.sicknessType, diagnosed: '', physician: '', clinic: '' }]
+          : [{ name: '', diagnosed: '', physician: '', clinic: '' }],
+      })
+
+    const merged: PatientProfile = {
+      ...base,
+      age: base.age || settings.age || 0,
+      biologicalSex: base.biologicalSex || genderFromSettings(settings.gender),
+      heightCm: base.heightCm || settings.height || 0,
+      weightKg: base.weightKg || settings.weight || 0,
+      conditions:
+        base.conditions?.some((c) => c.name) || !settings.sicknessType
+          ? base.conditions
+          : [{ name: settings.sicknessType, diagnosed: '', physician: '', clinic: '' }],
+    }
+
+    setDraft(merged)
+    setWaist(settings.waist != null ? String(settings.waist) : '')
+    setActivityLevel(settings.activityLevel || '')
+    setHealthGoal(settings.goal || '')
+    setLocation(settings.location || '')
+    setHealthCondition(
+      settings.sicknessType || merged.conditions.find((c) => c.name)?.name || '',
+    )
+    setSeededFromHealth(true)
+  }, [hasResolved, seededFromHealth, stored, careUserId, displayName, settings])
+
+  const profile = draft ?? emptyPatientProfile(careUserId, displayName)
+
+  function set<K extends keyof PatientProfile>(key: K, value: PatientProfile[K]) {
+    setDraft({ ...profile, [key]: value })
+  }
+
+  async function handleSave() {
+    const gender = genderToSettings(profile.biologicalSex || profile.genderIdentity)
+    const condition =
+      healthCondition.trim() ||
+      profile.conditions.map((c) => c.name).filter(Boolean).join(', ')
+
+    const mealPayload: SicknessSettings = {
+      hasSickness: true,
+      sicknessType: condition,
+      age: profile.age || undefined,
+      gender,
+      height: profile.heightCm || undefined,
+      weight: profile.weightKg || undefined,
+      waist: waist ? parseFloat(waist) || undefined : undefined,
+      activityLevel: activityLevel || undefined,
+      goal: healthGoal || undefined,
+      location: location || undefined,
+    }
+
+    const missing: string[] = []
+    if (!mealPayload.age) missing.push('Age')
+    if (!mealPayload.gender) missing.push('Gender')
+    if (!mealPayload.height) missing.push('Height')
+    if (!mealPayload.weight) missing.push('Weight')
+    if (!mealPayload.waist) missing.push('Waist Circumference')
+    if (!mealPayload.activityLevel) missing.push('Activity Level')
+    if (!mealPayload.sicknessType) missing.push('Health Condition')
+    if (!mealPayload.goal) missing.push('Health Goal')
+    if (!mealPayload.location) missing.push('Location')
+
+    if (missing.length) {
+      toast({
+        title: 'Missing required fields',
+        description: `Please fill: ${missing.join(', ')}`,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setSaving(true)
+    try {
+      const nextProfile: PatientProfile = {
+        ...profile,
+        userId: careUserId,
+        conditions:
+          profile.conditions.some((c) => c.name.trim())
+            ? profile.conditions
+            : [{ name: condition, diagnosed: '', physician: '', clinic: '' }],
+      }
+      if (currentUser) {
+        savePatientProfile(nextProfile)
+      }
+      const result = await saveSettings(mealPayload)
+      if (result.success) {
+        toast({
+          title: 'Profile saved',
+          description: 'Your clinical profile and meal recommendations info were updated.',
+        })
+      } else {
+        toast({
+          title: 'Partially saved',
+          description: result.error || 'Care profile saved, but meal health info failed.',
+          variant: 'destructive',
+        })
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!hasResolved && healthLoading) {
+    return (
+      <div className="grid min-h-[40vh] place-items-center">
+        <p className="text-sm text-muted">Loading profile…</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-full">
+      <EngagementBanners />
+      <div className="mx-auto max-w-4xl space-y-5">
+        <div className="hy-card p-6">
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+            <div className="relative">
+              <ProfilePhoto
+                src={avatar}
+                name={displayName}
+                className="h-24 w-24 rounded-full object-cover"
+                fallbackClassName="grid h-24 w-24 place-items-center rounded-full bg-navy-soft text-xl font-bold text-navy"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-0 right-0 grid h-9 w-9 place-items-center rounded-full border border-line bg-white text-navy shadow-soft hover:bg-panel"
+                aria-label="Upload profile photo"
+              >
+                <Camera size={16} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => handlePhotoPick(event.target.files?.[0] ?? null)}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="hy-eyebrow">Patient profile</p>
+              <h1 className="mt-1 text-2xl font-extrabold text-ink">
+                {profile.preferredName || displayName}
+              </h1>
+              <p className="text-sm text-muted">{email}</p>
+              <p className="mt-2 max-w-2xl text-sm text-muted">
+                Clinical and personal snapshot your dietitian reviews before consultations.
+              </p>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-3 text-sm font-semibold text-navy hover:underline"
+              >
+                {avatar ? 'Change profile photo' : 'Upload profile photo'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Stat label="Appointments" value={stats.appointments} />
+          <Stat label="Files" value={stats.files} />
+        </div>
+
+        <Section title="Meal recommendations">
+          <p className="mb-4 text-sm text-muted">
+            This information helps us provide personalized medical meal recommendations
+          </p>
+          <p className="mb-3 text-sm font-semibold text-ink">Health Information Details</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field
+              label="Age *"
+              value={String(profile.age || '')}
+              onChange={(value) => set('age', Number(value) || 0)}
+              type="number"
+            />
+            <label>
+              <span className="hy-label">Gender *</span>
+              <select
+                className="hy-input"
+                value={genderToSettings(profile.biologicalSex) || ''}
+                onChange={(event) => {
+                  const g = event.target.value as SicknessSettings['gender'] | ''
+                  const label = genderFromSettings(g || undefined)
+                  setDraft({
+                    ...profile,
+                    biologicalSex: label,
+                    genderIdentity: profile.genderIdentity || label,
+                  })
+                }}
+              >
+                <option value="">Select gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <Field
+              label="Height (cm) *"
+              value={String(profile.heightCm || '')}
+              onChange={(value) => set('heightCm', Number(value) || 0)}
+              type="number"
+            />
+            <Field
+              label="Weight (kg) *"
+              value={String(profile.weightKg || '')}
+              onChange={(value) => set('weightKg', Number(value) || 0)}
+              type="number"
+            />
+            <Field
+              label="Waist Circumference (cm) *"
+              value={waist}
+              onChange={setWaist}
+              type="number"
+            />
+            <label>
+              <span className="hy-label">Activity Level *</span>
+              <select
+                className="hy-input"
+                value={activityLevel}
+                onChange={(event) =>
+                  setActivityLevel(event.target.value as SicknessSettings['activityLevel'] | '')
+                }
+              >
+                <option value="">Select activity level</option>
+                <option value="sedentary">Sedentary</option>
+                <option value="light">Light</option>
+                <option value="moderate">Moderate</option>
+                <option value="active">Active</option>
+                <option value="very_active">Very Active</option>
+              </select>
+            </label>
+            <Field
+              label="Health Condition *"
+              value={healthCondition}
+              onChange={(value) => {
+                setHealthCondition(value)
+                const next = [...profile.conditions]
+                if (next[0]) next[0] = { ...next[0], name: value }
+                else next.push({ name: value, diagnosed: '', physician: '', clinic: '' })
+                set('conditions', next)
+              }}
+            />
+            <label>
+              <span className="hy-label">Health Goal *</span>
+              <select
+                className="hy-input"
+                value={healthGoal}
+                onChange={(event) => setHealthGoal(event.target.value)}
+              >
+                <option value="">Select your goal</option>
+                <option value="Heal">Heal</option>
+                <option value="Improve">Improve</option>
+                <option value="Manage">Manage</option>
+                <option value="Restore">Restore</option>
+                <option value="Maintain">Maintain</option>
+              </select>
+            </label>
+            <Field label="Location *" value={location} onChange={setLocation} />
+          </div>
+          {activityLevel ? (
+            <p className="mt-2 text-xs text-muted">Selected activity: {activityLabel(activityLevel)}</p>
+          ) : null}
+        </Section>
+
+        <Section title="Demographics & contact">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Full legal name" value={profile.legalName} onChange={(value) => set('legalName', value)} />
+            <Field label="Preferred name" value={profile.preferredName} onChange={(value) => set('preferredName', value)} />
+            <Field
+              label="Date of birth"
+              value={profile.dateOfBirth}
+              type="date"
+              onChange={(value) => set('dateOfBirth', value)}
+            />
+            <Field label="Age" value={String(profile.age || '')} onChange={(value) => set('age', Number(value) || 0)} type="number" />
+            <Field label="Biological sex" value={profile.biologicalSex} onChange={(value) => set('biologicalSex', value)} />
+            <Field label="Gender identity" value={profile.genderIdentity} onChange={(value) => set('genderIdentity', value)} />
+            <Field label="Primary language" value={profile.primaryLanguage} onChange={(value) => set('primaryLanguage', value)} />
+            <Field label="Phone" value={profile.phone} onChange={(value) => set('phone', value)} />
+            <Field label="Emergency contact" value={profile.emergencyContact} onChange={(value) => set('emergencyContact', value)} />
+            <Field label="Emergency phone" value={profile.emergencyPhone} onChange={(value) => set('emergencyPhone', value)} />
+          </div>
+        </Section>
+
+        <Section title="Health & chronic conditions">
+          <div className="space-y-3">
+            {profile.conditions.map((condition, index) => (
+              <article key={`${condition.name}-${index}`} className="rounded-xl bg-panel p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field
+                    label="Condition"
+                    value={condition.name}
+                    onChange={(value) => {
+                      set(
+                        'conditions',
+                        profile.conditions.map((item, i) => (i === index ? { ...item, name: value } : item)),
+                      )
+                      if (index === 0) setHealthCondition(value)
+                    }}
+                  />
+                  <Field
+                    label="Date of diagnosis"
+                    value={condition.diagnosed}
+                    type="date"
+                    onChange={(value) =>
+                      set(
+                        'conditions',
+                        profile.conditions.map((item, i) => (i === index ? { ...item, diagnosed: value } : item)),
+                      )
+                    }
+                  />
+                  <Field
+                    label="Managing physician"
+                    value={condition.physician}
+                    onChange={(value) =>
+                      set(
+                        'conditions',
+                        profile.conditions.map((item, i) => (i === index ? { ...item, physician: value } : item)),
+                      )
+                    }
+                  />
+                  <Field
+                    label="Clinic"
+                    value={condition.clinic}
+                    onChange={(value) =>
+                      set(
+                        'conditions',
+                        profile.conditions.map((item, i) => (i === index ? { ...item, clinic: value } : item)),
+                      )
+                    }
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="Biometrics & physical stats">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Field
+              label="Height (cm)"
+              value={String(profile.heightCm || '')}
+              onChange={(value) => set('heightCm', Number(value) || 0)}
+              type="number"
+            />
+            <Field
+              label="Current weight (kg)"
+              value={String(profile.weightKg || '')}
+              onChange={(value) => set('weightKg', Number(value) || 0)}
+              type="number"
+            />
+            <Field
+              label="Target weight range"
+              value={profile.targetWeightKg}
+              onChange={(value) => set('targetWeightKg', value)}
+            />
+            <Field
+              label="Baseline BMI"
+              value={String(profile.bmi || '')}
+              onChange={(value) => set('bmi', Number(value) || 0)}
+              type="number"
+            />
+          </div>
+          <label className="mt-3 block">
+            <span className="hy-label">Major weight fluctuations</span>
+            <textarea
+              className="hy-input min-h-20"
+              value={profile.weightHistory}
+              onChange={(event) => set('weightHistory', event.target.value)}
+            />
+          </label>
+        </Section>
+
+        <Section title="Dietary profile & allergies">
+          <ChipField label="Severe food allergies" values={profile.allergies} onChange={(values) => set('allergies', values)} />
+          <ChipField label="Intolerances" values={profile.intolerances} onChange={(values) => set('intolerances', values)} />
+          <ChipField
+            label="Lifestyle preferences"
+            values={profile.dietPreferences}
+            onChange={(values) => set('dietPreferences', values)}
+          />
+        </Section>
+
+        <Section title="Current medications & supplements">
+          <label>
+            <span className="hy-label">Active prescriptions and dosages</span>
+            <textarea
+              className="hy-input min-h-20"
+              value={profile.medications}
+              onChange={(event) => set('medications', event.target.value)}
+            />
+          </label>
+          <label className="mt-3 block">
+            <span className="hy-label">Vitamins and supplements</span>
+            <textarea
+              className="hy-input min-h-20"
+              value={profile.supplements}
+              onChange={(event) => set('supplements', event.target.value)}
+            />
+          </label>
+        </Section>
+
+        <Section title="Activity & lifestyle">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Occupation type" value={profile.occupation} onChange={(value) => set('occupation', value)} />
+            <Field label="Sleep patterns" value={profile.sleep} onChange={(value) => set('sleep', value)} />
+            <Field label="Weekly exercise" value={profile.exercise} onChange={(value) => set('exercise', value)} />
+            <Field label="Alcohol" value={profile.alcohol} onChange={(value) => set('alcohol', value)} />
+            <Field label="Smoking status" value={profile.smoking} onChange={(value) => set('smoking', value)} />
+          </div>
+        </Section>
+
+        <Section title="Uploaded records archive">
+          <p className="mb-3 text-sm text-muted">
+            Quick links to blood work, lipid panels, HbA1c tests, and referral notes.
+          </p>
+          <ul className="space-y-2">
+            {recordFiles.map((file) => (
+              <li
+                key={file.id}
+                className="flex items-center justify-between rounded-xl bg-panel px-3 py-3 text-sm"
+              >
+                <span>
+                  <span className="font-semibold text-ink">{file.name}</span>
+                  <span className="ml-2 text-muted">{formatDate(file.uploadedAt)}</span>
+                </span>
+                <Pill>{file.category}</Pill>
+              </li>
+            ))}
+          </ul>
+          {recordFiles.length === 0 && <p className="text-sm text-muted">No lab records yet.</p>}
+          <Link to="/files" className="mt-3 inline-block text-sm font-semibold text-navy">
+            Open My Files
+          </Link>
+        </Section>
+
+        <Button onClick={() => void handleSave()} disabled={saving}>
+          {saving ? 'Saving…' : 'Save clinical profile'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="hy-card p-5">
+      <h2 className="font-bold text-ink">{title}</h2>
+      <div className="mt-4">{children}</div>
+    </section>
+  )
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = 'text',
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  type?: string
+}) {
+  return (
+    <label>
+      <span className="hy-label">{label}</span>
+      <input
+        className="hy-input"
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  )
+}
+
+function ChipField({
+  label,
+  values,
+  onChange,
+}: {
+  label: string
+  values: string[]
+  onChange: (values: string[]) => void
+}) {
+  return (
+    <label className="mb-3 block">
+      <span className="hy-label">{label}</span>
+      <input
+        className="hy-input"
+        value={values.join(', ')}
+        onChange={(event) =>
+          onChange(
+            event.target.value
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean),
+          )
+        }
+      />
+      <span className="mt-1 block text-xs text-muted">Comma-separated</span>
+    </label>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="hy-card p-4 text-center">
+      <p className="text-2xl font-extrabold text-navy">{value}</p>
+      <p className="text-xs text-muted">{label}</p>
+    </div>
+  )
+}

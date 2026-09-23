@@ -1,21 +1,79 @@
 "use client"
 
-import { useState } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
-import { LogOut, Menu, X } from "lucide-react"
+import { NavLink, useLocation, useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import type { LucideIcon } from "lucide-react"
+import {
+  CalendarDays,
+  ClipboardList,
+  CreditCard,
+  FolderOpen,
+  History,
+  LogOut,
+  MapPin,
+  MessageSquare,
+  Salad,
+  ScanLine,
+  Settings,
+  Stethoscope,
+  UserRound,
+  X,
+} from "lucide-react"
 import Logo from "@/components/Logo"
-import { useAuth } from "@/lib/utils"
+import { Avatar } from "@/marketplace/components/ui/Primitives"
+import { useAuth, cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { readStoredProfilePhoto } from "@/components/AppTopBar"
 
-const Sidebar = () => {
+type NavItem = {
+  to: string
+  label: string
+  icon: LucideIcon
+  end?: boolean
+  match?: (path: string) => boolean
+}
+
+const mealNav: NavItem[] = [
+  {
+    to: "/dietitians",
+    label: "Find a dietitian",
+    icon: Stethoscope,
+    match: (path) => path === "/dietitians" || path.startsWith("/dietitians/") || path.startsWith("/care/"),
+  },
+  { to: "/appointments", label: "Appointments", icon: CalendarDays },
+  { to: "/messages", label: "Messages", icon: MessageSquare },
+  { to: "/food-for-you", label: "Food for you", icon: Salad, end: true },
+  { to: "/health-meals", label: "Scan ingredients", icon: ScanLine },
+  { to: "/planner", label: "Meal plans", icon: ClipboardList },
+  { to: "/location-budget", label: "Location & budget", icon: MapPin },
+  { to: "/files", label: "My files", icon: FolderOpen },
+  { to: "/profile", label: "Profile", icon: UserRound },
+  { to: "/history", label: "History", icon: History },
+  { to: "/payment", label: "Payment", icon: CreditCard },
+  { to: "/settings", label: "Settings", icon: Settings },
+]
+
+type SidebarProps = {
+  open?: boolean
+  onClose?: () => void
+}
+
+const Sidebar = ({ open = false, onClose }: SidebarProps) => {
   const navigate = useNavigate()
   const location = useLocation()
   const { toast } = useToast()
-  const { signOut, isAuthenticated } = useAuth()
-  const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const { signOut, isAuthenticated, user } = useAuth()
+  const [photoBump, setPhotoBump] = useState(0)
 
-  const isActive = (path: string) =>
-    location.pathname === path || location.pathname.startsWith(path + "/")
+  useEffect(() => {
+    const onPhoto = () => setPhotoBump((n) => n + 1)
+    window.addEventListener("meallensai-profile-photo", onPhoto)
+    return () => window.removeEventListener("meallensai-profile-photo", onPhoto)
+  }, [])
+
+  if (!isAuthenticated) {
+    return null
+  }
 
   const handleSignOut = async () => {
     try {
@@ -34,92 +92,91 @@ const Sidebar = () => {
     }
   }
 
-  if (!isAuthenticated) {
-    return null
-  }
-
-  const navItems = [
-    { label: "Food for you", path: "/food-for-you" },
-    { label: "Scan/type ingredients", path: "/health-meals" },
-    { label: "Meal plans", path: "/planner" },
-    { label: "Meals with location and budget", path: "/location-budget" },
-    { label: "Health info", path: "/settings" },
-    { label: "History", path: "/history" },
-    { label: "Payment", path: "/payment" },
-    { label: "Profile", path: "/profile" },
-  ]
-
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-card">
-      <div className="h-[88px] flex items-center px-6 border-b border-border">
-        <Logo size="lg" />
-      </div>
-
-      <nav className="flex-1 px-3 py-6 space-y-1">
-        {navItems.map((item) => {
-          const active = isActive(item.path)
-          return (
-            <button
-              key={item.path}
-              onClick={() => {
-                navigate(item.path)
-                setIsMobileOpen(false)
-              }}
-              className={`
-                w-full text-left px-4 py-3 rounded-xl text-[14px] sm:text-[15px] font-semibold transition-colors leading-snug
-                ${active
-                  ? "bg-primary text-primary-foreground"
-                  : "text-foreground/70 hover:bg-secondary hover:text-foreground"
-                }
-              `}
-            >
-              {item.label}
-            </button>
-          )
-        })}
-      </nav>
-
-      <div className="px-3 py-5 border-t border-border mt-auto">
-        <button
-          onClick={handleSignOut}
-          className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-left text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors text-[15px] font-medium"
-        >
-          <LogOut className="h-4 w-4" strokeWidth={1.75} />
-          Log out
-        </button>
-      </div>
-    </div>
-  )
+  const displayName = user?.displayName || user?.email?.split("@")[0] || "Member"
+  const avatar = user?.photoURL || (photoBump >= 0 ? readStoredProfilePhoto() : "") || ""
 
   return (
     <>
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2.5 bg-card rounded-xl shadow-soft border border-border"
-        aria-label="Toggle menu"
-      >
-        {isMobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </button>
-
-      {isMobileOpen && (
-        <div
-          className="md:hidden fixed inset-0 bg-foreground/30 z-40"
-          onClick={() => setIsMobileOpen(false)}
+      {open ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-ink/40 md:hidden"
+          aria-label="Close menu"
+          onClick={onClose}
         />
-      )}
-
-      <aside className="hidden md:flex fixed left-0 top-0 h-full w-[250px] flex-col z-40 border-r border-border bg-card">
-        <SidebarContent />
-      </aside>
+      ) : null}
 
       <aside
-        className={`
-        md:hidden fixed left-0 top-0 h-full w-[250px] flex flex-col z-50 border-r border-border bg-card shadow-elevated
-        transform transition-transform duration-300 ease-in-out
-        ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
-      `}
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-[min(16.5rem,calc(100vw-3rem))] flex-col border-r border-line bg-white shadow-elevated transition-transform duration-200 md:w-[240px] md:shadow-none",
+          open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+        )}
       >
-        <SidebarContent />
+        <div className="flex items-center justify-between gap-2 px-5 py-5">
+          <div onClick={onClose}>
+            <Logo to="/food-for-you" size="lg" />
+          </div>
+          <button
+            type="button"
+            className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-secondary md:hidden"
+            aria-label="Close menu"
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
+          {mealNav.map((item) => {
+            const active = item.match
+              ? item.match(location.pathname)
+              : item.end
+                ? location.pathname === item.to
+                : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                onClick={onClose}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                  active
+                    ? "bg-navy-soft text-navy"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                <item.icon size={20} strokeWidth={1.75} />
+                <span className="flex-1">{item.label}</span>
+              </NavLink>
+            )
+          })}
+        </nav>
+
+        <div className="border-t border-line p-4">
+          <NavLink
+            to="/profile"
+            onClick={onClose}
+            className="mb-3 flex items-center gap-3 rounded-xl p-2 hover:bg-secondary"
+          >
+            <Avatar src={avatar} name={displayName} size={40} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">{displayName.split(" ")[0]}</p>
+              <p className="truncate text-xs text-muted-foreground">View profile</p>
+            </div>
+          </NavLink>
+          <button
+            type="button"
+            onClick={() => {
+              onClose?.()
+              void handleSignOut()
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-red-50 hover:text-destructive"
+          >
+            <LogOut size={16} />
+            Log out
+          </button>
+        </div>
       </aside>
     </>
   )

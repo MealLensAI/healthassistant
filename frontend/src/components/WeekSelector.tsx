@@ -46,7 +46,7 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
     <div className="bg-white rounded-xl p-4 shadow-sm border border-[#e2e8f0]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Calendar className="w-5 h-5 text-[#FF6B6B]" />
+          <Calendar className="w-5 h-5 text-primary" />
           <div>
             <h3 className="font-semibold text-[#2D3436]">Week of {formatDateRange(weekDates.startDate, weekDates.endDate)}</h3>
             <p className="text-sm text-[#1e293b]">

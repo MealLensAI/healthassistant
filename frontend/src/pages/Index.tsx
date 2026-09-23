@@ -10,7 +10,6 @@ import MealPlanManager from '../components/MealPlanManager';
 import MealPlanSkeleton from '../components/MealPlanSkeleton';
 import WeekProgressBar from '../components/WeekProgressBar';
 import WeekCalendar from '../components/WeekCalendar';
-import NotificationBell from '../components/NotificationBell';
 import EngagementBanners from '../components/EngagementBanners';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useMealTracking } from '../hooks/useMealTracking';
@@ -22,6 +21,7 @@ import { APP_CONFIG } from '@/lib/config';
 import Swal from 'sweetalert2';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import { usePageHeader } from '@/components/PageHeaderContext';
 // Map new goal values to backend API format
 const mapGoalToBackendFormat = (goal: string | undefined): string => {
   if (!goal) return 'heal'; // default
@@ -360,7 +360,7 @@ const Index = () => {
         Swal.fire({
           icon: 'info',
           title: 'Health Profile Required',
-          text: 'Please complete your health profile in Health info to use From your health profile nutrition planning.',
+          text: 'Please complete your health profile in Profile to use From your health profile nutrition planning.',
           confirmButtonColor: '#0E3E77'
         });
         return;
@@ -478,7 +478,7 @@ const Index = () => {
           Swal.fire({
             icon: 'info',
             title: 'Health Profile Required',
-            text: 'Please complete your health profile in Health info to generate health-aware meal plans.',
+            text: 'Please complete your health profile in Profile to generate health-aware meal plans.',
             confirmButtonColor: '#0E3E77'
           });
           setIsLoading(false);
@@ -834,47 +834,10 @@ const Index = () => {
     }
     return weekDates.name;
   };
-
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  
+  usePageHeader('Meal plans');
   return (
-    <div className="min-h-screen bg-background">
-      <header className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[88px] flex items-center border-b border-border bg-card">
-        <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
-          <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-foreground tracking-tight truncate">Meal plans</h1>
-          
-          <div className="flex items-center gap-2 sm:gap-3">
-            <NotificationBell />
-
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center h-[36px] sm:h-[40px] md:h-[48px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-4 rounded-full border border-border bg-card hover:bg-secondary transition-colors"
-              >
-                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-leaf-soft rounded-full flex items-center justify-center text-primary font-semibold text-[10px] sm:text-xs md:text-sm border border-border">
-                  {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
-                </div>
-                <span className="text-xs sm:text-sm md:text-[15px] font-medium text-muted-foreground hidden lg:block">
-                  {user?.displayName || user?.email?.split('@')[0] || 'User'}
-                </span>
-                <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {showProfileDropdown && (
-                <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setShowProfileDropdown(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-card rounded-2xl shadow-elevated border border-border py-2 z-50">
-                    <a href="/profile" className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-foreground hover:bg-secondary">Profile</a>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <div className="min-h-full bg-background">
       <EngagementBanners />
 
       {/* Main Content Area - responsive padding */}
@@ -1203,7 +1166,7 @@ const Index = () => {
                 >
                   <div className="font-semibold">From your health profile</div>
                   <div className="text-sm opacity-90 mt-1">
-                    {isHealthProfileComplete() ? 'Auto-generate from your saved health info' : 'Complete your profile in Health info first'}
+                    {isHealthProfileComplete() ? 'Auto-generate from your saved health info' : 'Complete your profile in Profile first'}
                   </div>
                 </button>
               )}
@@ -1233,17 +1196,17 @@ const Index = () => {
                         Complete your health profile
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        Go to Health info to finish your profile before using this option.
+                        Go to Profile to finish your profile before using this option.
                       </p>
                       <button
                         type="button"
                         onClick={() => {
                           setShowInputModal(false);
-                          navigate('/settings');
+                          navigate('/profile');
                         }}
                         className="mt-4 text-primary font-medium hover:underline text-sm"
                       >
-                        Open Health info
+                        Open Profile
                       </button>
                     </div>
                   )}

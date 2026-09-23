@@ -58,7 +58,7 @@ const HealthProfileGate: React.FC<HealthProfileGateProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const onSettingsPage = location.pathname === '/settings';
+  const onSettingsPage = location.pathname === '/profile';
 
   useEffect(() => {
     if (!ready || !userId) {
@@ -88,7 +88,7 @@ const HealthProfileGate: React.FC<HealthProfileGateProps> = ({
 
   const goToHealthInfo = () => {
     dismiss();
-    navigate('/settings');
+    navigate('/profile');
   };
 
   if (!open) return null;
@@ -125,7 +125,7 @@ const HealthProfileGate: React.FC<HealthProfileGateProps> = ({
           </div>
 
           <p className="text-xs text-gray-500 text-center">
-            You can always open Health info from the sidebar.
+            You can always open Profile from the sidebar.
           </p>
         </div>
       </DialogContent>

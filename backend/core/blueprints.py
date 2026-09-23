@@ -81,3 +81,12 @@ def register_blueprints(app: Flask) -> None:
         logger.warning(f"Enterprise routes not available: {e}")
     except Exception as e:
         logger.error(f"Failed to register enterprise routes: {e}")
+
+    try:
+        from routes.care_routes import care_bp
+        app.register_blueprint(care_bp, url_prefix='/api/care')
+        logger.info("Care marketplace routes registered")
+    except ImportError as e:
+        logger.warning(f"Care marketplace routes not available: {e}")
+    except Exception as e:
+        logger.error(f"Failed to register care marketplace routes: {e}")

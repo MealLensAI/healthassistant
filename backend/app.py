@@ -282,6 +282,14 @@ def create_app():
   else:
       print("Meal tracking routes disabled.")
 
+  # Dietitian marketplace / patient care (JSON or Supabase via care.db)
+  try:
+      from routes.care_routes import care_bp
+      app.register_blueprint(care_bp, url_prefix='/api/care')
+      print("Care marketplace routes registered at /api/care.")
+  except Exception as e:
+      print(f"Care marketplace routes not available: {e}")
+
   # Initialize meal reminder service (scheduled email reminders)
   if MEAL_REMINDER_SERVICE_AVAILABLE:
       try:

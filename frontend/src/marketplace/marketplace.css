@@ -1,0 +1,161 @@
+/* Port of meallensaidieticnafrontend index.css for Tailwind v3 host app.
+ * Variables are scoped under .marketplace-root so MealLensAI shadcn tokens stay intact.
+ */
+
+.marketplace-root {
+  color-scheme: light;
+  --navy: #0e3e77;
+  --navy-deep: #082a54;
+  --navy-soft: #dfe9f6;
+  /* Keep --leaf / --leaf-soft as host HSL tokens so hsl(var(--leaf)) still works */
+  --leaf-deep: #2c6349;
+  --cream: #fcfaf8;
+  --ink: #092649;
+  --care-muted: #546478;
+  --line: #e5e2dc;
+  --panel: #f5f3f0;
+  --surface: #ffffff;
+  --care-destructive: #dc2828;
+  --white: #ffffff;
+  --elev-card: 0 8px 30px rgb(9 38 73 / 0.08);
+  --elev-high: 0 16px 40px rgb(9 38 73 / 0.12);
+
+  --care-navy: var(--navy);
+  --care-navy-deep: var(--navy-deep);
+  --care-navy-soft: var(--navy-soft);
+  --care-leaf-deep: var(--leaf-deep);
+  --care-cream: var(--cream);
+  --care-ink: var(--ink);
+  --care-line: var(--line);
+  --care-panel: var(--panel);
+  --care-surface: var(--surface);
+
+  min-height: 100%;
+  font-family: "Nunito Sans", "Nunito", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+  text-align: left;
+}
+
+html.dark .marketplace-root {
+  color-scheme: dark;
+  --navy: #8bb6ea;
+  --navy-deep: #c5daf6;
+  --navy-soft: #1b2d48;
+  --leaf-deep: #b6e3cc;
+  --cream: #0c121c;
+  --ink: #eef3f8;
+  --care-muted: #9aa8bb;
+  --line: #2a3548;
+  --panel: #1b2433;
+  --surface: #141c2a;
+  --care-destructive: #f87171;
+  --white: #141c2a;
+  --elev-card: 0 8px 30px rgb(0 0 0 / 0.35);
+  --elev-high: 0 16px 40px rgb(0 0 0 / 0.45);
+}
+
+.marketplace-root h1,
+.marketplace-root h2,
+.marketplace-root h3,
+.marketplace-root .font-display {
+  font-family: "Nunito", "Nunito Sans", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.marketplace-root h1 {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.marketplace-root h2,
+.marketplace-root h3 {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.marketplace-root button,
+.marketplace-root input,
+.marketplace-root select,
+.marketplace-root textarea {
+  font-family: "Nunito Sans", "Nunito", system-ui, sans-serif;
+}
+
+.marketplace-root .hy-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--elev-card);
+}
+
+.marketplace-root .hy-input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 40px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  outline: none;
+}
+
+.marketplace-root textarea.hy-input {
+  height: auto;
+  padding: 10px 12px;
+}
+
+.marketplace-root .hy-input:focus {
+  border-color: var(--navy);
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+}
+
+.marketplace-root .hy-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.35rem;
+}
+
+.marketplace-root .hy-eyebrow {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(var(--leaf));
+}
+
+.marketplace-root .hy-banner {
+  background: var(--navy-soft);
+  border-radius: 12px;
+  padding: 20px 24px;
+}
+
+html.dark .marketplace-root .bg-white {
+  background-color: var(--surface);
+}
+
+html.dark .marketplace-root .bg-white\/90 {
+  background-color: color-mix(in srgb, var(--surface) 90%, transparent);
+}
+
+/* Map marketplace text-muted / bg-cream utilities when used inside root */
+.marketplace-root .text-muted {
+  color: var(--care-muted);
+}
+
+.marketplace-root .text-destructive {
+  color: var(--care-destructive);
+}
+
+.marketplace-root .border-destructive\/20 {
+  border-color: color-mix(in srgb, var(--care-destructive) 20%, transparent);
+}

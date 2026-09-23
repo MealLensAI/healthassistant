@@ -124,7 +124,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
         <h2 className="text-lg sm:text-xl font-bold text-[#2D3436]">Meal Plans</h2>
         <button
           onClick={onNewPlan}
-          className="flex items-center gap-2 bg-[#FF6B6B] text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-[#FF8E53] transition-colors text-sm sm:text-base w-full sm:w-auto justify-center"
+          className="flex items-center gap-2 bg-primary text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-blue-deep transition-colors text-sm sm:text-base w-full sm:w-auto justify-center"
         >
           <Plus className="w-4 h-4" />
           New Plan
@@ -137,7 +137,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
           <h3 className="text-base sm:text-lg font-semibold text-[#2D3436]">Week of {getCurrentWeekDates()}</h3>
           <button
             onClick={() => setShowDatePicker(!showDatePicker)}
-            className="flex items-center gap-2 text-[#FF6B6B] hover:text-[#FF8E53] transition-colors text-sm sm:text-base"
+            className="flex items-center gap-2 text-primary hover:text-blue-deep transition-colors text-sm sm:text-base"
           >
             <Calendar className="w-4 h-4" />
             Change Week
@@ -175,7 +175,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
               type="date"
               value={selectedDate.toISOString().split('T')[0]}
               onChange={(e) => setSelectedDate(new Date(e.target.value))}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
+              className="w-full p-2 border border-gray-300 rounded-lg focus:border-primary focus:outline-none"
             />
           </div>
         )}
@@ -201,8 +201,8 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
               <div
                 key={plan.id}
                 className={`p-3 sm:p-4 rounded-lg border-2 transition-all cursor-pointer ${currentPlan?.id === plan.id
-                  ? 'border-[#FF6B6B] bg-[#FF6B6B]/5'
-                  : 'border-gray-200 hover:border-[#FF6B6B]/50 hover:bg-gray-50'
+                  ? 'border-primary bg-blue-light'
+                  : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'
                   }`}
                 onClick={() => {
                   selectMealPlan(plan.id);
@@ -229,7 +229,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
                         e.stopPropagation();
                         onEditPlan(plan);
                       }}
-                      className="p-2 text-gray-600 hover:text-[#FF6B6B] transition-colors"
+                      className="p-2 text-gray-600 hover:text-primary transition-colors"
                       title="Edit Plan"
                     >
                       <Edit className="w-4 h-4" />
@@ -240,7 +240,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
                         e.stopPropagation();
                         handleDuplicatePlan(plan);
                       }}
-                      className="p-2 text-gray-600 hover:text-[#FF6B6B] transition-colors"
+                      className="p-2 text-gray-600 hover:text-primary transition-colors"
                       title="Duplicate Plan"
                     >
                       <Copy className="w-4 h-4" />

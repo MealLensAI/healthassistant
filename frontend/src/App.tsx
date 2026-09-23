@@ -9,18 +9,15 @@ import Signup from "./pages/Signup"
 import AIResponsePage from "./pages/AIResponsePage"
 import Index from "./pages/Index"
 import ProtectedRoute from "./components/ProtectedRoute"
-import MainLayout from "./components/MainLayout"
 import { Toaster } from "@/components/ui/toaster"
 import "./App.css"
 import HistoryPage from "./pages/History"
 import HistoryDetailPage from "./pages/HistoryDetailPage"
 import { AuthProvider } from "@/lib/AuthProvider"
 import Payment from "./pages/Payment";
-import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import LocationBudgetPage from "./pages/LocationBudgetPage";
 import FoodForYouPage from "./pages/FoodForYouPage";
-import TrialBlocker from "./components/TrialBlocker";
 import WelcomePage from "./pages/WelcomePage";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -32,8 +29,16 @@ import AcceptInvitation from "./pages/AcceptInvitation";
 import OrganizationAccessGuard from "./components/OrganizationAccessGuard";
 import RoleAwareRedirect from "./components/RoleAwareRedirect";
 import LogoutAndLogin from "./pages/LogoutAndLogin";
+import PatientAppLayout from "./components/PatientAppLayout";
+import { HomePage as CareHomePage } from "./marketplace/pages/patient/HomePage";
+import { SearchPage as CareSearchPage } from "./marketplace/pages/patient/SearchPage";
+import { DietitianProfilePage } from "./marketplace/pages/patient/DietitianProfilePage";
+import { CarePage } from "./marketplace/pages/patient/CarePage";
+import { AppointmentsPage } from "./marketplace/pages/patient/AppointmentsPage";
+import { MessagesPage } from "./marketplace/pages/patient/MessagesPage";
+import { FilesPage } from "./marketplace/pages/patient/FilesPage";
+import { SettingsPage as CareSettingsPage } from "./marketplace/pages/patient/SettingsPage";
 
-// Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
   {
     path: "/login",
@@ -72,112 +77,29 @@ const router = createBrowserRouter([
     element: <WelcomePage />
   },
   {
-    path: "/health-meals",
-    element: (
-      <ProtectedRoute>
-        <TrialBlocker>
-          <MainLayout>
-            <AIResponsePage />
-          </MainLayout>
-        </TrialBlocker>
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/planner",
-    element: (
-      <ProtectedRoute>
-        <TrialBlocker>
-          <MainLayout>
-            <Index />
-          </MainLayout>
-        </TrialBlocker>
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/history",
-    element: (
-      <ProtectedRoute>
-        <TrialBlocker>
-          <MainLayout>
-            <HistoryPage />
-          </MainLayout>
-        </TrialBlocker>
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/history/:id",
-    element: (
-      <ProtectedRoute>
-        <TrialBlocker>
-          <MainLayout>
-            <HistoryDetailPage />
-          </MainLayout>
-        </TrialBlocker>
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/payment",
-    element: (
-      <ProtectedRoute>
-        <TrialBlocker>
-          <MainLayout>
-            <Payment />
-          </MainLayout>
-        </TrialBlocker>
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/profile",
-    element: (
-      <ProtectedRoute>
-        <TrialBlocker>
-          <MainLayout>
-            <Profile />
-          </MainLayout>
-        </TrialBlocker>
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/settings",
-    element: (
-      <ProtectedRoute>
-        <TrialBlocker>
-          <MainLayout>
-            <Settings />
-          </MainLayout>
-        </TrialBlocker>
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/location-budget",
-    element: (
-      <ProtectedRoute>
-        <TrialBlocker>
-          <MainLayout>
-            <LocationBudgetPage />
-          </MainLayout>
-        </TrialBlocker>
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/food-for-you",
-    element: (
-      <ProtectedRoute>
-        <TrialBlocker>
-          <MainLayout>
-            <FoodForYouPage />
-          </MainLayout>
-        </TrialBlocker>
-      </ProtectedRoute>
-    )
+    element: <PatientAppLayout />,
+    children: [
+      { path: "/health-meals", element: <AIResponsePage /> },
+      { path: "/planner", element: <Index /> },
+      { path: "/history", element: <HistoryPage /> },
+      { path: "/history/:id", element: <HistoryDetailPage /> },
+      { path: "/payment", element: <Payment /> },
+      { path: "/profile", element: <Profile /> },
+      { path: "/settings", element: <CareSettingsPage /> },
+      { path: "/location-budget", element: <LocationBudgetPage /> },
+      { path: "/food-for-you", element: <FoodForYouPage /> },
+      // Care marketplace
+      { path: "/dietitians", element: <CareHomePage /> },
+      { path: "/search", element: <CareSearchPage /> },
+      { path: "/dietitians/:id", element: <DietitianProfilePage /> },
+      { path: "/care/:id", element: <CarePage /> },
+      { path: "/appointments", element: <AppointmentsPage /> },
+      { path: "/messages", element: <MessagesPage /> },
+      { path: "/messages/:id", element: <MessagesPage /> },
+      { path: "/files", element: <FilesPage /> },
+      { path: "/care-profile", element: <Navigate to="/profile" replace /> },
+      { path: "/care-settings", element: <Navigate to="/settings" replace /> },
+    ],
   },
   {
     path: "/enterprise",
@@ -200,7 +122,6 @@ const router = createBrowserRouter([
 ])
 
 function App() {
-  // Initialize analytics once
   useEffect(() => {
     Analytics.initialize()
     try {
@@ -211,7 +132,6 @@ function App() {
     } catch (_) { }
   }, [])
 
-  // Listen to route changes for pageviews + SEO
   useEffect(() => {
     const unsubs = router.subscribe(({ location }) => {
       try {

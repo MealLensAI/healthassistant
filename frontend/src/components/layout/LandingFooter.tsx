@@ -1,3 +1,5 @@
+import Logo from "@/components/Logo";
+
 const LandingFooter = () => {
   const footerLinks = {
     Product: [
@@ -17,9 +19,9 @@ const LandingFooter = () => {
       <div className="container mx-auto px-4 lg:px-8">
         <div className="grid lg:grid-cols-4 gap-12 mb-12">
           <div className="lg:col-span-2">
-            <p className="font-display text-2xl tracking-tight mb-4">
-              MealLensAI
-            </p>
+            <div className="mb-4">
+              <Logo size="lg" inverse />
+            </div>
             <p className="text-primary-foreground/75 max-w-sm mb-5 leading-relaxed">
               Manage your health through food with ease. Hospitals don&apos;t
               solve adherence. We do.

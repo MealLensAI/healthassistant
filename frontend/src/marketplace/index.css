@@ -1,0 +1,221 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --navy: #0e3e77;
+  --navy-deep: #082a54;
+  --navy-soft: #dfe9f6;
+  --leaf: #397f5e;
+  --leaf-deep: #2c6349;
+  --leaf-soft: #ebf4f0;
+  --cream: #fcfaf8;
+  --ink: #092649;
+  --muted: #546478;
+  --line: #e5e2dc;
+  --panel: #f5f3f0;
+  --surface: #ffffff;
+  --destructive: #dc2828;
+  --white: #ffffff;
+  --elev-card: 0 8px 30px rgb(9 38 73 / 0.08);
+  --elev-high: 0 16px 40px rgb(9 38 73 / 0.12);
+}
+
+html.dark {
+  color-scheme: dark;
+  --navy: #8bb6ea;
+  --navy-deep: #c5daf6;
+  --navy-soft: #1b2d48;
+  --leaf: #6fbf96;
+  --leaf-deep: #b6e3cc;
+  --leaf-soft: #163328;
+  --cream: #0c121c;
+  --ink: #eef3f8;
+  --muted: #9aa8bb;
+  --line: #2a3548;
+  --panel: #1b2433;
+  --surface: #141c2a;
+  --destructive: #f87171;
+  --white: #141c2a;
+  --elev-card: 0 8px 30px rgb(0 0 0 / 0.35);
+  --elev-high: 0 16px 40px rgb(0 0 0 / 0.45);
+}
+
+@theme {
+  --font-sans: "Nunito Sans", "Nunito", system-ui, sans-serif;
+  --font-display: "Nunito", "Nunito Sans", system-ui, sans-serif;
+
+  --color-navy: var(--navy);
+  --color-navy-deep: var(--navy-deep);
+  --color-navy-soft: var(--navy-soft);
+  --color-leaf: var(--leaf);
+  --color-leaf-deep: var(--leaf-deep);
+  --color-leaf-soft: var(--leaf-soft);
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-panel: var(--panel);
+  --color-surface: var(--surface);
+  --color-destructive: var(--destructive);
+  --color-night: #090f15;
+
+  --color-brand: var(--navy);
+  --color-brand-dark: var(--navy-deep);
+  --color-brand-soft: var(--navy-soft);
+  --color-canvas: var(--cream);
+
+  --shadow-soft: 0 1px 3px rgb(9 38 73 / 0.06);
+  --shadow-card: var(--elev-card);
+  --shadow-elevated: var(--elev-high);
+
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+body {
+  margin: 0;
+  font-family: "Nunito Sans", "Nunito", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: 0;
+  color: var(--ink);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: "Nunito", "Nunito Sans", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+h2,
+h3 {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: "Nunito Sans", "Nunito", system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+
+.hy-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--elev-card);
+}
+
+.hy-input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 40px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+textarea.hy-input {
+  height: auto;
+  padding: 10px 12px;
+}
+
+.hy-input:focus {
+  border-color: var(--navy);
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.hy-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.35rem;
+}
+
+.hy-eyebrow {
+  font-family: "Nunito Sans", "Nunito", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--leaf);
+}
+
+.hy-banner {
+  background: var(--navy-soft);
+  border-radius: 12px;
+  padding: 20px 24px;
+}
+
+html.dark .bg-white {
+  background-color: var(--surface);
+}
+
+html.dark .bg-white\/90 {
+  background-color: color-mix(in srgb, var(--surface) 90%, transparent);
+}
+
+html.dark .bg-white\/80 {
+  background-color: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+
+html.dark .to-white {
+  --tw-gradient-to: var(--surface);
+}
+
+html.dark .via-white\/20 {
+  --tw-gradient-via: color-mix(in srgb, var(--surface) 20%, transparent);
+}
+
+html.dark .from-white {
+  --tw-gradient-from: var(--surface);
+}

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/utils";
+import Logo from "@/components/Logo";
 
 const LandingNavbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -37,13 +38,8 @@ const LandingNavbar = () => {
     >
       <div className="container mx-auto px-4 lg:px-8">
         <div className="flex items-center justify-between">
-          <a
-            href="#"
-            className={`font-display text-xl tracking-tight transition-colors ${
-              isScrolled ? "text-primary" : "text-white"
-            }`}
-          >
-            MealLensAI
+          <a href="#" className="inline-flex items-center" aria-label="MealLensAI home">
+            <Logo size="lg" inverse={!isScrolled} />
           </a>
 
           <div className="hidden lg:flex items-center gap-7">

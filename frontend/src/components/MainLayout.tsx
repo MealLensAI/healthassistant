@@ -1,22 +1,26 @@
 "use client"
 
+import { useState, type ReactNode } from "react"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { useSicknessSettings } from "@/hooks/useSicknessSettings"
 import Sidebar from "./Sidebar"
 import HealthProfileGate from "./HealthProfileGate"
 import Logo from "./Logo"
+import { AppTopBar } from "./AppTopBar"
+import { MarketplaceBootGate, MarketplaceProvider } from "@/marketplace/MarketplaceProvider"
+import { MarketplaceChrome } from "@/marketplace/components/layout/MarketplaceChrome"
+import { PageHeaderProvider } from "@/components/PageHeaderContext"
 
-const MainLayout = ({ children }: { children: React.ReactNode }) => {
+const MainLayout = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated, user } = useAuth()
   const { hasResolved, isHealthProfileComplete } = useSicknessSettings()
+  const [navOpen, setNavOpen] = useState(false)
 
   if (!isAuthenticated) {
     return null
   }
 
-  // Hold the dashboard until the first health-profile check finishes.
-  // Uses hasResolved (not loading) so later saves/refreshes don't remount the app shell.
   if (!hasResolved) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -37,17 +41,26 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const profileComplete = isHealthProfileComplete()
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <Sidebar />
-      <main className="flex-1 min-h-screen w-full md:ml-[250px]">
-        {children}
-      </main>
-      <HealthProfileGate
-        userId={user?.uid}
-        ready={hasResolved}
-        profileComplete={profileComplete}
-      />
-    </div>
+    <MarketplaceProvider>
+      <MarketplaceBootGate allowGuest={false} blocking>
+        <PageHeaderProvider>
+          <div className="marketplace-root flex min-h-screen bg-cream text-left">
+            <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
+            <div className="flex min-h-screen min-w-0 flex-1 flex-col md:ml-[240px]">
+              <AppTopBar onOpenNav={() => setNavOpen(true)} />
+              <MarketplaceChrome bare>
+                {children}
+              </MarketplaceChrome>
+            </div>
+            <HealthProfileGate
+              userId={user?.uid}
+              ready={hasResolved}
+              profileComplete={profileComplete}
+            />
+          </div>
+        </PageHeaderProvider>
+      </MarketplaceBootGate>
+    </MarketplaceProvider>
   )
 }
 

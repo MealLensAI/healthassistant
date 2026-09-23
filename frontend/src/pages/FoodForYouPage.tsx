@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, LayoutGrid, List, RefreshCw, X } from 'lucide-react';
+import { LayoutGrid, List, RefreshCw, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 import CookingTutorialModal from '@/components/CookingTutorialModal';
 import { useAuth, safeGetItem, safeSetItem } from '@/lib/utils';
@@ -17,6 +17,7 @@ import {
   getFoodForYouMemory,
   setFoodForYouMemory,
 } from '@/lib/foodForYouCache';
+import { usePageHeader } from '@/components/PageHeaderContext';
 
 const FOOD_FOR_YOU_VIEW_KEY = 'meallensai_food_for_you_view_v1';
 
@@ -247,7 +248,6 @@ const FoodForYouPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [foods, setFoods] = useState<FoodItem[]>(() => {
     const cached = getFoodForYouMemory();
     if (user?.uid && cached?.userId === user.uid) {
@@ -382,11 +382,11 @@ const FoodForYouPage: React.FC = () => {
         Swal.fire({
           icon: 'info',
           title: 'Health Profile Required',
-          text: 'Please complete your health profile in Health info to get personalized food.',
+          text: 'Please complete your health profile in Profile to get personalized food.',
           confirmButtonColor: '#0E3E77',
-          confirmButtonText: 'Open Health info',
+          confirmButtonText: 'Open Profile',
         }).then((result) => {
-          if (result.isConfirmed) navigate('/settings');
+          if (result.isConfirmed) navigate('/profile');
         });
       }
       return;
@@ -495,11 +495,11 @@ const FoodForYouPage: React.FC = () => {
         Swal.fire({
           icon: 'info',
           title: 'Health Profile Required',
-          text: 'Please complete your health profile in Health info to get personalized food.',
+          text: 'Please complete your health profile in Profile to get personalized food.',
           confirmButtonColor: '#0E3E77',
-          confirmButtonText: 'Open Health info',
+          confirmButtonText: 'Open Profile',
         }).then((result) => {
-          if (result.isConfirmed) navigate('/settings');
+          if (result.isConfirmed) navigate('/profile');
         });
       }
       return;
@@ -591,96 +591,56 @@ const FoodForYouPage: React.FC = () => {
     setShowTutorial(true);
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="px-4 sm:px-6 md:px-8 h-[70px] sm:h-[80px] md:h-[88px] flex items-center border-b border-border bg-card">
-        <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
-          <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-foreground tracking-tight truncate pl-12 md:pl-0">
-            Food for you
-          </h1>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Box / List view toggle */}
-            <div className="inline-flex items-center rounded-full border border-border bg-secondary p-1">
-              <button
-                type="button"
-                onClick={() => selectViewMode('box')}
-                aria-label="Box view"
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${
-                  viewMode === 'box'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Box</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => selectViewMode('list')}
-                aria-label="List view"
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${
-                  viewMode === 'list'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <List className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">List</span>
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleRegenerate}
-              disabled={loading}
-              className="hidden sm:inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Regenerate
-            </button>
-
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center h-[36px] sm:h-[40px] md:h-[48px] gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-4 rounded-full border border-border bg-card hover:bg-secondary transition-colors"
-              >
-                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-leaf-soft rounded-full flex items-center justify-center text-primary font-semibold text-[10px] sm:text-xs md:text-sm border border-border">
-                  {(user?.displayName || user?.email?.split('@')[0] || 'U')
-                    .substring(0, 2)
-                    .toUpperCase()}
-                </div>
-                <span className="text-xs sm:text-sm md:text-[15px] font-medium text-muted-foreground hidden lg:block">
-                  {user?.displayName || user?.email?.split('@')[0] || 'User'}
-                </span>
-                <ChevronDown
-                  className={`h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground transition-transform ${
-                    showProfileDropdown ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-
-              {showProfileDropdown && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowProfileDropdown(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-card rounded-2xl shadow-elevated border border-border py-2 z-50">
-                    <a
-                      href="/profile"
-                      className="block px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] text-foreground hover:bg-secondary"
-                    >
-                      Profile
-                    </a>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+  const headerActions = useMemo(
+    () => (
+      <>
+        <div className="inline-flex items-center rounded-full border border-border bg-secondary p-1">
+          <button
+            type="button"
+            onClick={() => selectViewMode('box')}
+            aria-label="Box view"
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+              viewMode === 'box'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Box</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => selectViewMode('list')}
+            aria-label="List view"
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+              viewMode === 'list'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <List className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">List</span>
+          </button>
         </div>
-      </header>
+        <button
+          type="button"
+          onClick={handleRegenerate}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary disabled:opacity-50 sm:px-4 sm:text-sm"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Regenerate</span>
+        </button>
+      </>
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [viewMode, loading],
+  );
 
+  usePageHeader('Food for you', headerActions);
+
+  return (
+    <div className="min-h-full bg-background">
       {/* Modal only while AI is generating a new list */}
       {showLoadingModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
@@ -749,14 +709,14 @@ const FoodForYouPage: React.FC = () => {
         {showEmptyProfile && (
           <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-soft max-w-lg mx-auto">
             <p className="text-muted-foreground mb-4">
-              Complete your health profile in Health info to load food for you.
+              Complete your health profile in Profile to load food for you.
             </p>
             <button
               type="button"
-              onClick={() => navigate('/settings')}
+              onClick={() => navigate('/profile')}
               className="rounded-full bg-primary text-white px-6 py-3 font-semibold"
             >
-              Open Health info
+              Open Profile
             </button>
           </div>
         )}

@@ -77,7 +77,7 @@ export function updateMeta(config: Partial<MetaConfig> = {}) {
     setNamedMeta('name', 'keywords', meta.keywords)
     setNamedMeta('name', 'robots', 'index, follow')
     setNamedMeta('name', 'author', 'MealLensAI Team')
-    setNamedMeta('name', 'theme-color', '#FF6B6B')
+  setNamedMeta('name', 'theme-color', '#0E3E77')
 
     // Open Graph
     setNamedMeta('property', 'og:title', meta.title)
@@ -140,7 +140,7 @@ function ensureJsonLd() {
                 '@type': 'Organization',
                 name: 'MealLensAI',
                 url: baseUrl,
-                logo: baseUrl + '/assets/images/logo.svg',
+                logo: baseUrl + '/care/logo.png',
                 description: 'AI-powered recipe finder and meal planning for chronic conditions. Plans from $20/month after free meal plan.',
                 sameAs: ['https://x.com/MealLensAI']
             })

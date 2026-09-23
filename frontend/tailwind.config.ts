@@ -65,12 +65,24 @@ export default {
           DEFAULT: "hsl(var(--leaf))",
           foreground: "hsl(var(--leaf-foreground))",
           soft: "hsl(var(--leaf-soft))",
+          deep: "var(--leaf-deep)",
         },
         blue: {
           DEFAULT: "hsl(var(--blue))",
           deep: "hsl(var(--blue-deep))",
           light: "hsl(var(--blue-light))",
         },
+        // Dietitian marketplace tokens (scoped CSS vars on .marketplace-root)
+        navy: {
+          DEFAULT: "var(--navy)",
+          deep: "var(--navy-deep)",
+          soft: "var(--navy-soft)",
+        },
+        cream: "var(--cream)",
+        ink: "var(--ink)",
+        line: "var(--line)",
+        panel: "var(--panel)",
+        surface: "var(--surface)",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -80,7 +92,7 @@ export default {
       boxShadow: {
         soft: "var(--shadow-soft)",
         card: "var(--shadow-card)",
-        elevated: "var(--shadow-elevated)",
+        elevated: "var(--shadow-elevated, var(--elev-high))",
       },
       keyframes: {
         "accordion-down": {

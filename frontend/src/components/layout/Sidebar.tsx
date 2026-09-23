@@ -1,5 +1,6 @@
 import { Home, Briefcase, GraduationCap, Building2, Users, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Logo from "@/components/Logo";
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -18,13 +19,8 @@ const Sidebar = () => {
       <div className="p-6">
         {/* Logo */}
         <div className="mb-8">
-          <a href="#" className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
-              <span className="text-white font-bold text-sm">M</span>
-            </div>
-            <span className="text-lg font-medium text-foreground">
-              Meal<span className="text-primary">Lens</span>AI
-            </span>
+          <a href="#" className="inline-flex items-center" aria-label="MealLensAI home">
+            <Logo size="md" />
           </a>
         </div>
 
