@@ -28,7 +28,7 @@ export default function OrganizationAccessGuard({ children }: OrganizationAccess
         description: 'You need an organization workspace to view this dashboard.',
         variant: 'destructive'
       })
-      navigate('/ai-kitchen', { replace: true })
+      navigate('/food-for-you', { replace: true })
     }
   }, [roleLoading, role, hasEnterprises, canCreateOrganizations, toast, navigate])
 

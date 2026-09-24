@@ -865,10 +865,10 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* User Selection */}
-      <div className="mb-6">
-        <Label htmlFor="user-select" className="text-sm font-semibold text-slate-700 mb-2 block">
+      <div>
+        <Label htmlFor="user-select" className="text-sm font-semibold text-ink mb-2 block">
           Select Member to Manage Meal Plans
         </Label>
         <Select

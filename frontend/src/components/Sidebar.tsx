@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react"
 import Logo from "@/components/Logo"
-import { Avatar } from "@/marketplace/components/ui/Primitives"
+import { Avatar } from "@/components/care-ui/Primitives"
 import { useAuth, cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { readStoredProfilePhoto } from "@/components/AppTopBar"

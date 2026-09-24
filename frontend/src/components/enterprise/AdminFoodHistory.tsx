@@ -142,16 +142,16 @@ const AdminFoodHistory: React.FC<AdminFoodHistoryProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* User Selection */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
+        <CardHeader className="p-4 pb-2 sm:p-5 sm:pb-2">
+          <CardTitle className="flex items-center gap-2 text-base font-bold text-ink">
+            <User className="h-4 w-4" />
             Select User
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6">
+        <CardContent className="p-4 pt-2 sm:p-5 sm:pt-2">
           {users.length === 0 ? (
             <p className="text-slate-500 text-center py-4">No users in this organization yet</p>
           ) : (

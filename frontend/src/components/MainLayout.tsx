@@ -8,8 +8,8 @@ import Sidebar from "./Sidebar"
 import HealthProfileGate from "./HealthProfileGate"
 import Logo from "./Logo"
 import { AppTopBar } from "./AppTopBar"
-import { MarketplaceBootGate, MarketplaceProvider } from "@/marketplace/MarketplaceProvider"
-import { MarketplaceChrome } from "@/marketplace/components/layout/MarketplaceChrome"
+import { MarketplaceBootGate, MarketplaceProvider } from "@/components/MarketplaceProvider"
+import { MarketplaceChrome } from "@/components/care-layout/MarketplaceChrome"
 import { PageHeaderProvider } from "@/components/PageHeaderContext"
 
 const MainLayout = ({ children }: { children: ReactNode }) => {

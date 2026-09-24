@@ -30,14 +30,22 @@ import OrganizationAccessGuard from "./components/OrganizationAccessGuard";
 import RoleAwareRedirect from "./components/RoleAwareRedirect";
 import LogoutAndLogin from "./pages/LogoutAndLogin";
 import PatientAppLayout from "./components/PatientAppLayout";
-import { HomePage as CareHomePage } from "./marketplace/pages/patient/HomePage";
-import { SearchPage as CareSearchPage } from "./marketplace/pages/patient/SearchPage";
-import { DietitianProfilePage } from "./marketplace/pages/patient/DietitianProfilePage";
-import { CarePage } from "./marketplace/pages/patient/CarePage";
-import { AppointmentsPage } from "./marketplace/pages/patient/AppointmentsPage";
-import { MessagesPage } from "./marketplace/pages/patient/MessagesPage";
-import { FilesPage } from "./marketplace/pages/patient/FilesPage";
-import { SettingsPage as CareSettingsPage } from "./marketplace/pages/patient/SettingsPage";
+import DietitianAdminApp from "@/components/DietitianAdminApp";
+import EnterpriseApp from "./components/enterprise/EnterpriseApp";
+import { HomePage as CareHomePage } from "@/pages/patient/HomePage";
+import { SearchPage as CareSearchPage } from "@/pages/patient/SearchPage";
+import { DietitianProfilePage } from "@/pages/patient/DietitianProfilePage";
+import { CarePage } from "@/pages/patient/CarePage";
+import { AppointmentsPage } from "@/pages/patient/AppointmentsPage";
+import { MessagesPage } from "@/pages/patient/MessagesPage";
+import { FilesPage } from "@/pages/patient/FilesPage";
+import { SettingsPage as CareSettingsPage } from "@/pages/patient/SettingsPage";
+import { PatientsPage } from "@/pages/dietitian/PatientsPage";
+import { PatientChartPage } from "@/pages/dietitian/PatientChartPage";
+import { ApplyPage } from "@/pages/dietitian/ApplyPage";
+import { AvailabilityPage } from "@/pages/dietitian/AvailabilityPage";
+import { DietitianAccountPage } from "@/pages/dietitian/DietitianAccountPage";
+import { SettingsPage as MarketplaceSettingsPage } from "@/pages/patient/SettingsPage";
 
 const router = createBrowserRouter([
   {
@@ -101,15 +109,64 @@ const router = createBrowserRouter([
       { path: "/care-settings", element: <Navigate to="/settings" replace /> },
     ],
   },
+  // Dietitian + admin practice (meallensaidieticnafrontend shell) — org/dietitian accounts
+  {
+    path: "/dietitian/*",
+    element: (
+      <ProtectedRoute>
+        <DietitianAdminApp />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/*",
+    element: (
+      <ProtectedRoute>
+        <DietitianAdminApp />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/onboarding/doctor",
+    element: (
+      <ProtectedRoute>
+        <DietitianAdminApp />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/signup/doctor",
+    element: <Navigate to="/onboarding/doctor" replace />,
+  },
   {
     path: "/enterprise",
     element: (
       <ProtectedRoute>
         <OrganizationAccessGuard>
-          <EnterpriseDashboard />
+          <EnterpriseApp />
         </OrganizationAccessGuard>
       </ProtectedRoute>
-    )
+    ),
+    children: [
+      { index: true, element: <EnterpriseDashboard /> },
+      { path: "patients", element: <PatientsPage /> },
+      { path: "patients/:id", element: <PatientChartPage /> },
+      { path: "messages", element: <MessagesPage role="dietitian" /> },
+      { path: "messages/:id", element: <MessagesPage role="dietitian" /> },
+      { path: "appointments", element: <AppointmentsPage role="dietitian" /> },
+      { path: "apply", element: <ApplyPage /> },
+      { path: "availability", element: <AvailabilityPage /> },
+      { path: "files", element: <FilesPage role="dietitian" /> },
+      { path: "profile", element: <DietitianAccountPage /> },
+      { path: "settings", element: <MarketplaceSettingsPage /> },
+      { path: "members", element: <EnterpriseDashboard /> },
+      { path: "activity", element: <EnterpriseDashboard /> },
+      { path: "meal-plans", element: <EnterpriseDashboard /> },
+      { path: "food-for-you", element: <EnterpriseDashboard /> },
+      { path: "food-history", element: <EnterpriseDashboard /> },
+      { path: "history", element: <EnterpriseDashboard /> },
+      { path: "health-info", element: <EnterpriseDashboard /> },
+    ],
   },
   {
     path: "/accept-invitation",

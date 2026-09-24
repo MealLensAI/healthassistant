@@ -1,170 +1,135 @@
-'use client';
+'use client'
 
-import { Input } from '@/components/ui/input';
 import {
   Activity,
   Building2,
   Calendar,
-  ChevronDown,
+  CalendarDays,
+  Clock3,
+  FileText,
   Heart,
-  History,
   LayoutDashboard,
-  Search,
+  LogOut,
+  MessageSquare,
   Settings,
   Utensils,
-  Users,
-} from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
-import Logo from '@/components/Logo';
+  X,
+} from 'lucide-react'
+import { NavLink } from 'react-router-dom'
+import { useApp } from '@/lib/care/context'
+import { unreadCountFor } from '@/lib/care/alerts'
+import { cn } from '@/lib/care/utils'
+import { Avatar } from '@/components/care-ui/Primitives'
+import Logo from '@/components/Logo'
+import '@/styles/care.css'
 
-const navItems = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'activity', label: 'Activity', icon: Activity },
-  { id: 'members', label: 'Members', icon: Users },
-  { id: 'meal-plans', label: 'Meal Plans', icon: Calendar },
-  { id: 'food-for-you', label: 'Food for you', icon: Heart },
-  { id: 'food-history', label: 'Food History', icon: Utensils },
-  { id: 'history', label: 'Health History', icon: History },
-  { id: 'settings', label: 'Health Information', icon: Settings },
-] as const;
-
-type NavId = typeof navItems[number]['id'];
-
-interface EnterpriseSidebarProps {
-  activeItem?: NavId;
-  onItemChange?: (item: NavId) => void;
-  searchTerm?: string;
-  onSearchChange?: (term: string) => void;
-  userName?: string;
-  userEmail?: string;
-  onSettingsClick?: () => void;
-  onSignOut?: () => void;
+type NavItem = {
+  to: string
+  label: string
+  icon: typeof LayoutDashboard
+  end?: boolean
+  badgeKey?: 'messages'
 }
 
-export default function EnterpriseSidebar({ 
-  activeItem: controlledActiveItem, 
-  onItemChange,
-  searchTerm: controlledSearchTerm,
-  onSearchChange,
-  userName,
-  userEmail,
-  onSettingsClick,
-  onSignOut
+const navItems: NavItem[] = [
+  { to: '/enterprise', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/enterprise/appointments', label: 'Appointments', icon: CalendarDays },
+  { to: '/enterprise/messages', label: 'Messages', icon: MessageSquare, badgeKey: 'messages' },
+  { to: '/enterprise/availability', label: 'Availability', icon: Clock3 },
+  { to: '/enterprise/activity', label: 'Activity', icon: Activity },
+  { to: '/enterprise/meal-plans', label: 'Meal Plans', icon: Calendar },
+  { to: '/enterprise/food-for-you', label: 'Food for you', icon: Heart },
+  { to: '/enterprise/food-history', label: 'Food History', icon: Utensils },
+  { to: '/enterprise/health-info', label: 'Health Information', icon: Building2 },
+  { to: '/enterprise/apply', label: 'Your Registration', icon: FileText },
+  { to: '/enterprise/settings', label: 'Settings', icon: Settings },
+]
+
+interface EnterpriseSidebarProps {
+  onSignOut?: () => void
+  onNavigate?: () => void
+}
+
+export default function EnterpriseSidebar({
+  onSignOut,
+  onNavigate,
 }: EnterpriseSidebarProps = {}) {
-  const [internalActiveItem, setInternalActiveItem] = useState<NavId>('overview');
-  const [internalSearchTerm, setInternalSearchTerm] = useState('');
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const { currentUser, conversations, messages, logout } = useApp()
+  const unread = currentUser ? unreadCountFor(currentUser.id, conversations, messages) : 0
 
-  const resolvedName = userName?.trim() || userEmail?.split("@")[0] || "Team Member";
-  const initials = resolvedName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "ML";
-
-  const activeItem = controlledActiveItem ?? internalActiveItem;
-  const searchTerm = controlledSearchTerm ?? internalSearchTerm;
-
-  const handleItemClick = (item: NavId) => {
-    if (onItemChange) {
-      onItemChange(item);
-    } else {
-      setInternalActiveItem(item);
-    }
-  };
-
-  const handleSearchChange = (term: string) => {
-    if (onSearchChange) {
-      onSearchChange(term);
-    } else {
-      setInternalSearchTerm(term);
-    }
-  };
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    if (!isUserMenuOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [isUserMenuOpen]);
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    cn(
+      'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+      isActive ? 'bg-navy-soft text-navy' : 'text-muted hover:bg-panel hover:text-ink',
+    )
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r border-slate-200 bg-white flex flex-col">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 border-b border-slate-200 px-6 py-5">
-        <Logo size="sm" />
+    <aside
+      className="flex h-full w-[240px] shrink-0 flex-col overflow-hidden border-r border-line bg-white text-left [overscroll-behavior:none]"
+    >
+      <div className="flex shrink-0 items-center justify-between px-4 py-4">
+        <Logo to="/enterprise" size="md" />
+        <button
+          type="button"
+          className="grid h-9 w-9 place-items-center rounded-full text-muted hover:bg-panel lg:hidden"
+          aria-label="Close menu"
+          onClick={onNavigate}
+        >
+          <X size={18} />
+        </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-2">
         {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeItem === item.id;
+          const Icon = item.icon
+          const badge = item.badgeKey === 'messages' ? unread : 0
           return (
-            <button
-              key={item.id}
-              onClick={() => handleItemClick(item.id)}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-blue-50 text-blue-600 border border-blue-500'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end ?? false}
+              onClick={onNavigate}
+              className={linkClass}
             >
-              <Icon className="h-4 w-4" />
-              <span>{item.label}</span>
-            </button>
-          );
+              <Icon size={20} strokeWidth={1.75} className="shrink-0" />
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {badge > 0 ? (
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-navy px-1.5 text-[10px] font-bold text-white">
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              ) : null}
+            </NavLink>
+          )
         })}
       </nav>
 
-      {/* User Menu - Bottom */}
-      <div className="border-t border-slate-200 p-4" ref={menuRef}>
-        
+      <div className="shrink-0 border-t border-line p-3">
+        {currentUser ? (
+          <NavLink
+            to="/enterprise/profile"
+            onClick={onNavigate}
+            className="mb-2 flex items-center gap-2.5 rounded-lg p-1.5 hover:bg-panel"
+          >
+            <Avatar src={currentUser.avatar} name={currentUser.name} size={36} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">{currentUser.name}</p>
+              <p className="truncate text-xs capitalize text-muted">{currentUser.role}</p>
+            </div>
+          </NavLink>
+        ) : null}
         <button
-          onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          type="button"
+          onClick={() => {
+            onNavigate?.()
+            if (onSignOut) void onSignOut()
+            else logout()
+          }}
+          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted hover:bg-red-50 hover:text-destructive"
         >
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
-            {initials}
-          </div>
-          <div className="flex-1 text-left">
-            <span className="block text-sm font-medium text-slate-900">{resolvedName}</span>
-            {userEmail && <span className="text-xs text-slate-500">{userEmail}</span>}
-          </div>
-          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+          <LogOut size={16} />
+          Sign out
         </button>
-
-        {isUserMenuOpen && (
-          <div className="absolute bottom-20 left-4 right-4 rounded-lg border border-slate-200 bg-white shadow-lg p-2">
-            <button
-              onClick={() => {
-                setIsUserMenuOpen(false);
-                onSettingsClick?.();
-              }}
-              className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 rounded-md"
-            >
-              Settings
-            </button>
-            <hr className="my-1 border-slate-200" />
-            <button
-              onClick={() => {
-                setIsUserMenuOpen(false);
-                onSignOut?.();
-              }}
-              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-md"
-            >
-              Sign out
-            </button>
-          </div>
-        )}
       </div>
     </aside>
-  );
+  )
 }

@@ -1,5 +1,6 @@
 // src/pages/EnterpriseDashboard.tsx
 import { useState, useEffect, useMemo, useRef, ChangeEvent } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,6 @@ import {
   Trash2,
   X,
   CheckCircle,
-  Menu,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -39,7 +39,7 @@ import AdminFoodForYou from "@/components/enterprise/AdminFoodForYou";
 import AdminFoodHistory from "@/components/enterprise/AdminFoodHistory";
 import { api } from "@/lib/api";
 import { useAuth, safeGetItem } from "@/lib/utils";
-import EntrepriseSidebar from "@/components/enterprise/sidebar/EntrepriseSidebar";
+import { DietitianDashboard, AvailabilitySetupCard, usePracticeDietitian } from "@/pages/dietitian/DietitianDashboard";
 import { 
   getCachedEnterprises, 
   setCachedEnterprises, 
@@ -50,7 +50,24 @@ import {
   getCachedUserHealthHistory,
   setCachedUserHealthHistory
 } from "@/lib/enterpriseCache";
+import "@/styles/care.css";
 import "./EnterpriseDashboard.css";
+
+type OrgTab = "overview" | "activity" | "members" | "settings" | "history" | "meal-plans" | "food-for-you" | "food-history";
+
+function orgTabFromPath(pathname: string): OrgTab {
+  const segment = pathname.replace(/^\/enterprise\/?/, "").split("/")[0] || "";
+  const map: Record<string, OrgTab> = {
+    members: "members",
+    activity: "activity",
+    "meal-plans": "meal-plans",
+    "food-for-you": "food-for-you",
+    "food-history": "food-history",
+    history: "history",
+    "health-info": "settings",
+  };
+  return map[segment] ?? "overview";
+}
 
 const PERIOD_OPTIONS = ["December 2023", "November 2023", "October 2023", "Q3 2023", "FY 2023"];
 
@@ -70,7 +87,9 @@ interface ImportedMember {
 
 export default function EnterpriseDashboard() {
   const { toast } = useToast();
-  const { isAuthenticated, loading: authLoading, user, signOut } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
+  const location = useLocation();
+  const practiceDietitian = usePracticeDietitian();
 
   // Get user ID for cache key
   const userData = safeGetItem('user_data');
@@ -81,23 +100,6 @@ export default function EnterpriseDashboard() {
   const cachedDetails = cachedEnterprises?.selectedEnterpriseId 
     ? getCachedEnterpriseDetails(cachedEnterprises.selectedEnterpriseId, userId) 
     : null;
-
-  const handleSidebarSettings = () => {
-    setActiveSidebarItem("settings");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (error: any) {
-      toast({
-        title: "Sign out failed",
-        description: error?.message || "Unable to sign out. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   // Core state - initialize with cached data
   const [enterprises, setEnterprises] = useState<any[]>(cachedEnterprises?.enterprises || []);
@@ -133,15 +135,18 @@ export default function EnterpriseDashboard() {
 
   // misc
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeSidebarItem, setActiveSidebarItem] = useState<"overview" | "activity" | "members" | "settings" | "history" | "meal-plans" | "food-for-you" | "food-history">("overview");
+  const [activeSidebarItem, setActiveSidebarItem] = useState<OrgTab>(() => orgTabFromPath(location.pathname));
   const [activeTab, setActiveTab] = useState<"users" | "invitations">("invitations");
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(PERIOD_OPTIONS[0]);
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
   const periodMenuRef = useRef<HTMLDivElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [importingTeam, setImportingTeam] = useState<string | null>(null);
   const [, setImportedMembers] = useState<Record<string, Record<string, ImportedMember[]>>>({});
+
+  useEffect(() => {
+    setActiveSidebarItem(orgTabFromPath(location.pathname));
+  }, [location.pathname]);
 
   // Derived state
   const filteredUsers = useMemo(
@@ -840,7 +845,7 @@ export default function EnterpriseDashboard() {
   // Get enterprise ID for invite form - ensure we have a valid ID
   // This is computed at render time, but handleInviteMemberClick ensures it's set before opening the form
   return (
-    <div className="flex min-h-screen bg-[#f6f7fb] text-slate-900">
+    <div className="space-y-5 text-ink">
       <input
         ref={importInputRef}
         type="file"
@@ -849,51 +854,7 @@ export default function EnterpriseDashboard() {
         style={{ display: "none" }}
       />
 
-      {/* Mobile Sidebar Overlay */}
-      {isMobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar - Hidden on mobile, visible on desktop */}
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50 lg:z-auto
-        w-64 border-r border-slate-200 bg-white
-        transform transition-transform duration-300 ease-in-out
-        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        <EntrepriseSidebar 
-          activeItem={activeSidebarItem}
-          onItemChange={(item) => {
-            setActiveSidebarItem(item);
-            setIsMobileSidebarOpen(false); // Close sidebar on mobile after selection
-          }}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          userName={user?.displayName}
-          userEmail={user?.email}
-          onSettingsClick={handleSidebarSettings}
-          onSignOut={handleSignOut}
-        />
-      </aside>
-
-      <main className="flex-1 overflow-y-auto lg:ml-0">
-        {/* Mobile Header with Hamburger */}
-        <div className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => setIsMobileSidebarOpen(true)}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-            aria-label="Toggle menu"
-          >
-            <Menu className="h-6 w-6 text-slate-700" />
-          </button>
-          <h1 className="text-lg font-semibold text-slate-900">Enterprise Dashboard</h1>
-          <div className="w-10" /> {/* Spacer for centering */}
-        </div>
-
-        <div className="px-4 py-6 sm:px-6 lg:px-12 lg:py-8">
+        <div className="space-y-5">
           {/* Loading State - Show skeleton while initial load */}
           {isLoading && !cachedEnterprises && (
             <div className="space-y-8">
@@ -904,7 +865,7 @@ export default function EnterpriseDashboard() {
               </div>
               <div className="grid gap-6 lg:grid-cols-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div key={i} className="flex items-center justify-between hy-card p-6">
                     <div className="flex-1">
                       <div className="h-4 w-24 bg-slate-200 rounded animate-pulse mb-2"></div>
                       <div className="h-8 w-16 bg-slate-200 rounded animate-pulse"></div>
@@ -916,118 +877,266 @@ export default function EnterpriseDashboard() {
             </div>
           )}
 
-          {/* Header and Stats - Only show on Overview tab */}
+          {/* Care practice + org overview */}
           {activeSidebarItem === "overview" && !isLoading && (
             <>
-          <header className="mb-6 sm:mb-10">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-slate-900">Enterprise Dashboard</h1>
-            <p className="mt-2 text-sm text-slate-500">Manage your organization and invite users</p>
-            {selectedEnterprise && statistics?.owner_info && (
-              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 px-3 sm:px-4 py-2 text-xs sm:text-sm text-blue-700">
-                <Building2 className="h-4 w-4 flex-shrink-0" />
-                <span className="break-words">
-                  <strong>{statistics.owner_info.name}</strong> ({statistics.owner_info.email}) • Organization Owner
-                </span>
-              </div>
-            )}
-          </header>
+          <DietitianDashboard showAvailability={false} />
 
-          <section className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div>
-                <p className="text-sm font-medium text-slate-500">Total Users</p>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">{totalUsers}</p>
-              </div>
-              <div className="rounded-xl bg-blue-100 p-3 text-blue-600">
-                <Users className="h-8 w-8" />
+          <section className="hy-card p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="font-bold text-ink">Users & Invitations</h2>
+              <div className="inline-flex rounded-full border border-line bg-panel p-1 w-full sm:w-auto justify-center sm:justify-start">
+                {["users", "invitations"].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab as "users" | "invitations")}
+                    className={`rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition flex-1 sm:flex-initial ${
+                      activeTab === tab
+                        ? "bg-white text-ink shadow"
+                        : "text-muted"
+                    }`}
+                  >
+                    {tab === "users" ? "Users" : "Invitations"}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div>
-                <p className="text-sm font-medium text-slate-500">Invited Users</p>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">{totalUsers}</p>
+            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-xl bg-panel p-4">
+                <p className="text-sm font-medium text-muted">Total Users</p>
+                <p className="mt-1 text-3xl font-extrabold text-ink">{totalUsers}</p>
               </div>
-              <div className="rounded-xl bg-purple-100 p-3 text-purple-600">
-                <Building2 className="h-8 w-8" />
+              <div className="rounded-xl bg-panel p-4">
+                <p className="text-sm font-medium text-muted">Invited Users</p>
+                <p className="mt-1 text-3xl font-extrabold text-ink">{totalUsers}</p>
               </div>
-            </div>
-
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div>
-                <p className="text-sm font-medium text-slate-500">Pending Invites</p>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">{pendingInvitationsCount}</p>
-              </div>
-              <div className="rounded-xl bg-emerald-100 p-3 text-emerald-600">
-                <Mail className="h-8 w-8" />
+              <div className="rounded-xl bg-panel p-4">
+                <p className="text-sm font-medium text-muted">Pending Invites</p>
+                <p className="mt-1 text-3xl font-extrabold text-ink">{pendingInvitationsCount}</p>
               </div>
             </div>
-          </section>
 
-          <div className="mt-6 sm:mt-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
-              <div className="relative flex-1 sm:flex-initial min-w-0">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search members, teams, invitations"
-                  className="h-11 w-full sm:w-auto rounded-xl border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700"
-                />
+            <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
+                <div className="relative flex-1 sm:flex-initial min-w-0">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <Input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search members, teams, invitations"
+                    className="h-11 w-full sm:w-auto rounded-xl border-line bg-white pl-10 pr-4 text-sm"
+                  />
+                </div>
+
+                <div className="relative" ref={periodMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsPeriodMenuOpen((prev) => !prev)}
+                    className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-medium text-ink"
+                  >
+                    {selectedPeriod}
+                    <ChevronDown className={`h-4 w-4 transition ${isPeriodMenuOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isPeriodMenuOpen && (
+                    <div className="absolute z-20 mt-2 w-48 rounded-xl border border-line bg-white p-2 shadow-elevated">
+                      {PERIOD_OPTIONS.map((option) => (
+                        <button
+                          key={option}
+                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-panel"
+                          onClick={() => {
+                            setSelectedPeriod(option);
+                            setIsPeriodMenuOpen(false);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="relative" ref={periodMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsPeriodMenuOpen((prev) => !prev)}
-                  className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600"
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={() => handleInviteMemberClick()}
+                  disabled={isLoading}
+                  className="h-11 w-full sm:w-auto rounded-xl bg-navy px-4 sm:px-6 text-sm font-semibold text-white hover:bg-navy-deep disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {selectedPeriod}
-                  <ChevronDown className={`h-4 w-4 transition ${isPeriodMenuOpen ? "rotate-180" : ""}`} />
-                </button>
-                {isPeriodMenuOpen && (
-                  <div className="absolute z-20 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
-                    {PERIOD_OPTIONS.map((option) => (
-                      <button
-                        key={option}
-                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
-                        onClick={() => {
-                          setSelectedPeriod(option);
-                          setIsPeriodMenuOpen(false);
-                        }}
-                      >
-                        {option}
-                      </button>
-                    ))}
+                  <span className="inline-flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    <span className="hidden sm:inline">{isLoading ? 'Loading...' : 'Send Invitation'}</span>
+                    <span className="sm:hidden">{isLoading ? 'Loading...' : 'Invite'}</span>
+                  </span>
+                </Button>
+              </div>
+            </div>
+
+            {activeTab === "invitations" ? (
+              <>
+                <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-muted">
+                      {filteredInvitations.length} invitation{filteredInvitations.length !== 1 ? 's' : ''} out of {statistics?.max_users ?? 100} total
+                    </p>
+                    <p className="text-xs text-muted mt-1">
+                      Auto-refreshes every 15 seconds • Click "Refresh Now" for immediate update
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (selectedEnterprise?.id) {
+                        loadEnterpriseDetails(selectedEnterprise.id);
+                        toast({
+                          title: "Refreshing...",
+                          description: "Checking for invitation status updates",
+                        });
+                      }
+                    }}
+                    className="flex items-center gap-2 w-full sm:w-auto"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh Now
+                  </Button>
+                </div>
+                {isLoadingDetails && filteredInvitations.length === 0 ? (
+                  <div className="mt-10 rounded-2xl border border-line bg-white p-12">
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center gap-4 p-4 border-b border-line">
+                          <div className="h-6 w-6 bg-slate-200 rounded animate-pulse"></div>
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 w-48 bg-slate-200 rounded animate-pulse"></div>
+                            <div className="h-3 w-32 bg-slate-200 rounded animate-pulse"></div>
+                          </div>
+                          <div className="h-6 w-20 bg-slate-200 rounded animate-pulse"></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : filteredInvitations.length === 0 ? (
+                  <div className="mt-10 rounded-2xl border border-dashed border-line bg-panel/60 p-12 text-center text-sm text-muted">
+                    No invitations yet.
+                  </div>
+                ) : (
+                  <div className="mt-6 sm:mt-8 overflow-x-auto rounded-xl sm:rounded-2xl border border-line -mx-4 sm:mx-0">
+                    <table className="w-full table-auto text-left text-sm text-ink min-w-[600px]">
+                      <thead className="bg-panel text-xs uppercase tracking-wide text-muted">
+                        <tr>
+                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">#</th>
+                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Email</th>
+                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Role</th>
+                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Sent</th>
+                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Status</th>
+                          <th className="px-3 sm:px-6 py-3 whitespace-nowrap"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredInvitations.map((inv, idx) => (
+                          <tr key={inv.id || idx} className="border-t border-line">
+                            <td className="px-3 sm:px-6 py-4 text-muted">{idx + 1}</td>
+                            <td className="px-3 sm:px-6 py-4 font-medium text-ink break-words">{inv.email}</td>
+                            <td className="px-3 sm:px-6 py-4 text-muted whitespace-nowrap">{inv.role ?? "—"}</td>
+                            <td className="px-3 sm:px-6 py-4 text-muted whitespace-nowrap">
+                              {inv.sent_at ? new Date(inv.sent_at).toLocaleDateString() : "—"}
+                            </td>
+                            <td className="px-3 sm:px-6 py-4">
+                              <div className="flex flex-col gap-1">
+                                <Badge 
+                                  variant={
+                                    inv.status === "accepted" ? "default" : 
+                                    inv.status === "cancelled" ? "destructive" : 
+                                    inv.status === "expired" ? "outline" : 
+                                    "secondary"
+                                  }
+                                  className={
+                                    inv.status === "accepted" 
+                                      ? "bg-green-600 text-white font-semibold w-fit" 
+                                      : "w-fit"
+                                  }
+                                >
+                                  {inv.status === "accepted" ? "✓ Accepted" : (inv.status ?? "pending")}
+                              </Badge>
+                                {inv.status === "accepted" && inv.accepted_at && (
+                                  <div className="mt-2 flex items-center gap-1 text-xs text-green-600 font-medium">
+                                    <CheckCircle className="h-3 w-3 flex-shrink-0" />
+                                    <span className="break-words">
+                                      Accepted on {new Date(inv.accepted_at).toLocaleDateString()} at {new Date(inv.accepted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 sm:px-6 py-4 text-right">
+                              {inv.status === "pending" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-full border-line px-3 sm:px-4 text-xs font-semibold"
+                                  onClick={() => cancelInvitation(inv.id)}
+                                >
+                                  Cancel
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
+              </>
+            ) : (
+              <>
+                <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-muted break-words">
+                      {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} who accepted invitation{filteredUsers.length !== 1 ? 's' : ''}
+                      {filteredUsers.length > 0 && (
+                        <span className="ml-2 text-green-600 font-semibold">
+                          ({filteredUsers.length} {filteredUsers.length === 1 ? 'has' : 'have'} joined)
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted mt-1">
+                      Accepted users are now shown in the <strong>Members</strong> page. Click "Members" in the sidebar to view and manage them.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setActiveSidebarItem("members");
+                    }}
+                    className="flex items-center gap-2 w-full sm:w-auto"
+                  >
+                    <Users className="h-4 w-4" />
+                    Go to Members
+                  </Button>
+                </div>
+              <div className="mt-10 rounded-2xl border border-dashed border-line bg-panel/60 p-12 text-center text-sm text-muted">
+                  <Users className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+                  <p className="mb-2 font-medium">View members in the Members page</p>
+                  <p className="text-xs text-muted">Click "Members" in the sidebar to see all users who accepted your invitations.</p>
               </div>
-            </div>
+              </>
+            )}
 
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={() => handleInviteMemberClick()}
-                disabled={isLoading}
-                className="h-11 w-full sm:w-auto rounded-xl bg-blue-500 px-4 sm:px-6 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  <span className="hidden sm:inline">{isLoading ? 'Loading...' : 'Send Invitation'}</span>
-                  <span className="sm:hidden">{isLoading ? 'Loading...' : 'Invite'}</span>
-                </span>
-              </Button>
-            </div>
-          </div>
+          </section>
+
+          {practiceDietitian ? <AvailabilitySetupCard dietitian={practiceDietitian} /> : null}
             </>
           )}
 
           {/* Members View - Accepted Users */}
           {activeSidebarItem === "members" && (
-            <section className="mt-6 sm:mt-12 rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm">
+            <section className="hy-card mt-2 p-4 sm:p-6 lg:p-8">
               <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Members</h2>
-                  <p className="mt-1 text-sm text-slate-500">Users who have accepted your invitations</p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-ink">Members</h2>
+                  <p className="mt-1 text-sm text-muted">Users who have accepted your invitations</p>
                 </div>
                 <Button
                   variant="outline"
@@ -1043,14 +1152,14 @@ export default function EnterpriseDashboard() {
               {!selectedEnterprise ? (
                 <div className="py-24 text-center">
                   <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
-                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view members</p>
+                  <h3 className="text-lg font-semibold text-ink">No organization selected</h3>
+                  <p className="mt-2 text-sm text-muted">Please select or create an organization to view members</p>
                 </div>
               ) : isLoadingDetails && users.length === 0 ? (
                 <div className="py-24">
                   <div className="space-y-4">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="rounded-lg border border-slate-200 bg-white p-6 animate-pulse">
+                      <div key={i} className="rounded-lg border border-line bg-white p-6 animate-pulse">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 space-y-3">
                             <div className="h-5 w-48 bg-slate-200 rounded"></div>
@@ -1069,8 +1178,8 @@ export default function EnterpriseDashboard() {
               ) : users.length === 0 ? (
                 <div className="py-24 text-center">
                   <Users className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No members yet</h3>
-                  <p className="mt-2 text-sm text-slate-500">Users who accept your invitations will appear here</p>
+                  <h3 className="text-lg font-semibold text-ink">No members yet</h3>
+                  <p className="mt-2 text-sm text-muted">Users who accept your invitations will appear here</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1105,23 +1214,23 @@ export default function EnterpriseDashboard() {
                               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
                                 <div className="space-y-2 flex-1">
                                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                                    <h4 className="font-semibold text-base sm:text-lg text-slate-900">{userName}</h4>
+                                    <h4 className="font-semibold text-base sm:text-lg text-ink">{userName}</h4>
                                     {user.has_accepted_invitation && (
                                       <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs w-fit">
                                         ✓ Accepted Invitation
                                       </Badge>
                                     )}
                                   </div>
-                                  <p className="text-sm text-slate-600">{user.email}</p>
+                                  <p className="text-sm text-muted">{user.email}</p>
                                   <div className="flex flex-wrap items-center gap-2">
                                     <Badge
                                       variant="outline"
-                                      className="capitalize bg-slate-100 text-slate-700 border-slate-300"
+                                      className="capitalize bg-slate-100 text-ink border-slate-300"
                                     >
                                       {user.role || 'member'}
                                     </Badge>
                                     {user.joined_at && (
-                                      <span className="text-xs text-slate-500">
+                                      <span className="text-xs text-muted">
                                         Joined {new Date(user.joined_at).toLocaleDateString()}
                                       </span>
                                     )}
@@ -1135,7 +1244,7 @@ export default function EnterpriseDashboard() {
                                       handleEditUserSettings(user.user_id, user.email, user.first_name, user.last_name);
                                       setActiveSidebarItem("settings");
                                     }}
-                                    className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs sm:text-sm"
+                                    className="border-slate-300 text-ink hover:bg-panel text-xs sm:text-sm"
                                   >
                                     <Settings className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
                                     <span className="hidden sm:inline">Health Info</span>
@@ -1162,11 +1271,11 @@ export default function EnterpriseDashboard() {
 
           {/* Activity View - Settings History */}
           {activeSidebarItem === "activity" && (
-            <section className="mt-6 sm:mt-12 rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm">
+            <section className="hy-card mt-2 p-4 sm:p-6 lg:p-8">
               <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Settings Activity</h2>
-                  <p className="mt-1 text-sm text-slate-500">Track when users change their health settings</p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-ink">Settings Activity</h2>
+                  <p className="mt-1 text-sm text-muted">Track when users change their health settings</p>
                 </div>
                 <Button
                   variant="outline"
@@ -1182,14 +1291,14 @@ export default function EnterpriseDashboard() {
               {!selectedEnterprise ? (
                 <div className="py-24 text-center">
                   <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
-                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view activity</p>
+                  <h3 className="text-lg font-semibold text-ink">No organization selected</h3>
+                  <p className="mt-2 text-sm text-muted">Please select or create an organization to view activity</p>
                 </div>
               ) : settingsHistory.length === 0 ? (
                 <div className="py-24 text-center">
                   <Settings className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No settings changes yet</h3>
-                  <p className="mt-2 text-sm text-slate-500">Settings changes will appear here when users update their profiles</p>
+                  <h3 className="text-lg font-semibold text-ink">No settings changes yet</h3>
+                  <p className="mt-2 text-sm text-muted">Settings changes will appear here when users update their profiles</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1200,21 +1309,21 @@ export default function EnterpriseDashboard() {
                     const changeDate = change.created_at ? new Date(change.created_at) : new Date();
 
                     return (
-                      <div key={change.id || idx} className="rounded-lg border border-slate-200 bg-white p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div key={change.id || idx} className="rounded-lg border border-line bg-white p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-4">
                               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 flex-shrink-0">
-                                <Settings className="h-5 w-5 text-blue-600" />
+                                <Settings className="h-5 w-5 text-navy" />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <h3 className="font-semibold text-slate-900 truncate">{change.user_name || change.user_email || "Unknown User"}</h3>
-                                <p className="text-sm text-slate-500 truncate">{change.user_email}</p>
+                                <h3 className="font-semibold text-ink truncate">{change.user_name || change.user_email || "Unknown User"}</h3>
+                                <p className="text-sm text-muted truncate">{change.user_email}</p>
                               </div>
                             </div>
 
                             <div className="mt-4 space-y-2">
-                              <p className="text-sm font-medium text-slate-700">
+                              <p className="text-sm font-medium text-ink">
                                 Changed {changedFields.length} field{changedFields.length !== 1 ? "s" : ""}:
                               </p>
                               <div className="space-y-2">
@@ -1228,9 +1337,9 @@ export default function EnterpriseDashboard() {
                                   };
 
                                   return (
-                                    <div key={fieldIdx} className="rounded-md bg-slate-50 p-3">
+                                    <div key={fieldIdx} className="rounded-md bg-panel p-3">
                                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                        <span className="text-sm font-medium text-slate-700 capitalize">
+                                        <span className="text-sm font-medium text-ink capitalize">
                                           {field.replace(/([A-Z])/g, " $1").trim()}
                                         </span>
                                         <Badge variant="outline" className="text-xs w-fit">
@@ -1239,11 +1348,11 @@ export default function EnterpriseDashboard() {
                                       </div>
                                       <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                                         <div>
-                                          <p className="text-slate-500">Previous</p>
-                                          <p className="mt-1 font-medium text-slate-700 break-words">{formatValue(oldValue)}</p>
+                                          <p className="text-muted">Previous</p>
+                                          <p className="mt-1 font-medium text-ink break-words">{formatValue(oldValue)}</p>
                                         </div>
                                         <div>
-                                          <p className="text-slate-500">New</p>
+                                          <p className="text-muted">New</p>
                                           <p className="mt-1 font-medium text-emerald-700 break-words">{formatValue(newValue)}</p>
                                         </div>
                                       </div>
@@ -1255,14 +1364,14 @@ export default function EnterpriseDashboard() {
                           </div>
 
                           <div className="sm:ml-4 sm:text-right text-left flex-shrink-0">
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-muted">
                               {changeDate.toLocaleDateString("en-US", {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
                               })}
                             </p>
-                            <p className="mt-1 text-xs text-slate-400">
+                            <p className="mt-1 text-xs text-muted">
                               {changeDate.toLocaleTimeString("en-US", {
                                 hour: "2-digit",
                                 minute: "2-digit",
@@ -1283,8 +1392,8 @@ export default function EnterpriseDashboard() {
             <section className="mt-6 sm:mt-12">
               <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Health Information History</h2>
-                  <p className="mt-1 text-sm text-slate-500">View all health information changes made by organization members</p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-ink">Health Information History</h2>
+                  <p className="mt-1 text-sm text-muted">View all health information changes made by organization members</p>
               </div>
                 <Button
                   variant="outline"
@@ -1298,35 +1407,35 @@ export default function EnterpriseDashboard() {
               </div>
 
               {!selectedEnterprise ? (
-                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-12 sm:p-24 text-center shadow-sm">
+                <div className="rounded-xl sm:rounded-2xl border border-line bg-white p-12 sm:p-24 text-center shadow-sm">
                   <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
-                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view history</p>
+                  <h3 className="text-lg font-semibold text-ink">No organization selected</h3>
+                  <p className="mt-2 text-sm text-muted">Please select or create an organization to view history</p>
                 </div>
               ) : loadingHistory ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                <div className="rounded-2xl border border-line bg-white p-24 text-center shadow-sm">
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
                   </div>
-                  <p className="mt-4 text-slate-600">Loading history...</p>
+                  <p className="mt-4 text-muted">Loading history...</p>
                 </div>
               ) : settingsHistory.length === 0 ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                <div className="rounded-2xl border border-line bg-white p-24 text-center shadow-sm">
                   <Settings className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No history yet</h3>
-                  <p className="mt-2 text-sm text-slate-500">Health information changes will appear here when members update their profiles</p>
+                  <h3 className="text-lg font-semibold text-ink">No history yet</h3>
+                  <p className="mt-2 text-sm text-muted">Health information changes will appear here when members update their profiles</p>
                 </div>
               ) : (
-                <Card className="rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm">
+                <Card className="rounded-xl sm:rounded-2xl border border-line shadow-sm">
                   <CardContent className="p-0 sm:p-4 sm:p-6">
                     <div className="overflow-x-auto -mx-4 sm:mx-0">
                       <Table className="min-w-[600px]">
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Date & Time</TableHead>
-                            <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Member</TableHead>
-                            <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Changes Made</TableHead>
-                            <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Details</TableHead>
+                            <TableHead className="font-semibold text-ink whitespace-nowrap">Date & Time</TableHead>
+                            <TableHead className="font-semibold text-ink whitespace-nowrap">Member</TableHead>
+                            <TableHead className="font-semibold text-ink whitespace-nowrap">Changes Made</TableHead>
+                            <TableHead className="font-semibold text-ink whitespace-nowrap">Details</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1367,13 +1476,13 @@ export default function EnterpriseDashboard() {
 
                             return (
                               <TableRow key={record.id}>
-                                <TableCell className="text-sm text-slate-600">
+                                <TableCell className="text-sm text-muted">
                                   {formatDate(record.created_at)}
                                 </TableCell>
                                 <TableCell>
                                   <div>
-                                    <p className="font-medium text-slate-900">{record.user_name || 'Unknown'}</p>
-                                    <p className="text-xs text-slate-500">{record.user_email}</p>
+                                    <p className="font-medium text-ink">{record.user_name || 'Unknown'}</p>
+                                    <p className="text-xs text-muted">{record.user_email}</p>
                                   </div>
                                 </TableCell>
                                 <TableCell>
@@ -1383,7 +1492,7 @@ export default function EnterpriseDashboard() {
                                         <Badge 
                                           key={idx} 
                                           variant="secondary"
-                                          className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                                          className="text-xs bg-navy-soft text-navy border-navy-soft"
                                         >
                                           {field}
                                         </Badge>
@@ -1395,22 +1504,22 @@ export default function EnterpriseDashboard() {
                                       )}
                                     </div>
                                   ) : (
-                                    <span className="text-sm text-slate-500">Initial setup</span>
+                                    <span className="text-sm text-muted">Initial setup</span>
                                   )}
                                 </TableCell>
                                 <TableCell>
                                   {meaningfulData.length > 0 ? (
                                     <details>
-                                      <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 font-medium">
+                                      <summary className="cursor-pointer text-sm text-navy hover:text-navy font-medium">
                                         ► View details
                                       </summary>
-                                      <div className="mt-3 space-y-2 text-sm bg-slate-50 p-3 rounded">
+                                      <div className="mt-3 space-y-2 text-sm bg-panel p-3 rounded">
                                         {meaningfulData.map(([key, value]) => (
                                           <div key={key} className="flex justify-between">
-                                            <span className="font-medium text-slate-600 capitalize">
+                                            <span className="font-medium text-muted capitalize">
                                               {key.replace(/([A-Z])/g, ' $1').trim()}:
                                             </span>
-                                            <span className="text-slate-900">
+                                            <span className="text-ink">
                                               {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
                                             </span>
                                           </div>
@@ -1418,7 +1527,7 @@ export default function EnterpriseDashboard() {
                                       </div>
                                     </details>
                                   ) : (
-                                    <span className="text-sm text-slate-400">No saved data</span>
+                                    <span className="text-sm text-muted">No saved data</span>
                                   )}
                                 </TableCell>
                               </TableRow>
@@ -1435,17 +1544,17 @@ export default function EnterpriseDashboard() {
 
           {/* Meal Plans View - Admin Meal Plan Management */}
           {activeSidebarItem === "meal-plans" && (
-            <section className="mt-6 sm:mt-12">
-              <div className="mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Meal Plan Management</h2>
-                <p className="mt-1 text-sm text-slate-500">Generate, view, and approve meal plans for organization members</p>
+            <section className="space-y-5">
+              <div>
+                <h1 className="text-2xl font-extrabold text-ink">Meal Plan Management</h1>
+                <p className="text-sm text-muted">Generate, view, and approve meal plans for organization members</p>
               </div>
 
               {!selectedEnterprise ? (
-                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-12 sm:p-24 text-center shadow-sm">
-                  <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
-                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to manage meal plans</p>
+                <div className="hy-card p-10 text-center text-sm text-muted">
+                  <Building2 className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <p className="font-semibold text-ink">No organization selected</p>
+                  <p className="mt-1">Please select or create an organization to manage meal plans</p>
                 </div>
               ) : (
                 <AdminDietPlanner
@@ -1465,17 +1574,17 @@ export default function EnterpriseDashboard() {
 
           {/* Food for you View - Member Food for you recommendations */}
           {activeSidebarItem === "food-for-you" && (
-            <section className="mt-6 sm:mt-12">
-              <div className="mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Food for you</h2>
-                <p className="mt-1 text-sm text-slate-500">See the Food for you list each organization member currently sees</p>
+            <section className="space-y-5">
+              <div>
+                <h1 className="text-2xl font-extrabold text-ink">Food for you</h1>
+                <p className="text-sm text-muted">See the Food for you list each organization member currently sees</p>
               </div>
 
               {!selectedEnterprise ? (
-                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-12 sm:p-24 text-center shadow-sm">
-                  <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
-                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view Food for you</p>
+                <div className="hy-card p-10 text-center text-sm text-muted">
+                  <Building2 className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <p className="font-semibold text-ink">No organization selected</p>
+                  <p className="mt-1">Please select or create an organization to view Food for you</p>
                 </div>
               ) : (
                 <AdminFoodForYou
@@ -1493,17 +1602,17 @@ export default function EnterpriseDashboard() {
 
           {/* Food History View - Admin Food Detection History */}
           {activeSidebarItem === "food-history" && (
-            <section className="mt-6 sm:mt-12">
-              <div className="mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Food Detection History</h2>
-                <p className="mt-1 text-sm text-slate-500">View food detection history for organization members</p>
+            <section className="space-y-5">
+              <div>
+                <h1 className="text-2xl font-extrabold text-ink">Food Detection History</h1>
+                <p className="text-sm text-muted">View food detection history for organization members</p>
               </div>
 
               {!selectedEnterprise ? (
-                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-12 sm:p-24 text-center shadow-sm">
-                  <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
-                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view food history</p>
+                <div className="hy-card p-10 text-center text-sm text-muted">
+                  <Building2 className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <p className="font-semibold text-ink">No organization selected</p>
+                  <p className="mt-1">Please select or create an organization to view food history</p>
                 </div>
               ) : (
                 <AdminFoodHistory
@@ -1522,14 +1631,14 @@ export default function EnterpriseDashboard() {
 
           {/* Health Information View - User Health Information Management */}
           {activeSidebarItem === "settings" && selectedEnterprise && (
-            <section className="mt-6 sm:mt-12 space-y-6 sm:space-y-8">
+            <section className="space-y-5">
               {/* User Health Information Management */}
               {selectedEnterprise && (
-                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm">
-                  <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Member Health Information</h2>
-                      <p className="mt-1 text-sm text-slate-500">View and edit health information for organization members</p>
+                      <h1 className="text-2xl font-extrabold text-ink">Member Health Information</h1>
+                      <p className="text-sm text-muted">View and edit health information for organization members</p>
                     </div>
                     <Button
                       variant="outline"
@@ -1565,9 +1674,10 @@ export default function EnterpriseDashboard() {
                     </Button>
                   </div>
 
+                  <div className="hy-card p-5">
                   {/* User Selector */}
-                  <div className="mb-6">
-                    <Label htmlFor="user-select" className="text-sm font-semibold text-slate-700 mb-2 block">
+                  <div className="mb-5">
+                    <Label htmlFor="user-select" className="text-sm font-semibold text-ink mb-2 block">
                       Select Member to View/Edit Health Information
                     </Label>
                     <Select
@@ -1603,8 +1713,8 @@ export default function EnterpriseDashboard() {
 
                   {/* User Health Information Display/Edit */}
                   {editingUserSettings && (
-                    <Card className="border-slate-200">
-                      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
+                    <Card className="border-line">
+                      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-line pb-4">
                         <CardTitle className="text-lg sm:text-xl">Current Health Info</CardTitle>
                         <div className="flex items-center gap-2">
                           {!isEditingHealthInfo && userSettingsData && (
@@ -1669,9 +1779,9 @@ export default function EnterpriseDashboard() {
                                   <TableCell className="font-medium">Activity Level</TableCell>
                                   <TableCell className="capitalize">{userSettingsData.activityLevel?.replace('_', ' ') || 'Not set'}</TableCell>
                                 </TableRow>
-                                <TableRow className="bg-blue-50">
+                                <TableRow className="bg-navy-soft">
                                   <TableCell className="font-semibold">Health Condition</TableCell>
-                                  <TableCell className="font-semibold text-blue-700">
+                                  <TableCell className="font-semibold text-navy">
                                     {userSettingsData.hasSickness ? (userSettingsData.sicknessType || 'Not specified') : 'No health condition'}
                                   </TableCell>
                                 </TableRow>
@@ -1823,9 +1933,9 @@ export default function EnterpriseDashboard() {
                               </div>
 
                               {/* Health Condition Section - Prominent Blue Box */}
-                              <div className="space-y-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                              <div className="space-y-4 p-4 bg-navy-soft rounded-lg border-2 border-navy-soft">
                                 <div className="space-y-2">
-                                  <Label className="text-center block text-base font-semibold text-blue-900">Health Condition Status</Label>
+                                  <Label className="text-center block text-base font-semibold text-navy-deep">Health Condition Status</Label>
                                   <Select
                                     value={userSettingsData?.hasSickness ? 'yes' : 'no'}
                                     onValueChange={(value) => setUserSettingsData({
@@ -1845,7 +1955,7 @@ export default function EnterpriseDashboard() {
                                 </div>
                                 {userSettingsData?.hasSickness && (
                                   <div className="space-y-2">
-                                    <Label className="text-center block text-blue-900">Condition Type</Label>
+                                    <Label className="text-center block text-navy-deep">Condition Type</Label>
                                     <Input
                                       value={userSettingsData?.sicknessType || ''}
                                       onChange={(e) => setUserSettingsData({
@@ -1904,11 +2014,11 @@ export default function EnterpriseDashboard() {
 
                   {/* User's Health Information History - Show when user is selected */}
                   {editingUserSettings && (
-                    <Card className="mt-6 border-slate-200">
-                      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4">
+                    <Card className="mt-6 border-line">
+                      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-line pb-4">
                         <div className="min-w-0">
                           <CardTitle className="text-base sm:text-lg break-words">Health Information History for {editingUserSettings.userName}</CardTitle>
-                          <p className="text-sm text-slate-500 mt-1">View all changes made to this member's health profile</p>
+                          <p className="text-sm text-muted mt-1">View all changes made to this member's health profile</p>
                         </div>
                         <Button
                           variant="outline"
@@ -1937,17 +2047,17 @@ export default function EnterpriseDashboard() {
                         {userHealthHistory.length === 0 ? (
                           <div className="py-8 sm:py-12 text-center">
                             <Settings className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-                            <h3 className="text-lg font-semibold text-slate-900">No history yet</h3>
-                            <p className="mt-2 text-sm text-slate-500">Changes to this member's health profile will appear here</p>
+                            <h3 className="text-lg font-semibold text-ink">No history yet</h3>
+                            <p className="mt-2 text-sm text-muted">Changes to this member's health profile will appear here</p>
                           </div>
                         ) : (
                           <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
                             <Table className="min-w-[500px]">
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Date & Time</TableHead>
-                                  <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Changes Made</TableHead>
-                                  <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Details</TableHead>
+                                  <TableHead className="font-semibold text-ink whitespace-nowrap">Date & Time</TableHead>
+                                  <TableHead className="font-semibold text-ink whitespace-nowrap">Changes Made</TableHead>
+                                  <TableHead className="font-semibold text-ink whitespace-nowrap">Details</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1988,7 +2098,7 @@ export default function EnterpriseDashboard() {
 
                                   return (
                                     <TableRow key={record.id}>
-                                      <TableCell className="text-sm text-slate-600">
+                                      <TableCell className="text-sm text-muted">
                                         {formatDate(record.created_at)}
                                       </TableCell>
                                       <TableCell>
@@ -1998,7 +2108,7 @@ export default function EnterpriseDashboard() {
                                               <Badge 
                                                 key={idx} 
                                                 variant="secondary"
-                                                className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                                                className="text-xs bg-navy-soft text-navy border-navy-soft"
                                               >
                                                 {field}
                                               </Badge>
@@ -2010,22 +2120,22 @@ export default function EnterpriseDashboard() {
                                             )}
                                           </div>
                                         ) : (
-                                          <span className="text-sm text-slate-500">Initial setup</span>
+                                          <span className="text-sm text-muted">Initial setup</span>
                                         )}
                                       </TableCell>
                                       <TableCell>
                                         {meaningfulData.length > 0 ? (
                                           <details>
-                                            <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 font-medium">
+                                            <summary className="cursor-pointer text-sm text-navy hover:text-navy font-medium">
                                               ► View details
                                             </summary>
-                                            <div className="mt-3 space-y-2 text-sm bg-slate-50 p-3 rounded">
+                                            <div className="mt-3 space-y-2 text-sm bg-panel p-3 rounded">
                                               {meaningfulData.map(([key, value]) => (
                                                 <div key={key} className="flex justify-between">
-                                                  <span className="font-medium text-slate-600 capitalize">
+                                                  <span className="font-medium text-muted capitalize">
                                                     {key.replace(/([A-Z])/g, ' $1').trim()}:
                                                   </span>
-                                                  <span className="text-slate-900">
+                                                  <span className="text-ink">
                                                     {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
                                                   </span>
                                                 </div>
@@ -2033,7 +2143,7 @@ export default function EnterpriseDashboard() {
                                             </div>
                                           </details>
                                         ) : (
-                                          <span className="text-sm text-slate-400">No saved data</span>
+                                          <span className="text-sm text-muted">No saved data</span>
                                         )}
                                       </TableCell>
                                     </TableRow>
@@ -2048,222 +2158,25 @@ export default function EnterpriseDashboard() {
                   )}
 
                   {!editingUserSettings && users.length > 0 && (
-                    <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
-                      <Settings className="mx-auto mb-3 h-8 w-8 text-slate-400" />
-                      <p className="text-sm text-slate-600">Select a user from the dropdown above to edit their settings</p>
+                    <div className="mt-6 rounded-lg border border-line bg-panel p-6 text-center">
+                      <Settings className="mx-auto mb-3 h-8 w-8 text-muted" />
+                      <p className="text-sm text-muted">Select a user from the dropdown above to edit their settings</p>
                     </div>
                   )}
 
                   {!editingUserSettings && users.length === 0 && (
-                    <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
-                      <Users className="mx-auto mb-3 h-8 w-8 text-slate-400" />
-                      <p className="text-sm text-slate-600">No members available. Invite users to start managing their settings.</p>
+                    <div className="mt-6 rounded-lg border border-line bg-panel p-6 text-center">
+                      <Users className="mx-auto mb-3 h-8 w-8 text-muted" />
+                      <p className="text-sm text-muted">No members available. Invite users to start managing their settings.</p>
                     </div>
                   )}
-                </div>
+                  </div>
+                </>
               )}
             </section>
           )}
 
-          {/* Overview View - Users and Invitations */}
-          {activeSidebarItem === "overview" && (
-          <section className="mt-6 sm:mt-12 rounded-2xl sm:rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-            {/* Info Box */}
-            {selectedEnterprise && (
-              <div className="mb-4 sm:mb-6 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4">
-                <div className="flex items-start gap-3">
-                  <Users className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-blue-900">User Management</h3>
-                    <p className="mt-1 text-sm text-blue-700 break-words">
-                      <strong>Total Users:</strong> {totalUsers} invited user{totalUsers !== 1 ? 's' : ''} 
-                      {statistics?.max_users && ` (${statistics.max_users - totalUsers} slots remaining)`}
-                    </p>
-                    <p className="mt-1 text-xs text-blue-600">
-                      Note: The organization owner is not included in the user count. Only invited users are listed below.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Section</p>
-                <h2 className="text-xl sm:text-2xl font-semibold text-slate-900">Users & Invitations</h2>
-              </div>
-              <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1 w-full sm:w-auto justify-center sm:justify-start">
-                {["users", "invitations"].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab as "users" | "invitations")}
-                    className={`rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition flex-1 sm:flex-initial ${
-                      activeTab === tab
-                        ? "bg-white text-slate-900 shadow"
-                        : "text-slate-500"
-                    }`}
-                  >
-                    {tab === "users" ? "Users" : "Invitations"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {activeTab === "invitations" ? (
-              <>
-                <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-slate-600">
-                      {filteredInvitations.length} invitation{filteredInvitations.length !== 1 ? 's' : ''} total
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Auto-refreshes every 15 seconds • Click "Refresh Now" for immediate update
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (selectedEnterprise?.id) {
-                        loadEnterpriseDetails(selectedEnterprise.id);
-                        toast({
-                          title: "Refreshing...",
-                          description: "Checking for invitation status updates",
-                        });
-                      }
-                    }}
-                    className="flex items-center gap-2 w-full sm:w-auto"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Refresh Now
-                  </Button>
-                </div>
-                {isLoadingDetails && filteredInvitations.length === 0 ? (
-                  <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-12">
-                    <div className="space-y-4">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="flex items-center gap-4 p-4 border-b border-slate-100">
-                          <div className="h-6 w-6 bg-slate-200 rounded animate-pulse"></div>
-                          <div className="flex-1 space-y-2">
-                            <div className="h-4 w-48 bg-slate-200 rounded animate-pulse"></div>
-                            <div className="h-3 w-32 bg-slate-200 rounded animate-pulse"></div>
-                          </div>
-                          <div className="h-6 w-20 bg-slate-200 rounded animate-pulse"></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : filteredInvitations.length === 0 ? (
-                  <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-12 text-center text-sm text-slate-500">
-                    No invitations yet.
-                  </div>
-                ) : (
-                  <div className="mt-6 sm:mt-8 overflow-x-auto rounded-xl sm:rounded-2xl border border-slate-100 -mx-4 sm:mx-0">
-                    <table className="w-full table-auto text-left text-sm text-slate-700 min-w-[600px]">
-                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                        <tr>
-                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">#</th>
-                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Email</th>
-                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Role</th>
-                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Sent</th>
-                          <th className="px-3 sm:px-6 py-3 font-semibold whitespace-nowrap">Status</th>
-                          <th className="px-3 sm:px-6 py-3 whitespace-nowrap"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredInvitations.map((inv, idx) => (
-                          <tr key={inv.id || idx} className="border-t border-slate-100">
-                            <td className="px-3 sm:px-6 py-4 text-slate-500">{idx + 1}</td>
-                            <td className="px-3 sm:px-6 py-4 font-medium text-slate-900 break-words">{inv.email}</td>
-                            <td className="px-3 sm:px-6 py-4 text-slate-600 whitespace-nowrap">{inv.role ?? "—"}</td>
-                            <td className="px-3 sm:px-6 py-4 text-slate-600 whitespace-nowrap">
-                              {inv.sent_at ? new Date(inv.sent_at).toLocaleDateString() : "—"}
-                            </td>
-                            <td className="px-3 sm:px-6 py-4">
-                              <div className="flex flex-col gap-1">
-                                <Badge 
-                                  variant={
-                                    inv.status === "accepted" ? "default" : 
-                                    inv.status === "cancelled" ? "destructive" : 
-                                    inv.status === "expired" ? "outline" : 
-                                    "secondary"
-                                  }
-                                  className={
-                                    inv.status === "accepted" 
-                                      ? "bg-green-600 text-white font-semibold w-fit" 
-                                      : "w-fit"
-                                  }
-                                >
-                                  {inv.status === "accepted" ? "✓ Accepted" : (inv.status ?? "pending")}
-                              </Badge>
-                                {inv.status === "accepted" && inv.accepted_at && (
-                                  <div className="mt-2 flex items-center gap-1 text-xs text-green-600 font-medium">
-                                    <CheckCircle className="h-3 w-3 flex-shrink-0" />
-                                    <span className="break-words">
-                                      Accepted on {new Date(inv.accepted_at).toLocaleDateString()} at {new Date(inv.accepted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-3 sm:px-6 py-4 text-right">
-                              {inv.status === "pending" && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="rounded-full border-slate-200 px-3 sm:px-4 text-xs font-semibold"
-                                  onClick={() => cancelInvitation(inv.id)}
-                                >
-                                  Cancel
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-slate-600 break-words">
-                      {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} who accepted invitation{filteredUsers.length !== 1 ? 's' : ''}
-                      {filteredUsers.length > 0 && (
-                        <span className="ml-2 text-green-600 font-semibold">
-                          ({filteredUsers.length} {filteredUsers.length === 1 ? 'has' : 'have'} joined)
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Accepted users are now shown in the <strong>Members</strong> page. Click "Members" in the sidebar to view and manage them.
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setActiveSidebarItem("members");
-                    }}
-                    className="flex items-center gap-2 w-full sm:w-auto"
-                  >
-                    <Users className="h-4 w-4" />
-                    Go to Members
-                  </Button>
-                </div>
-              <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-12 text-center text-sm text-slate-500">
-                  <Users className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-                  <p className="mb-2 font-medium">View members in the Members page</p>
-                  <p className="text-xs text-slate-400">Click "Members" in the sidebar to see all users who accepted your invitations.</p>
-              </div>
-              </>
-            )}
-          </section>
-          )}
         </div>
-      </main>
 
       {showRegistrationForm && (
         <EnterpriseRegistrationForm onClose={() => setShowRegistrationForm(false)} onSuccess={loadEnterprises} />
