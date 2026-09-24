@@ -13,6 +13,7 @@ from care.service import (
     apply_call_signal,
     conversation_id_for,
     dietitian_marketplace_open,
+    login_admin,
     now_iso,
     public_call,
     register_account,
@@ -186,6 +187,24 @@ def login():
     return jsonify({"user": user, "token": user["id"]})
 
 
+@care_bp.post("/auth/admin-login")
+def admin_login():
+    """Email + password admin gate. Credentials come from CARE_ADMIN_CREDENTIALS / CARE_ADMIN_PASSWORD."""
+    body = _json()
+    email = body.get("email") or ""
+    password = body.get("password") or ""
+    name = body.get("name") or ""
+    store = get_store()
+    try:
+        next_state, user = login_admin(store.snapshot(), email, password, name or None)
+    except ValueError as error:
+        message = str(error)
+        status = 401 if "Incorrect" in message else 400
+        return jsonify({"detail": message}), status
+    store.replace(next_state)
+    return jsonify({"user": user, "token": user["id"]})
+
+
 @care_bp.get("/state")
 def read_state():
     user = _current_user()
@@ -349,6 +368,8 @@ def approve_application(application_id: str):
         return err
     if user["role"] != "admin":
         return jsonify({"detail": "Admin only"}), 403
+    # Tolerate empty bodies (some clients send Content-Type: application/json with no payload).
+    _json()
     return _run_action("APPROVE_APPLICATION", {"applicationId": application_id}, user)
 
 

@@ -18,6 +18,14 @@ export function RequireAuth({ roles, children }: { roles?: Role[]; children: Rea
         </div>
       )
     }
+    // Care admin shell can boot without a MealLens session — wait instead of bouncing to /login.
+    if (location.pathname.startsWith('/admin')) {
+      return (
+        <div className="grid min-h-[40vh] place-items-center p-8 text-sm text-muted">
+          Opening verification queue…
+        </div>
+      )
+    }
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
 

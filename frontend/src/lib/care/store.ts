@@ -618,27 +618,64 @@ export function appReducer(state: AppState, action: Action): AppState {
         state.currentUser?.id === action.userId
           ? users.find((user) => user.id === action.userId) ?? state.currentUser
           : state.currentUser
+      const accountUser = users.find((user) => user.id === action.userId)
+      const hasListing = state.dietitians.some((item) => item.userId === action.userId)
+
+      let dietitians = state.dietitians.map((dietitian) =>
+        dietitian.userId === action.userId
+          ? {
+              ...dietitian,
+              name: action.name ?? dietitian.name,
+              country: action.country ?? dietitian.country,
+              workplace: action.workplace ?? dietitian.workplace,
+              title: action.title ?? dietitian.title,
+              bio: action.bio ?? dietitian.bio,
+              yearsExperience: action.yearsExperience ?? dietitian.yearsExperience,
+              specialties: action.specialties ?? dietitian.specialties,
+              languages: action.languages ?? dietitian.languages,
+              avatar: action.avatar ?? dietitian.avatar,
+              coverImage: action.coverImage ?? dietitian.coverImage,
+            }
+          : dietitian,
+      )
+
+      // New specialists have no listing row yet — create a pending stub so cover/avatar persist.
+      if (!hasListing && accountUser?.role === 'dietitian') {
+        dietitians = [
+          ...dietitians,
+          {
+            id: `dt-${action.userId.replace(/^user-/, '')}`,
+            userId: action.userId,
+            name: action.name ?? accountUser.name,
+            title: action.title ?? accountUser.title ?? '',
+            country: action.country ?? accountUser.country ?? '',
+            specialties: action.specialties ?? [],
+            conditions: action.specialties ?? [],
+            yearsExperience: action.yearsExperience ?? 0,
+            rating: 0,
+            reviewCount: 0,
+            bio: action.bio ?? '',
+            languages: action.languages ?? [],
+            workplace: action.workplace ?? '',
+            avatar: action.avatar ?? accountUser.avatar ?? '',
+            coverImage: action.coverImage ?? '',
+            verified: false,
+            featured: false,
+            education: [],
+            experience: [],
+            documents: [],
+            reviews: [],
+            availability: defaultAvailability(),
+            status: 'pending',
+          },
+        ]
+      }
+
       return {
         ...state,
         users,
         currentUser,
-        dietitians: state.dietitians.map((dietitian) =>
-          dietitian.userId === action.userId
-            ? {
-                ...dietitian,
-                name: action.name ?? dietitian.name,
-                country: action.country ?? dietitian.country,
-                workplace: action.workplace ?? dietitian.workplace,
-                title: action.title ?? dietitian.title,
-                bio: action.bio ?? dietitian.bio,
-                yearsExperience: action.yearsExperience ?? dietitian.yearsExperience,
-                specialties: action.specialties ?? dietitian.specialties,
-                languages: action.languages ?? dietitian.languages,
-                avatar: action.avatar ?? dietitian.avatar,
-                coverImage: action.coverImage ?? dietitian.coverImage,
-              }
-            : dietitian,
-        ),
+        dietitians,
       }
     }
     default:
@@ -697,15 +734,13 @@ function upsertPendingDietitian(dietitians: Dietitian[], application: DietitianA
     languages: application.languages,
     workplace: application.workplace,
     avatar: existing?.avatar || photoUrl || '',
-    coverImage:
-      existing?.coverImage ||
-      'https://images.unsplash.com/photo-1490818387583-1baba5e638af?auto=format&fit=crop&w=1600&q=80',
+    coverImage: existing?.coverImage || '',
     verified: application.status === 'approved',
     featured: application.status === 'approved',
     education: application.education,
     experience: application.experience?.length
       ? application.experience
-      : [{ role: 'Applicant', org: application.workplace, years: 'Current' }],
+      : [],
     documents: application.documents.map((doc) => ({
       id: existing?.documents.find((item) => item.fileName === doc.fileName)?.id ?? uid('doc'),
       name: doc.name,

@@ -19,8 +19,8 @@ import { useApp } from '@/lib/care/context'
 import { unreadCountFor } from '@/lib/care/alerts'
 import { ownProfilePath } from '@/lib/care/profilePaths'
 import { cn } from '@/lib/care/utils'
-import { Logo } from '@/components/CareLogo'
 import { Avatar } from '@/components/care-ui/Primitives'
+import { Logo } from '@/components/CareLogo'
 
 type NavItem = {
   to: string
@@ -67,6 +67,13 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
   const profileTo = ownProfilePath(currentUser.role)
   const homeTo = currentUser.role === 'admin' ? '/admin' : currentUser.role === 'dietitian' ? '/dietitian' : '/dietitians'
 
+  // Pixel-lock to meallensaidieticnafrontend Sidebar: 14px/20px lh, 40px row, 16px radius.
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+    cn(
+      'flex h-10 shrink-0 items-center gap-3 rounded-[16px] px-3 text-[14px] font-medium leading-5 transition',
+      isActive ? 'bg-navy-soft text-navy' : 'text-muted hover:bg-panel hover:text-ink',
+    )
+
   return (
     <aside
       className={cn(
@@ -92,17 +99,12 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             to={item.to}
             end={item.end ?? (item.to === '/dietitians' || item.to === '/dietitian' || item.to === '/admin')}
             onClick={onClose}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-                isActive ? 'bg-navy-soft text-navy' : 'text-muted hover:bg-panel hover:text-ink',
-              )
-            }
+            className={navLinkClass}
           >
-            <item.icon size={20} strokeWidth={1.75} />
-            <span className="flex-1">{item.label}</span>
+            <item.icon size={20} strokeWidth={1.75} className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {item.badge ? (
-              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-navy px-1.5 text-[10px] font-bold text-white">
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-navy px-1.5 text-[10px] font-bold leading-none text-white">
                 {item.badge > 9 ? '9+' : item.badge}
               </span>
             ) : null}
@@ -110,11 +112,11 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
         ))}
       </nav>
       <div className="border-t border-line p-4">
-        <NavLink to={profileTo} onClick={onClose} className="mb-3 flex items-center gap-3 rounded-xl p-2 hover:bg-panel">
+        <NavLink to={profileTo} onClick={onClose} className="mb-3 flex items-center gap-3 rounded-[16px] p-2 hover:bg-panel">
           <Avatar src={currentUser.avatar} name={currentUser.name} size={40} />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-ink">{currentUser.name}</p>
-            <p className="truncate text-xs capitalize text-muted">{currentUser.role}</p>
+            <p className="truncate text-[14px] font-semibold leading-5 text-ink">{currentUser.name}</p>
+            <p className="truncate text-[12px] capitalize leading-4 text-muted">{currentUser.role}</p>
           </div>
         </NavLink>
         <button
@@ -122,9 +124,9 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             onClose?.()
             logout()
           }}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted hover:bg-red-50 hover:text-destructive"
+          className="flex h-9 w-full items-center gap-2 rounded-[12px] px-3 text-[14px] font-medium leading-5 text-muted hover:bg-red-50 hover:text-destructive"
         >
-          <LogOut size={16} />
+          <LogOut size={16} className="shrink-0" />
           Sign out
         </button>
       </div>

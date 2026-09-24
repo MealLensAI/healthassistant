@@ -94,6 +94,29 @@ export async function loginOnServer(userId: string) {
   return data
 }
 
+export async function adminLoginOnServer(email: string, password: string) {
+  const base = baseUrl()
+  const response = await fetch(`${base}${careApi('/api/care/auth/admin-login')}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  if (!response.ok) {
+    const text = await response.text()
+    let detail = text || `Request failed: ${response.status}`
+    try {
+      const parsed = JSON.parse(text) as { detail?: string }
+      if (parsed.detail) detail = parsed.detail
+    } catch {
+      // keep raw text
+    }
+    throw new Error(detail)
+  }
+  const data = (await response.json()) as { user: User; token: string }
+  setSessionUserId(data.user.id)
+  return data
+}
+
 export async function postAction(type: string, payload: Record<string, unknown> = {}) {
   return request<ServerState>('/api/care/actions', {
     method: 'POST',

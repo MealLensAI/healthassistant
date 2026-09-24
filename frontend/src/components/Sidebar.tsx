@@ -19,7 +19,7 @@ import {
   UserRound,
   X,
 } from "lucide-react"
-import Logo from "@/components/Logo"
+import { Logo } from "@/components/CareLogo"
 import { Avatar } from "@/components/care-ui/Primitives"
 import { useAuth, cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -114,11 +114,11 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
       >
         <div className="flex items-center justify-between gap-2 px-5 py-5">
           <div onClick={onClose}>
-            <Logo to="/food-for-you" size="lg" />
+            <Logo to="/food-for-you" />
           </div>
           <button
             type="button"
-            className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-secondary md:hidden"
+            className="grid h-9 w-9 place-items-center rounded-full text-muted hover:bg-panel md:hidden"
             aria-label="Close menu"
             onClick={onClose}
           >
@@ -140,14 +140,12 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
                 end={item.end}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-                  active
-                    ? "bg-navy-soft text-navy"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  "flex h-10 shrink-0 items-center gap-3 rounded-[16px] px-3 text-[14px] font-medium leading-5 transition",
+                  active ? "bg-navy-soft text-navy" : "text-muted hover:bg-panel hover:text-ink",
                 )}
               >
-                <item.icon size={20} strokeWidth={1.75} />
-                <span className="flex-1">{item.label}</span>
+                <item.icon size={20} strokeWidth={1.75} className="shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
               </NavLink>
             )
           })}
@@ -157,12 +155,12 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
           <NavLink
             to="/profile"
             onClick={onClose}
-            className="mb-3 flex items-center gap-3 rounded-xl p-2 hover:bg-secondary"
+            className="mb-3 flex items-center gap-3 rounded-[16px] p-2 hover:bg-panel"
           >
             <Avatar src={avatar} name={displayName} size={40} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">{displayName.split(" ")[0]}</p>
-              <p className="truncate text-xs text-muted-foreground">View profile</p>
+              <p className="truncate text-[14px] font-semibold leading-5 text-ink">{displayName.split(" ")[0]}</p>
+              <p className="truncate text-[12px] leading-4 text-muted">View profile</p>
             </div>
           </NavLink>
           <button
@@ -171,9 +169,9 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
               onClose?.()
               void handleSignOut()
             }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-red-50 hover:text-destructive"
+            className="flex h-9 w-full items-center gap-2 rounded-[12px] px-3 text-[14px] font-medium leading-5 text-muted hover:bg-red-50 hover:text-destructive"
           >
-            <LogOut size={16} />
+            <LogOut size={16} className="shrink-0" />
             Log out
           </button>
         </div>

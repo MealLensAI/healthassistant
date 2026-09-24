@@ -3,6 +3,7 @@ import { cn } from '@/lib/care/utils'
 import { useTheme } from '@/lib/care/theme'
 import { LOGO_SRC, LOGO_WHITE_SRC } from '@/components/Logo'
 
+/** Same API/sizing as meallensaidieticnafrontend `components/Logo`. */
 export function Logo({
   compact = false,
   inverse = false,

@@ -5,22 +5,23 @@ import { Navigate } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { useEnterpriseRole } from "@/hooks/useEnterpriseRole"
+import { isCareAdminEmail } from "@/lib/care/embeddedAuth"
 import Logo from "@/components/Logo"
 
 const RoleAwareRedirect = () => {
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { user, isAuthenticated, loading: authLoading } = useAuth()
   const { role, isLoading: roleLoading } = useEnterpriseRole()
 
   // Add timeout to prevent infinite loading
   const [hasTimedOut, setHasTimedOut] = useState(false)
-  
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (authLoading || roleLoading || !isAuthenticated) {
         setHasTimedOut(true)
       }
     }, 5000) // 5 second timeout
-    
+
     return () => clearTimeout(timer)
   }, [authLoading, roleLoading, isAuthenticated])
 
@@ -46,9 +47,12 @@ const RoleAwareRedirect = () => {
     )
   }
 
+  if (isCareAdminEmail(user?.email)) {
+    return <Navigate to="/admin" replace />
+  }
+
   const destination = role === "organization" ? "/enterprise" : "/food-for-you"
   return <Navigate to={destination} replace />
 }
 
 export default RoleAwareRedirect
-

@@ -20,7 +20,7 @@ import { useApp } from '@/lib/care/context'
 import { unreadCountFor } from '@/lib/care/alerts'
 import { cn } from '@/lib/care/utils'
 import { Avatar } from '@/components/care-ui/Primitives'
-import Logo from '@/components/Logo'
+import { Logo } from '@/components/CareLogo'
 import '@/styles/care.css'
 
 type NavItem = {
@@ -59,7 +59,7 @@ export default function EnterpriseSidebar({
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+      'flex h-10 w-full shrink-0 items-center gap-3 rounded-[16px] px-3 text-[14px] font-medium leading-5 transition',
       isActive ? 'bg-navy-soft text-navy' : 'text-muted hover:bg-panel hover:text-ink',
     )
 
@@ -67,8 +67,8 @@ export default function EnterpriseSidebar({
     <aside
       className="flex h-full w-[240px] shrink-0 flex-col overflow-hidden border-r border-line bg-white text-left [overscroll-behavior:none]"
     >
-      <div className="flex shrink-0 items-center justify-between px-4 py-4">
-        <Logo to="/enterprise" size="md" />
+      <div className="flex shrink-0 items-center justify-between px-5 py-5">
+        <Logo to="/enterprise" />
         <button
           type="button"
           className="grid h-9 w-9 place-items-center rounded-full text-muted hover:bg-panel lg:hidden"
@@ -94,7 +94,7 @@ export default function EnterpriseSidebar({
               <Icon size={20} strokeWidth={1.75} className="shrink-0" />
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
               {badge > 0 ? (
-                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-navy px-1.5 text-[10px] font-bold text-white">
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-navy px-1.5 text-[10px] font-bold leading-none text-white">
                   {badge > 9 ? '9+' : badge}
                 </span>
               ) : null}
@@ -103,17 +103,17 @@ export default function EnterpriseSidebar({
         })}
       </nav>
 
-      <div className="shrink-0 border-t border-line p-3">
+      <div className="shrink-0 border-t border-line p-4">
         {currentUser ? (
           <NavLink
             to="/enterprise/profile"
             onClick={onNavigate}
-            className="mb-2 flex items-center gap-2.5 rounded-lg p-1.5 hover:bg-panel"
+            className="mb-3 flex items-center gap-3 rounded-[16px] p-2 hover:bg-panel"
           >
-            <Avatar src={currentUser.avatar} name={currentUser.name} size={36} />
+            <Avatar src={currentUser.avatar} name={currentUser.name} size={40} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink">{currentUser.name}</p>
-              <p className="truncate text-xs capitalize text-muted">{currentUser.role}</p>
+              <p className="truncate text-[14px] font-semibold leading-5 text-ink">{currentUser.name}</p>
+              <p className="truncate text-[12px] capitalize leading-4 text-muted">{currentUser.role}</p>
             </div>
           </NavLink>
         ) : null}
@@ -124,9 +124,9 @@ export default function EnterpriseSidebar({
             if (onSignOut) void onSignOut()
             else logout()
           }}
-          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted hover:bg-red-50 hover:text-destructive"
+          className="flex h-9 w-full items-center gap-2 rounded-[12px] px-3 text-[14px] font-medium leading-5 text-muted hover:bg-red-50 hover:text-destructive"
         >
-          <LogOut size={16} />
+          <LogOut size={16} className="shrink-0" />
           Sign out
         </button>
       </div>

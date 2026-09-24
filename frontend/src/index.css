@@ -230,6 +230,20 @@
   animation: notice-zoom 1.8s ease-in-out infinite;
 }
 
+@keyframes register-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.animate-register-pulse {
+  animation: register-pulse 1.2s ease-in-out infinite;
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;

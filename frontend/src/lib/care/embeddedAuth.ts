@@ -3,7 +3,7 @@ import { apiEnabled, fetchServerState, loginOnServer, registerAccountOnServer, s
 const HA_USER_KEY = 'user_data'
 const HA_TOKEN_KEY = 'access_token'
 
-export type CareSyncRole = 'patient' | 'dietitian'
+export type CareSyncRole = 'patient' | 'dietitian' | 'admin'
 
 export function embeddedInHealthApp() {
   return true
@@ -17,6 +17,19 @@ export function mainAppSignupUrl() {
 export function mainAppLoginUrl() {
   const base = (import.meta.env.VITE_MAIN_APP_URL as string | undefined)?.replace(/\/$/, '')
   return base ? `${base}/login` : '/login'
+}
+
+export function careAdminEmails(): string[] {
+  const raw = (import.meta.env.VITE_CARE_ADMIN_EMAILS as string | undefined) || 'admin@healthyyou.com,admin@meallensai.com'
+  return raw
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item.includes('@'))
+}
+
+export function isCareAdminEmail(email?: string | null) {
+  if (!email) return false
+  return careAdminEmails().includes(email.trim().toLowerCase())
 }
 
 export function readHealthAppUser(): { uid: string; email: string; name: string; avatar?: string } | null {
@@ -42,15 +55,16 @@ export function readHealthAppUser(): { uid: string; email: string; name: string;
   }
 }
 
-/** Infer marketplace role from the URL (dietitian / enterprise shell vs patient). */
+/** Infer marketplace role from the URL (dietitian / enterprise / admin shell vs patient). */
 export function careRoleFromPath(pathname = window.location.pathname): CareSyncRole {
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    return 'admin'
+  }
   if (
     pathname === '/dietitian' ||
     pathname.startsWith('/dietitian/') ||
     pathname === '/enterprise' ||
     pathname.startsWith('/enterprise/') ||
-    pathname === '/admin' ||
-    pathname.startsWith('/admin/') ||
     pathname.startsWith('/onboarding/doctor')
   ) {
     return 'dietitian'
@@ -97,6 +111,8 @@ export async function bootstrapEmbeddedSession(preferredRole?: CareSyncRole) {
     return { user: synced.user, server }
   } catch {
     try {
+      // Admin accounts are allowlisted on the API — never self-register as admin.
+      if (role === 'admin') return null
       const registered = await registerAccountOnServer({
         name: haUser.name,
         email: haUser.email,

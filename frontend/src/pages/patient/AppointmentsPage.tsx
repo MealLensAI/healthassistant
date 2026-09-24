@@ -127,13 +127,15 @@ export function AppointmentsPage({ role = 'patient' }: { role?: 'patient' | 'die
         {mine.length === 0 && (
           <div className="hy-card space-y-3 p-10 text-center text-sm text-muted">
             <p>No appointments yet.</p>
-            <button
-              type="button"
-              className="font-semibold text-navy hover:underline"
-              onClick={() => navigate('/dietitians')}
-            >
-              Find a dietitian to book
-            </button>
+            {role === 'patient' ? (
+              <button
+                type="button"
+                className="font-semibold text-navy hover:underline"
+                onClick={() => navigate('/dietitians')}
+              >
+                Find a dietitian to book
+              </button>
+            ) : null}
           </div>
         )}
       </div>

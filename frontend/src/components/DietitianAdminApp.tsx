@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/care-layout/AppShell'
 import { RequireAuth } from '@/components/RequireAuth'
 import { RequireDietitianMarketplace } from '@/components/RequireDietitianMarketplace'
@@ -23,10 +23,16 @@ import { MessagesPage } from '@/pages/patient/MessagesPage'
 import { SettingsPage } from '@/pages/patient/SettingsPage'
 import '@/styles/care.css'
 
+function CareFallbackRedirect() {
+  const location = useLocation()
+  const to = location.pathname.startsWith('/admin') ? '/admin' : '/dietitian'
+  return <Navigate to={to} replace />
+}
+
 /**
- * Dietitian + admin practice shell (marketplace UI).
- * Mounted under MealLensAI ProtectedRoute for /dietitian/*, /admin/*, /onboarding/doctor.
- * Patients only see specialists after admin approval (RequireDietitianMarketplace + listing status).
+ * Dietitian + admin practice shell (from meallensaidieticnafrontend).
+ * /admin boots the verification queue without MealLens ProtectedRoute.
+ * Patients only see specialists after admin approval.
  */
 export default function DietitianAdminApp() {
   return (
@@ -118,7 +124,7 @@ export default function DietitianAdminApp() {
                 <Route path="/admin/patients/:id" element={<PatientChartPage />} />
               </Route>
 
-              <Route path="*" element={<Navigate to="/dietitian" replace />} />
+              <Route path="*" element={<CareFallbackRedirect />} />
             </Routes>
           </div>
         </MarketplaceBootGate>

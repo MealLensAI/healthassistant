@@ -1,54 +1,74 @@
-import type { Dietitian, DietitianApplication, User } from '@/lib/care/types'
+import type { ApplicationDocument, CredentialDocument, Dietitian, DietitianApplication, User } from '@/lib/care/types'
 import { defaultAvailability } from '@/lib/care/utils'
 
-const DEFAULT_COVER =
-  'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1400&q=80'
+function credentialKind(kind: ApplicationDocument['kind']): CredentialDocument['kind'] {
+  if (kind === 'photo') return 'photo'
+  if (kind === 'license') return 'license'
+  if (kind === 'degree1' || kind === 'degree2') return 'degree'
+  return 'cv'
+}
+
+/** Only credentials the specialist actually uploaded (with a file URL). */
+export function uploadedCredentialsFromApplication(
+  application?: DietitianApplication | null,
+): CredentialDocument[] {
+  if (!application?.documents?.length) return []
+  return application.documents
+    .filter((doc) => Boolean(doc.uploaded && doc.url))
+    .map((doc, index) => ({
+      id: `doc-${doc.kind}-${index}`,
+      name: doc.name,
+      kind: credentialKind(doc.kind),
+      fileName: doc.fileName,
+      url: doc.url,
+    }))
+}
+
+function filledExperience(application?: DietitianApplication | null) {
+  return (application?.experience ?? []).filter((item) => item.role?.trim() && item.org?.trim())
+}
+
+function filledEducation(application?: DietitianApplication | null) {
+  return (application?.education ?? []).filter((item) => item.school?.trim() && item.degree?.trim())
+}
 
 /**
  * Build a dashboard/profile listing for the signed-in dietitian when they
- * don't have an approved public listing yet — uses their real account data.
+ * don't have an approved public listing yet — only real account / application data.
+ * Never invent bio, location, specialties, cover, or credentials.
  */
 export function draftDietitianFromUser(
   user: User,
   application?: DietitianApplication | null,
 ): Dietitian {
-  const name = application?.fullName || user.name
-  const specialties = application?.specialties?.length
-    ? application.specialties
-    : ['Clinical Nutrition']
+  const name = application?.fullName?.trim() || user.name
+  const specialties = application?.specialties?.filter((item) => item.trim()) ?? []
+  const languages = application?.languages?.filter((item) => item.trim()) ?? []
   const yearsExperience = Number(application?.yearsExperience) || 0
-  const languages = application?.languages?.length ? application.languages : ['English']
 
   return {
     id: `draft-${user.id}`,
     userId: user.id,
     name,
-    title: user.title || 'Clinical Dietitian',
-    country: application?.country || user.country || 'United States',
+    title: (user.title || '').trim(),
+    country: (application?.country || user.country || '').trim(),
     specialties,
     conditions: specialties,
     yearsExperience,
     rating: 0,
     reviewCount: 0,
-    bio:
-      application?.bio ||
-      'I help patients translate clinical nutrition goals into meals they can keep. Complete registration to publish your full bio.',
+    bio: (application?.bio || '').trim(),
     languages,
-    workplace: application?.workplace || 'Your practice',
+    workplace: (application?.workplace || '').trim(),
     avatar: user.avatar || '',
-    coverImage: DEFAULT_COVER,
+    coverImage: '',
     verified: false,
     featured: false,
-    education: application?.education ?? [],
-    experience: application?.experience ?? [],
-    documents: [
-      { id: 'doc-photo', name: 'Profile Photo', kind: 'photo', fileName: 'photo.jpg', url: user.avatar || undefined },
-      { id: 'doc-license', name: 'Practice License', kind: 'license', fileName: 'license.pdf' },
-      { id: 'doc-degree-1', name: 'University Degree 1', kind: 'degree', fileName: 'degree-1.pdf' },
-      { id: 'doc-degree-2', name: 'University Degree 2', kind: 'degree', fileName: 'degree-2.pdf' },
-    ],
+    education: filledEducation(application),
+    experience: filledExperience(application),
+    documents: uploadedCredentialsFromApplication(application),
     reviews: [],
     availability: defaultAvailability(),
-    status: 'pending',
+    status: application?.status === 'needs_info' ? 'needs_info' : 'pending',
   }
 }

@@ -31,6 +31,7 @@ import RoleAwareRedirect from "./components/RoleAwareRedirect";
 import LogoutAndLogin from "./pages/LogoutAndLogin";
 import PatientAppLayout from "./components/PatientAppLayout";
 import DietitianAdminApp from "@/components/DietitianAdminApp";
+import AdminApp from "@/components/AdminApp";
 import EnterpriseApp from "./components/enterprise/EnterpriseApp";
 import { HomePage as CareHomePage } from "@/pages/patient/HomePage";
 import { SearchPage as CareSearchPage } from "@/pages/patient/SearchPage";
@@ -46,6 +47,11 @@ import { ApplyPage } from "@/pages/dietitian/ApplyPage";
 import { AvailabilityPage } from "@/pages/dietitian/AvailabilityPage";
 import { DietitianAccountPage } from "@/pages/dietitian/DietitianAccountPage";
 import { SettingsPage as MarketplaceSettingsPage } from "@/pages/patient/SettingsPage";
+import { AdminQueuePage } from "@/pages/admin/AdminQueuePage";
+import { AdminApplicationPage } from "@/pages/admin/AdminApplicationPage";
+import { AdminDietitiansPage } from "@/pages/admin/AdminDietitiansPage";
+import { AdminDietitianDetailPage } from "@/pages/admin/AdminDietitianDetailPage";
+import { SettingsPage as AdminSettingsPage } from "@/pages/patient/SettingsPage";
 
 const router = createBrowserRouter([
   {
@@ -109,7 +115,7 @@ const router = createBrowserRouter([
       { path: "/care-settings", element: <Navigate to="/settings" replace /> },
     ],
   },
-  // Dietitian + admin practice (meallensaidieticnafrontend shell) — org/dietitian accounts
+  // Dietitian practice — requires MealLensAI account
   {
     path: "/dietitian/*",
     element: (
@@ -118,13 +124,19 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
+  // Admin verification queue — no MealLens ProtectedRoute (that sent users to /landing).
   {
-    path: "/admin/*",
-    element: (
-      <ProtectedRoute>
-        <DietitianAdminApp />
-      </ProtectedRoute>
-    ),
+    path: "/admin",
+    element: <AdminApp />,
+    children: [
+      { index: true, element: <AdminQueuePage /> },
+      { path: "applications/:id", element: <AdminApplicationPage /> },
+      { path: "dietitians", element: <AdminDietitiansPage /> },
+      { path: "dietitians/:id", element: <AdminDietitianDetailPage /> },
+      { path: "settings", element: <AdminSettingsPage /> },
+      { path: "public/:id", element: <DietitianProfilePage /> },
+      { path: "patients/:id", element: <PatientChartPage /> },
+    ],
   },
   {
     path: "/onboarding/doctor",

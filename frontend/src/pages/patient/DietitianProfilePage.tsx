@@ -91,20 +91,17 @@ export function DietitianProfilePage() {
     ? consultationRequests.filter((item) => item.dietitianId === dietitian.id && item.status === 'pending')
     : []
   const showHomeQueue = isOwner && (practiceBase(location.pathname) !== '/admin' && (location.pathname === practicePath() || location.pathname === '/dietitian' || location.pathname === '/enterprise' || incoming.length > 0))
+  const profileNotLive =
+    isOwner &&
+    (dietitian.status !== 'approved' || dietitian.id.startsWith('draft-') || !dietitian.verified)
+  const credentialDocs = dietitian.documents.filter((doc) =>
+    dietitian.status === 'approved' && !dietitian.id.startsWith('draft-')
+      ? Boolean(doc.url || doc.fileName)
+      : Boolean(doc.url),
+  )
 
   return (
     <div className="space-y-5">
-      {isOwner && (
-        <div className="flex flex-col gap-2 rounded-xl border border-navy-soft bg-navy-soft px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <p className="text-sm leading-snug text-navy">
-            <span className="font-semibold">Patient view</span>
-            <span className="text-navy/90">
-              {' '}
-              — this is how patients see you. Unread chats and missed calls stay on the right so you can clear them without leaving your profile.
-            </span>
-          </p>
-        </div>
-      )}
       {showHomeQueue && incoming.length > 0 && (
         <section className="hy-card p-5">
           <h2 className="font-bold text-ink">Incoming consultation requests</h2>
@@ -201,6 +198,18 @@ export function DietitianProfilePage() {
         }
       />
 
+      {profileNotLive ? (
+        <section className="hy-card px-5 py-6 text-center sm:px-8">
+          <p className="font-bold text-ink">
+            Your public profile isn’t live yet, patients can&apos;t see you on the dietitian marketplace.
+          </p>
+          <p className="mt-2 text-sm text-muted">Register as a specialist so patients can find you.</p>
+          <Link to={practicePath('apply')} className="mt-5 inline-flex justify-center">
+            <Button className="animate-register-pulse shadow-elevated">Register</Button>
+          </Link>
+        </section>
+      ) : null}
+
       <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
         <section className="hy-card p-5 sm:p-6">
           <div className="flex flex-wrap gap-2 border-b border-line pb-3">
@@ -218,58 +227,18 @@ export function DietitianProfilePage() {
           </div>
           <div className="pt-5 text-sm leading-relaxed text-muted">
             {tab === 'About' && (
-              <div className="space-y-4">
-                <p className="text-base text-ink">{dietitian.bio}</p>
-                <p className="flex items-center gap-2">
-                  <MapPin size={16} className="text-navy" />
-                  {dietitian.workplace}, {dietitian.country}
-                </p>
-                <div>
-                  <h3 className="mb-2 font-bold text-ink">Languages</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {dietitian.languages.map((language) => (
-                      <Pill key={language} tone="slate">
-                        {language}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <AboutPanel dietitian={dietitian} isOwner={isOwner} />
             )}
             {tab === 'Experience' && (
-              <div className="space-y-5">
-                <div>
-                  <h3 className="mb-2 font-bold text-ink">Professional experience</h3>
-                  <ul className="space-y-3">
-                    {dietitian.experience.map((item, index) => (
-                      <li key={`${item.org}-${index}`} className="rounded-2xl bg-panel p-3">
-                        <span className="font-semibold text-ink">{item.role}</span>
-                        <span className="block text-sm">{item.org}</span>
-                        <span className="text-xs">{item.years}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {isOwner && !dietitian.id.startsWith('draft-') && (
-                    <ExperienceEditor
-                      experience={dietitian.experience}
-                      onSave={(experience) => updateDietitianProfile(dietitian.id, experience)}
-                    />
-                  )}
-                </div>
-                <div>
-                  <h3 className="mb-2 font-bold text-ink">Education</h3>
-                  <ul className="space-y-3">
-                    {dietitian.education.map((item) => (
-                      <li key={item.school} className="rounded-2xl bg-panel p-3">
-                        <span className="font-semibold text-ink">{item.degree}</span>
-                        <span className="block text-sm">
-                          {item.school} ({item.year})
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              <ExperiencePanel
+                dietitian={dietitian}
+                isOwner={isOwner}
+                onSaveExperience={
+                  isOwner && !dietitian.id.startsWith('draft-')
+                    ? (experience) => updateDietitianProfile(dietitian.id, experience)
+                    : undefined
+                }
+              />
             )}
             {tab === 'Reviews' && (
               <ReviewsPanel
@@ -288,22 +257,28 @@ export function DietitianProfilePage() {
           <div className="hy-card p-5">
             <h2 className="font-bold text-ink">Verified credentials</h2>
             <p className="mt-1 text-xs text-muted">Checked by MealLensAI before this profile went live.</p>
-            <ul className="mt-4 space-y-2">
-              {dietitian.documents.map((doc) => (
-                <li key={doc.id}>
-                  <button
-                    type="button"
-                    onClick={() => setViewingDoc(doc)}
-                    className="flex w-full items-center justify-between rounded-xl bg-panel px-3 py-3 text-left text-sm font-medium hover:bg-navy-soft"
-                  >
-                    <span>{doc.name}</span>
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-navy">
-                      <FileSearch size={14} /> View
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            {credentialDocs.length === 0 ? (
+              <p className="mt-4 text-sm text-muted">
+                {isOwner ? 'No documents uploaded yet. Register and upload your credentials to show them here.' : 'No documents available.'}
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-2">
+                {credentialDocs.map((doc) => (
+                  <li key={doc.id}>
+                    <button
+                      type="button"
+                      onClick={() => setViewingDoc(doc)}
+                      className="flex w-full items-center justify-between rounded-xl bg-panel px-3 py-3 text-left text-sm font-medium hover:bg-navy-soft"
+                    >
+                      <span>{doc.name}</span>
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-navy">
+                        <FileSearch size={14} /> View
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           {currentUser?.role === 'patient' && !isOwner && (
             <button
@@ -412,6 +387,162 @@ export function DietitianProfilePage() {
           </ul>
         )}
       </Modal>
+    </div>
+  )
+}
+
+function EmptyEditPrompt({
+  message,
+  to,
+  label = 'Edit',
+}: {
+  message: string
+  to: string
+  label?: string
+}) {
+  return (
+    <div className="rounded-2xl bg-panel px-4 py-6 text-center">
+      <p className="text-sm text-muted">{message}</p>
+      <Link to={to} className="mt-4 inline-flex">
+        <Button size="sm" variant="outline">
+          <Pencil size={14} /> {label}
+        </Button>
+      </Link>
+    </div>
+  )
+}
+
+function AboutPanel({ dietitian, isOwner }: { dietitian: Dietitian; isOwner: boolean }) {
+  const bio = dietitian.bio?.trim()
+  const workplace = dietitian.workplace?.trim()
+  const country = dietitian.country?.trim()
+  const location = [workplace, country].filter(Boolean).join(', ')
+  const languages = dietitian.languages.filter((item) => item.trim())
+  const hasAbout = Boolean(bio || location || languages.length)
+
+  if (!hasAbout) {
+    if (isOwner) {
+      return (
+        <EmptyEditPrompt
+          message="Add your bio, workplace, and languages so patients know who you are."
+          to={practicePath('profile')}
+          label="Edit profile"
+        />
+      )
+    }
+    return <p>No about information yet.</p>
+  }
+
+  return (
+    <div className="space-y-4">
+      {bio ? <p className="text-base text-ink">{bio}</p> : null}
+      {location ? (
+        <p className="flex items-center gap-2">
+          <MapPin size={16} className="text-navy" />
+          {location}
+        </p>
+      ) : null}
+      {languages.length > 0 ? (
+        <div>
+          <h3 className="mb-2 font-bold text-ink">Languages</h3>
+          <div className="flex flex-wrap gap-2">
+            {languages.map((language) => (
+              <Pill key={language} tone="slate">
+                {language}
+              </Pill>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {isOwner ? (
+        <Link to={practicePath('profile')} className="inline-flex">
+          <Button size="sm" variant="outline">
+            <Pencil size={14} /> Edit profile
+          </Button>
+        </Link>
+      ) : null}
+    </div>
+  )
+}
+
+function ExperiencePanel({
+  dietitian,
+  isOwner,
+  onSaveExperience,
+}: {
+  dietitian: Dietitian
+  isOwner: boolean
+  onSaveExperience?: (experience: ExperienceItem[]) => void
+}) {
+  const experience = dietitian.experience.filter((item) => item.role?.trim() && item.org?.trim())
+  const education = dietitian.education.filter((item) => item.school?.trim() && item.degree?.trim())
+  const hasExperience = experience.length > 0
+  const hasEducation = education.length > 0
+
+  if (!hasExperience && !hasEducation) {
+    if (isOwner) {
+      return (
+        <EmptyEditPrompt
+          message="Add your work history and education so they show on your public profile."
+          to={practicePath('apply')}
+          label="Edit registration"
+        />
+      )
+    }
+    return <p>No experience listed yet.</p>
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="mb-2 font-bold text-ink">Professional experience</h3>
+        {hasExperience ? (
+          <ul className="space-y-3">
+            {experience.map((item, index) => (
+              <li key={`${item.org}-${index}`} className="rounded-2xl bg-panel p-3">
+                <span className="font-semibold text-ink">{item.role}</span>
+                <span className="block text-sm">{item.org}</span>
+                {item.years ? <span className="text-xs">{item.years}</span> : null}
+              </li>
+            ))}
+          </ul>
+        ) : isOwner ? (
+          <EmptyEditPrompt
+            message="No work history added yet."
+            to={practicePath('apply')}
+            label="Edit registration"
+          />
+        ) : (
+          <p>No work history listed.</p>
+        )}
+        {onSaveExperience ? (
+          <ExperienceEditor experience={experience} onSave={onSaveExperience} />
+        ) : null}
+      </div>
+      <div>
+        <h3 className="mb-2 font-bold text-ink">Education</h3>
+        {hasEducation ? (
+          <ul className="space-y-3">
+            {education.map((item) => (
+              <li key={`${item.school}-${item.degree}`} className="rounded-2xl bg-panel p-3">
+                <span className="font-semibold text-ink">{item.degree}</span>
+                <span className="block text-sm">
+                  {item.school}
+                  {item.year ? ` (${item.year})` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : isOwner ? (
+          <EmptyEditPrompt
+            message="No education added yet."
+            to={practicePath('apply')}
+            label="Edit registration"
+          />
+        ) : (
+          <p>No education listed.</p>
+        )}
+      </div>
     </div>
   )
 }

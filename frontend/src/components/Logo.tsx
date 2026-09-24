@@ -29,7 +29,7 @@ const Logo: React.FC<LogoProps> = ({ size = 'md', className = '', inverse = fals
     <img
       src={inverse ? LOGO_WHITE_SRC : LOGO_SRC}
       alt="MealLensAI"
-      className={cn('w-auto max-w-[200px] object-contain object-left', SIZE_CLASS[size], className)}
+      className={cn('w-auto max-w-[180px] object-contain object-left', SIZE_CLASS[size], className)}
       width={533}
       height={186}
     />

@@ -24,7 +24,14 @@ export function HomePage() {
     () => ({ query, country, specialty, condition }),
     [query, country, specialty, condition],
   )
-  const results = useMemo(() => filterDietitians(dietitians, filters), [dietitians, filters])
+  const results = useMemo(() => {
+    const matched = filterDietitians(dietitians, filters)
+    // Newest / featured specialists first so recently approved dietitians surface immediately.
+    return matched.slice().sort((a, b) => {
+      if (a.featured !== b.featured) return a.featured ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+  }, [dietitians, filters])
 
   function update(key: string, value: string) {
     const next = new URLSearchParams(params)
@@ -161,8 +168,8 @@ export function HomePage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {results.slice(0, 5).map((dietitian) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            {results.map((dietitian) => (
               <DietitianCard key={dietitian.id} dietitian={dietitian} />
             ))}
           </div>

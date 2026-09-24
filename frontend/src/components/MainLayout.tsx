@@ -46,7 +46,7 @@ const MainLayout = ({ children }: { children: ReactNode }) => {
         <PageHeaderProvider>
           <div className="marketplace-root flex min-h-screen bg-cream text-left">
             <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
-            <div className="flex min-h-screen min-w-0 flex-1 flex-col md:ml-[240px]">
+            <div className="flex min-h-screen min-w-0 flex-1 flex-col md:ml-[220px]">
               <AppTopBar onOpenNav={() => setNavOpen(true)} />
               <MarketplaceChrome bare>
                 {children}

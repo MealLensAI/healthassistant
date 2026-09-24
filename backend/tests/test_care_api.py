@@ -108,11 +108,83 @@ def test_new_doctor_signup_is_hidden_until_admin_approves(client):
             },
         },
     ).get_json()
-    assert any(item["userId"] == user_id and item["status"] == "pending" for item in submitted["dietitians"])
+    pending = [item for item in submitted["dietitians"] if item["userId"] == user_id]
+    assert pending and pending[0]["status"] == "pending"
+    # Patient marketplace only surfaces approved listings.
+    patient_visible = [item for item in submitted["dietitians"] if item.get("status") == "approved"]
+    assert all(item["userId"] != user_id for item in patient_visible)
 
     admin = {"X-User-Id": "user-admin"}
     approved = client.post("/api/care/applications/app-amina/approve", headers=admin).get_json()
-    assert any(item["userId"] == user_id and item["status"] == "approved" for item in approved["dietitians"])
+    listing = next(item for item in approved["dietitians"] if item["userId"] == user_id)
+    assert listing["status"] == "approved"
+    assert listing.get("verified") is True
+
+
+def test_auth_sync_promotes_allowlisted_admin_email(client):
+    synced = client.post(
+        "/api/care/auth/sync",
+        json={
+            "externalUserId": "supabase-admin-001",
+            "email": "admin@healthyyou.com",
+            "name": "Platform Admin",
+            "role": "admin",
+        },
+    ).get_json()
+    assert synced["user"]["role"] == "admin"
+    # Visiting as dietitian must not demote an admin.
+    again = client.post(
+        "/api/care/auth/sync",
+        json={
+            "externalUserId": "supabase-admin-001",
+            "email": "admin@healthyyou.com",
+            "name": "Platform Admin",
+            "role": "dietitian",
+        },
+    ).get_json()
+    assert again["user"]["role"] == "admin"
+    assert again["user"]["id"] == synced["user"]["id"]
+
+
+def test_admin_password_login(client, monkeypatch):
+    monkeypatch.setenv(
+        "CARE_ADMIN_CREDENTIALS",
+        "admin@healthyyou.com:test-admin-secret,ops@meallensai.com:other-secret",
+    )
+    denied = client.post(
+        "/api/care/auth/admin-login",
+        json={"email": "admin@healthyyou.com", "password": "wrong"},
+    )
+    assert denied.status_code == 401
+
+    ok = client.post(
+        "/api/care/auth/admin-login",
+        json={"email": "admin@healthyyou.com", "password": "test-admin-secret"},
+    )
+    assert ok.status_code == 200
+    body = ok.get_json()
+    assert body["user"]["role"] == "admin"
+    assert body["user"]["email"] == "admin@healthyyou.com"
+    assert body["token"] == body["user"]["id"]
+
+    other = client.post(
+        "/api/care/auth/admin-login",
+        json={"email": "ops@meallensai.com", "password": "other-secret", "name": "Ops Lead"},
+    ).get_json()
+    assert other["user"]["role"] == "admin"
+    assert other["user"]["name"] == "Ops Lead"
+
+
+def test_admin_password_login_requires_config(client, monkeypatch):
+    monkeypatch.delenv("CARE_ADMIN_CREDENTIALS", raising=False)
+    monkeypatch.delenv("CARE_ADMIN_PASSWORD", raising=False)
+    # Emails alone without a password must not unlock the console.
+    monkeypatch.setenv("CARE_ADMIN_EMAILS", "admin@healthyyou.com")
+    missing = client.post(
+        "/api/care/auth/admin-login",
+        json={"email": "admin@healthyyou.com", "password": "anything"},
+    )
+    assert missing.status_code == 400
 
 
 def test_pending_dietitian_cannot_message_patients(client):

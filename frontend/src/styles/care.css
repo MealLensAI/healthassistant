@@ -40,6 +40,12 @@
   text-align: left;
 }
 
+/* Match meallensaidieticnafrontend @theme radii (xl/2xl = 16px). Host Tailwind xl is 12px. */
+.marketplace-root .rounded-xl,
+.marketplace-root .rounded-2xl {
+  border-radius: 16px;
+}
+
 html.dark .marketplace-root {
   color-scheme: dark;
   --navy: #8bb6ea;
@@ -158,4 +164,18 @@ html.dark .marketplace-root .bg-white\/90 {
 
 .marketplace-root .border-destructive\/20 {
   border-color: color-mix(in srgb, var(--care-destructive) 20%, transparent);
+}
+
+@keyframes register-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.animate-register-pulse {
+  animation: register-pulse 1.2s ease-in-out infinite;
 }

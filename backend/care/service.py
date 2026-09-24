@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from .seed_data import COVER, default_availability
+from .seed_data import default_availability
 
 Json = dict[str, Any]
 
@@ -68,12 +68,11 @@ def upsert_pending_dietitian(dietitians: list[Json], application: Json) -> list[
         "languages": application.get("languages") or [],
         "workplace": application.get("workplace") or "",
         "avatar": (existing or {}).get("avatar") or photo or "",
-        "coverImage": (existing or {}).get("coverImage") or COVER,
+        "coverImage": (existing or {}).get("coverImage") or "",
         "verified": status == "approved",
         "featured": status == "approved",
         "education": application.get("education") or [],
-        "experience": application.get("experience")
-        or [{"role": "Applicant", "org": application.get("workplace") or "", "years": "Current"}],
+        "experience": application.get("experience") or [],
         "documents": documents,
         "reviews": (existing or {}).get("reviews") or [],
         "availability": (existing or {}).get("availability") or default_availability(),
@@ -184,11 +183,16 @@ def _guard_dietitian_marketplace(state: Json, actor: Json | None, kind: str) -> 
 
 
 def sync_account(state: Json, payload: Json) -> tuple[Json, Json]:
+    from care.config import settings
+
     email = str(payload.get("email") or "").strip().lower()
     name = str(payload.get("name") or "").strip()
     external_user_id = str(payload.get("externalUserId") or "").strip()
     role = str(payload.get("role") or "patient").strip()
-    if role not in ("patient", "dietitian"):
+    if role not in ("patient", "dietitian", "admin"):
+        role = "patient"
+    # Only allowlisted emails may become / stay admin via sync.
+    if role == "admin" and not settings.is_admin_email(email):
         role = "patient"
     if not email or "@" not in email:
         raise ValueError("A valid email is required")
@@ -198,6 +202,18 @@ def sync_account(state: Json, payload: Json) -> tuple[Json, Json]:
     next_state = copy.deepcopy(state)
     user = next((item for item in next_state.get("users", []) if str(item.get("email") or "").lower() == email), None)
     if user:
+        # Never downgrade credential-review admins.
+        if user.get("role") == "admin" or settings.is_admin_email(email):
+            user = {
+                **user,
+                "role": "admin",
+                "title": user.get("title") or "Admin",
+                "name": name or user.get("name"),
+            }
+            next_state["users"] = [
+                user if item.get("id") == user["id"] else item for item in next_state.get("users", [])
+            ]
+            return next_state, user
         # Org/dietitian accounts may open marketplace after an earlier patient sync — upgrade role.
         if role == "dietitian" and user.get("role") != "dietitian":
             user = {
@@ -219,21 +235,46 @@ def sync_account(state: Json, payload: Json) -> tuple[Json, Json]:
     user_id = external_user_id or uid("user")
     if any(item.get("id") == user_id for item in next_state.get("users", [])):
         user_id = uid("user")
+    resolved_role = "admin" if settings.is_admin_email(email) else role
     user = {
         "id": user_id,
         "name": name,
         "email": email,
-        "role": role,
+        "role": resolved_role,
         "avatar": "",
         "country": str(payload.get("country") or "").strip(),
-        "title": "Dietitian" if role == "dietitian" else None,
+        "title": "Admin" if resolved_role == "admin" else ("Dietitian" if resolved_role == "dietitian" else None),
         "phone": str(payload.get("phone") or "").strip(),
     }
     next_state["users"] = [*(next_state.get("users") or []), user]
-    if role == "patient":
+    if resolved_role == "patient":
         profiles = [item for item in (next_state.get("patientProfiles") or []) if item.get("userId") != user["id"]]
         next_state["patientProfiles"] = [{**empty_patient_profile(user["id"], name), "userId": user["id"]}, *profiles]
     return next_state, user
+
+
+def login_admin(state: Json, email: str, password: str, name: str | None = None) -> tuple[Json, Json]:
+    """Authenticate an env-allowlisted admin with email + password."""
+    from care.config import settings
+
+    email_key = str(email or "").strip().lower()
+    if not email_key or "@" not in email_key:
+        raise ValueError("A valid email is required")
+    if not settings.admin_credentials:
+        raise ValueError("Admin password login is not configured. Set CARE_ADMIN_CREDENTIALS or CARE_ADMIN_PASSWORD.")
+    if not settings.verify_admin_password(email_key, password):
+        raise ValueError("Incorrect email or password")
+
+    display = (name or "").strip() or email_key.split("@")[0].replace(".", " ").title()
+    return sync_account(
+        state,
+        {
+            "email": email_key,
+            "name": display,
+            "role": "admin",
+            "externalUserId": f"admin-{email_key}",
+        },
+    )
 
 
 def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
@@ -524,30 +565,58 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
 
     if kind == "UPDATE_ACCOUNT":
         user_id = action["userId"]
+        account_user = None
         for user in next_state["users"]:
             if user["id"] != user_id:
                 continue
+            account_user = user
             for key in ("name", "email", "phone", "country", "title", "avatar"):
                 if action.get(key) is not None:
                     user[key] = action[key]
-        for dietitian in next_state["dietitians"]:
-            if dietitian["userId"] != user_id:
-                continue
-            mapping = {
-                "name": "name",
-                "country": "country",
-                "workplace": "workplace",
-                "title": "title",
-                "bio": "bio",
-                "yearsExperience": "yearsExperience",
-                "specialties": "specialties",
-                "languages": "languages",
-                "avatar": "avatar",
-                "coverImage": "coverImage",
-            }
+        listing = next((item for item in next_state["dietitians"] if item["userId"] == user_id), None)
+        mapping = {
+            "name": "name",
+            "country": "country",
+            "workplace": "workplace",
+            "title": "title",
+            "bio": "bio",
+            "yearsExperience": "yearsExperience",
+            "specialties": "specialties",
+            "languages": "languages",
+            "avatar": "avatar",
+            "coverImage": "coverImage",
+        }
+        if listing:
             for src, dest in mapping.items():
                 if action.get(src) is not None:
-                    dietitian[dest] = action[src]
+                    listing[dest] = action[src]
+        elif account_user and account_user.get("role") == "dietitian":
+            stub = {
+                "id": f"dt-{user_id.replace('user-', '', 1)}",
+                "userId": user_id,
+                "name": action.get("name") or account_user.get("name") or "",
+                "title": action.get("title") or account_user.get("title") or "",
+                "country": action.get("country") or account_user.get("country") or "",
+                "specialties": action.get("specialties") or [],
+                "conditions": action.get("specialties") or [],
+                "yearsExperience": action.get("yearsExperience") or 0,
+                "rating": 0,
+                "reviewCount": 0,
+                "bio": action.get("bio") or "",
+                "languages": action.get("languages") or [],
+                "workplace": action.get("workplace") or "",
+                "avatar": action.get("avatar") or account_user.get("avatar") or "",
+                "coverImage": action.get("coverImage") or "",
+                "verified": False,
+                "featured": False,
+                "education": [],
+                "experience": [],
+                "documents": [],
+                "reviews": [],
+                "availability": default_availability(),
+                "status": "pending",
+            }
+            next_state["dietitians"] = [*(next_state.get("dietitians") or []), stub]
         return next_state
 
     if kind == "COMPLETE_APPOINTMENT":

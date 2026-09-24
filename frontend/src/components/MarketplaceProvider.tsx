@@ -1,7 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { AppProvider, useApp } from '@/lib/care/context'
 import { ThemeProvider } from '@/lib/care/theme'
-import { apiEnabled, fetchServerState, mergeServerState, setSessionUserId } from '@/lib/care/api'
+import {
+  apiEnabled,
+  fetchServerState,
+  getSessionUserId,
+  mergeServerState,
+  setSessionUserId,
+} from '@/lib/care/api'
 import {
   bootstrapEmbeddedSession,
   careRoleFromPath,
@@ -16,8 +23,10 @@ let marketplaceBooted = false
 let marketplaceBootPromise: Promise<void> | null = null
 let bootedRole: CareSyncRole | null = null
 
-function overlayMainIdentity(base: User, role: CareSyncRole): User {
+function overlayMainIdentity(base: User, pathRole: CareSyncRole): User {
   const ha = readHealthAppUser()
+  // Never demote an admin. Path role only applies for patient/dietitian shells.
+  const role: User['role'] = base.role === 'admin' ? 'admin' : pathRole === 'admin' ? base.role : pathRole
   if (!ha) return { ...base, role }
   return {
     ...base,
@@ -28,6 +37,58 @@ function overlayMainIdentity(base: User, role: CareSyncRole): User {
   }
 }
 
+async function hydrateAs(
+  dispatch: ReturnType<typeof useApp>['dispatch'],
+  user: User,
+  server: Record<string, unknown>,
+) {
+  setSessionUserId(user.id)
+  const hydrated = mergeServerState(
+    {
+      ...(server as never),
+      toasts: [],
+      activeCall: null,
+      currentUser: null,
+    },
+    { ...server, currentUser: user as never },
+  )
+  dispatch({
+    type: 'HYDRATE',
+    state: { ...hydrated, currentUser: user as never },
+  })
+}
+
+/** Restore an existing admin care session; do not auto-login demo Amelia. */
+async function bootAdminWorkspace(dispatch: ReturnType<typeof useApp>['dispatch']) {
+  if (!apiEnabled()) {
+    const sessionId = getSessionUserId()
+    const seed = USERS.find((item) => item.id === sessionId && item.role === 'admin') as User | undefined
+    if (seed) {
+      setSessionUserId(seed.id)
+      dispatch({ type: 'LOGIN', user: seed })
+    }
+    return true
+  }
+
+  const sessionId = getSessionUserId()
+  if (!sessionId) return true
+
+  try {
+    const server = await fetchServerState()
+    const fromState = server.currentUser as User | null | undefined
+    const fromUsers = (server.users as User[] | undefined)?.find((item) => item.id === sessionId)
+    const user = (fromState?.id === sessionId ? fromState : fromUsers) || null
+    if (user?.role === 'admin') {
+      await hydrateAs(dispatch, user, server as never)
+    } else {
+      setSessionUserId(null)
+    }
+  } catch {
+    setSessionUserId(null)
+  }
+  return true
+}
+
 async function bootMarketplace(
   dispatch: ReturnType<typeof useApp>['dispatch'],
   role: CareSyncRole = 'patient',
@@ -36,25 +97,18 @@ async function bootMarketplace(
 
   try {
     if (apiEnabled()) {
+      if (role === 'admin') {
+        await bootAdminWorkspace(dispatch)
+        marketplaceBooted = true
+        bootedRole = role
+        return
+      }
+
       const result = await bootstrapEmbeddedSession(role)
       if (result?.server && result.user) {
         const user = overlayMainIdentity(result.user as User, role)
-        setSessionUserId(user.id)
-        // Re-fetch with X-User-Id so appointments/messages are scoped to this patient.
         const server = (await fetchServerState().catch(() => result.server)) as typeof result.server
-        const hydrated = mergeServerState(
-          {
-            ...(server as never),
-            toasts: [],
-            activeCall: null,
-            currentUser: null,
-          },
-          { ...server, currentUser: user as never },
-        )
-        dispatch({
-          type: 'HYDRATE',
-          state: { ...hydrated, currentUser: user as never },
-        })
+        await hydrateAs(dispatch, user, server as never)
         marketplaceBooted = true
         bootedRole = role
         return
@@ -63,17 +117,7 @@ async function bootMarketplace(
       const server = await fetchServerState()
       if (server.currentUser) {
         const user = overlayMainIdentity(server.currentUser as User, role)
-        setSessionUserId(user.id)
-        dispatch({
-          type: 'HYDRATE',
-          state: {
-            ...mergeServerState(
-              { ...server, toasts: [], activeCall: null, currentUser: null },
-              server,
-            ),
-            currentUser: user,
-          },
-        })
+        await hydrateAs(dispatch, user, server as never)
         marketplaceBooted = true
         bootedRole = role
         return
@@ -83,8 +127,13 @@ async function bootMarketplace(
     // local seed below
   }
 
-  // Keep seed ids so appointments/messages/files match frontend-3 demo data,
-  // but show the signed-in MealLensAI name/email/avatar (one profile).
+  if (role === 'admin') {
+    await bootAdminWorkspace(dispatch)
+    marketplaceBooted = true
+    bootedRole = role
+    return
+  }
+
   const seed =
     USERS.find((u) => u.role === role) ||
     USERS.find((u) => u.role === 'patient') ||
@@ -96,16 +145,7 @@ async function bootMarketplace(
     if (apiEnabled()) {
       try {
         const server = await fetchServerState()
-        dispatch({
-          type: 'HYDRATE',
-          state: {
-            ...mergeServerState(
-              { ...server, toasts: [], activeCall: null, currentUser: null },
-              { ...server, currentUser: user },
-            ),
-            currentUser: user,
-          },
-        })
+        await hydrateAs(dispatch, user, server as never)
       } catch {
         // keep local seed login
       }
@@ -140,7 +180,8 @@ export function MarketplaceBootGate({
   useEffect(() => {
     let cancelled = false
     const run = async () => {
-      const target: CareSyncRole = role === 'dietitian' ? 'dietitian' : 'patient'
+      const target: CareSyncRole =
+        role === 'admin' ? 'admin' : role === 'dietitian' ? 'dietitian' : 'patient'
       if (bootedRole !== target) {
         marketplaceBooted = false
       }
@@ -172,6 +213,25 @@ export function MarketplaceBootGate({
       </div>
     )
   }
-  if (blocking && !currentUser && !allowGuest) return null
+
+  // Admin shell renders its own sign-in page when there is no session.
+  if (role === 'admin') {
+    return <>{children}</>
+  }
+
+  if (blocking && !currentUser && !allowGuest) {
+    return (
+      <div className="marketplace-root grid min-h-dvh place-items-center bg-cream p-8 text-left">
+        <div className="hy-card max-w-md space-y-3 p-6 text-center">
+          <h1 className="text-xl font-extrabold text-ink">Sign in required</h1>
+          <p className="text-sm text-muted">Open MealLensAI and sign in to continue.</p>
+          <Link to="/login" className="inline-block text-sm font-semibold text-navy">
+            Go to sign in
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return <>{children}</>
 }

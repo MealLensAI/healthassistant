@@ -18,13 +18,13 @@ export function DietitianAccountPage() {
     name: currentUser?.name ?? me?.name ?? '',
     email: currentUser?.email ?? '',
     phone: currentUser?.phone ?? application?.phone ?? '',
-    title: me?.title ?? currentUser?.title ?? 'Clinical Dietitian',
-    country: currentUser?.country ?? me?.country ?? application?.country ?? 'United States',
+    title: me?.title ?? currentUser?.title ?? '',
+    country: currentUser?.country ?? me?.country ?? application?.country ?? '',
     workplace: me?.workplace ?? application?.workplace ?? '',
     yearsExperience: String(me?.yearsExperience ?? application?.yearsExperience ?? ''),
     bio: me?.bio ?? application?.bio ?? '',
     specialties: me?.specialties ?? application?.specialties ?? [],
-    languages: (me?.languages ?? application?.languages ?? ['English']).join(', '),
+    languages: (me?.languages ?? application?.languages ?? []).join(', '),
   })
 
   if (!currentUser) return null
