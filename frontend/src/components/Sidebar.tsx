@@ -20,6 +20,8 @@ import {
   X,
 } from "lucide-react"
 import { Logo } from "@/components/CareLogo"
+import { useApp } from "@/lib/care/context"
+import { pendingAppointmentCount, unreadCountFor } from "@/lib/care/alerts"
 import { Avatar } from "@/components/care-ui/Primitives"
 import { useAuth, cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -46,7 +48,7 @@ const mealNav: NavItem[] = [
   { to: "/health-meals", label: "Scan ingredients", icon: ScanLine },
   { to: "/planner", label: "Meal plans", icon: ClipboardList },
   { to: "/location-budget", label: "Location & budget", icon: MapPin },
-  { to: "/files", label: "My files", icon: FolderOpen },
+  { to: "/files", label: "My Health Files", icon: FolderOpen },
   { to: "/profile", label: "Profile", icon: UserRound },
   { to: "/history", label: "History", icon: History },
   { to: "/payment", label: "Payment", icon: CreditCard },
@@ -59,6 +61,9 @@ type SidebarProps = {
 }
 
 const Sidebar = ({ open = false, onClose }: SidebarProps) => {
+  const { currentUser, appointments, dietitians, conversations, messages } = useApp()
+  const pending = currentUser ? pendingAppointmentCount(currentUser.id, appointments, dietitians) : 0
+  const unread = currentUser ? unreadCountFor(currentUser.id, conversations, messages) : 0
   const navigate = useNavigate()
   const location = useLocation()
   const { toast } = useToast()
@@ -93,7 +98,7 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
   }
 
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Member"
-  const avatar = user?.photoURL || (photoBump >= 0 ? readStoredProfilePhoto() : "") || ""
+  const avatar = currentUser?.avatar || user?.photoURL || (photoBump >= 0 ? readStoredProfilePhoto(user?.uid) : "") || ""
 
   return (
     <>
@@ -128,6 +133,7 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
 
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
           {mealNav.map((item) => {
+            const badge = item.to === "/appointments" ? pending : item.to === "/messages" ? unread : 0
             const active = item.match
               ? item.match(location.pathname)
               : item.end
@@ -146,6 +152,7 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
               >
                 <item.icon size={20} strokeWidth={1.75} className="shrink-0" />
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                {badge > 0 && <span className="rounded-full bg-navy px-1.5 text-xs font-bold text-white">{badge}</span>}
               </NavLink>
             )
           })}

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { AppProvider, useApp } from '@/lib/care/context'
 import { ThemeProvider } from '@/lib/care/theme'
@@ -5,6 +6,7 @@ import { MarketplaceBootGate } from '@/components/MarketplaceProvider'
 import { AppShell } from '@/components/care-layout/AppShell'
 import { RequireAuth } from '@/components/RequireAuth'
 import { AdminLoginPage } from '@/pages/admin/AdminLoginPage'
+import { setSessionUserId } from '@/lib/care/api'
 import '@/styles/care.css'
 
 /**
@@ -26,28 +28,18 @@ export default function AdminApp() {
 function AdminGate() {
   const { currentUser, logout } = useApp()
 
-  if (!currentUser) {
-    return <AdminLoginPage />
-  }
+  useEffect(() => {
+    // A leftover patient/dietitian care session must not block the admin form.
+    // Only clear after boot has produced a concrete non-admin identity — never
+    // bounce a successful admin login because of a transient null flicker.
+    if (currentUser && currentUser.role !== 'admin') {
+      setSessionUserId(null)
+      logout()
+    }
+  }, [currentUser, logout])
 
-  if (currentUser.role !== 'admin') {
-    return (
-      <div className="marketplace-root grid min-h-dvh place-items-center bg-cream p-8 text-left">
-        <div className="hy-card max-w-md space-y-3 p-6 text-center">
-          <h1 className="text-xl font-extrabold text-ink">Admin access required</h1>
-          <p className="text-sm text-muted">
-            This account is not an admin. Sign out and use an allowlisted admin email and password.
-          </p>
-          <button
-            type="button"
-            onClick={() => logout()}
-            className="inline-block text-sm font-semibold text-navy"
-          >
-            Sign out and try again
-          </button>
-        </div>
-      </div>
-    )
+  if (!currentUser || currentUser.role !== 'admin') {
+    return <AdminLoginPage />
   }
 
   return (

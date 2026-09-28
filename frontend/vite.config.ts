@@ -35,12 +35,19 @@ export default defineConfig(({ mode }) => {
                 req.url,
               );
             });
-            proxy.on("proxyRes", (proxyRes, req, _res) => {
+            proxy.on("proxyRes", (proxyRes, req, res) => {
               console.log(
                 "Received Response from the Target:",
                 proxyRes.statusCode,
                 req.url,
               );
+              // Keep chat SSE frames unbuffered through the Vite proxy.
+              if (req.url?.includes("/marketplace/stream") || req.url?.includes("/care/stream")) {
+                res.setHeader("Cache-Control", "no-cache, no-transform");
+                res.setHeader("X-Accel-Buffering", "no");
+                proxyRes.headers["cache-control"] = "no-cache, no-transform";
+                proxyRes.headers["x-accel-buffering"] = "no";
+              }
             });
           },
         },

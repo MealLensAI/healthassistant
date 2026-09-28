@@ -46,12 +46,11 @@ export function HomePage() {
       <section className="overflow-hidden rounded-lg bg-white shadow-card">
         <div className="grid lg:grid-cols-[1.1fr_0.9fr]">
           <div className="p-6 sm:p-8 lg:p-10">
-            <p className="hy-eyebrow">Food for you</p>
             <h1 className="font-display mt-3 max-w-xl text-3xl font-extrabold leading-[1.15] text-ink sm:text-4xl lg:text-[2.75rem]">
-              Eat right for your condition, effortlessly.
+              Get right food guidance for your condition.
             </h1>
             <p className="mt-3 max-w-lg text-base text-muted">
-              Find a verified dietitian, book a time, and get meals that fit diabetes, IBS, and the ingredients you already have.
+              Connect with a verified dietitian who understands your health needs and guides you on the right foods and meals for your condition.
             </p>
             <form
               className="mt-6 flex h-12 max-w-xl items-center rounded-md border border-line bg-white pr-1"

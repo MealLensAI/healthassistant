@@ -4,6 +4,7 @@ import { DietitianHero } from '@/components/dietitians/DietitianHero'
 import { SpecialtyPicker } from '@/components/dietitians/SpecialtyPicker'
 import { Button } from '@/components/care-ui/Button'
 import { useApp } from '@/lib/care/context'
+import { uploadCareAsset } from '@/lib/care/api'
 import { COUNTRIES } from '@/lib/care/data/mock'
 import { draftDietitianFromUser } from '@/lib/care/draftDietitian'
 import { practicePath } from '@/lib/care/practiceBase'
@@ -75,9 +76,10 @@ export function DietitianAccountPage() {
       <DietitianHero
         dietitian={preview}
         editable
-        onChangeCover={(coverImage) => saveAccount({ coverImage }, 'Cover photo updated.')}
-        onChangeAvatar={(avatar) => {
-          saveAccount({ avatar }, 'Profile photo updated.')
+        onChangeCover={(file) => { void uploadCareAsset(file, 'avatar').then(({ objectKey }) => saveAccount({ coverImage: objectKey }, 'Cover photo updated.')).catch(() => toast('error', 'Could not upload cover photo.')) }}
+        onChangeAvatar={(file) => {
+          void uploadCareAsset(file, 'avatar').then(async ({ objectKey: avatar }) => {
+          await saveAccount({ avatar }, 'Profile photo updated.')
           try {
             const raw = window.localStorage.getItem('user_data')
             if (raw) {
@@ -89,6 +91,7 @@ export function DietitianAccountPage() {
           } catch {
             /* ignore */
           }
+          }).catch(() => toast('error', 'Could not upload profile photo.'))
         }}
       />
       {!me && (

@@ -58,7 +58,7 @@ const HealthProfileGate: React.FC<HealthProfileGateProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const onSettingsPage = location.pathname === '/profile';
+  const onSettingsPage = location.pathname === '/profile'
 
   useEffect(() => {
     if (!ready || !userId) {

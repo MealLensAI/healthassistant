@@ -1,5 +1,4 @@
 import {
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -8,6 +7,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react'
+import { AppContext } from './appContext'
 import {
   APPOINTMENTS,
   APPLICATIONS,
@@ -26,15 +26,20 @@ import {
   MISSED_CALLS,
   NOTIFICATIONS,
 } from './data/mock'
-import { defaultAvailability, uid } from '@/lib/care/utils'
+import { uid } from '@/lib/care/utils'
 import {
   actionPayload,
   apiEnabled,
   bookAppointmentOnServer,
-  cancelAppointmentOnServer,
+  fetchCarePulse,
+  fetchConversationMessages,
+  fetchCatalogApplications,
+  fetchCatalogDietitians,
   fetchServerState,
   isRemoteAction,
   loginOnServer,
+  mergeCarePulse,
+  mergeServerPatch,
   mergeServerState,
   postAction,
   registerAccountOnServer,
@@ -42,6 +47,9 @@ import {
   setSessionUserId,
 } from './api'
 import { activeCallFromLive } from '@/lib/care/calls'
+import { CallRequestGuard, reconcileCallState } from '@/lib/care/callLifecycle'
+import { notifyLocalCallEnded } from '@/lib/care/callControls'
+import { connectCareRealtime } from '@/lib/care/realtime'
 import { mergePatientFiles, mergePatientProfiles, emptyPatientProfile } from '@/lib/care/patients'
 import { appReducer, createInitialState, type Action } from '@/lib/care/store'
 import type {
@@ -79,11 +87,11 @@ function loadState(): AppState {
   if (apiEnabled()) {
     try {
       const userId = window.localStorage.getItem('meallensai.session')
-      const seeded = userId ? seedState.users.find((item) => item.id === userId) ?? null : null
-      // Synced MealLensAI accounts use the auth uid (not in mock USERS) — keep a stub so UI can boot.
+      // /admin must not inherit a MealLens patient session as currentUser —
+      // that skipped the admin login form with "Admin access required".
+      const onAdminRoute = window.location.pathname.startsWith('/admin')
       const currentUser =
-        seeded ||
-        (userId
+        userId && !onAdminRoute
           ? ({
               id: userId,
               name: 'Member',
@@ -91,16 +99,17 @@ function loadState(): AppState {
               role: 'patient',
               avatar: '',
             } as AppState['currentUser'])
-          : null)
+          : null
+      const emptyState = createInitialState({ currentUser })
       return {
-        ...seedState,
+        ...emptyState,
         currentUser,
         toasts: [],
-        liveCalls: seedState.liveCalls,
-        activeCall: activeCallFromLive(currentUser?.id, seedState.liveCalls),
+        liveCalls: [],
+        activeCall: null,
       }
     } catch {
-      return { ...seedState, currentUser: null, toasts: [], activeCall: null }
+      return { ...createInitialState(), currentUser: null, toasts: [], activeCall: null }
     }
   }
   try {
@@ -111,7 +120,7 @@ function loadState(): AppState {
     void _droppedMealPlans
     const currentUser = (() => {
         if (!parsed.currentUser) return null
-        const user = seedState.users.find((item) => item.id === parsed.currentUser?.id) ?? parsed.currentUser
+        const user = parsed.users?.find((item) => item.id === parsed.currentUser?.id) ?? parsed.currentUser
         const listing = (parsed.dietitians?.length ? parsed.dietitians : seedState.dietitians).find(
           (item) => item.userId === user.id,
         )
@@ -119,7 +128,7 @@ function loadState(): AppState {
         return {
           ...user,
           name: listing.name,
-          avatar: listing.avatar || user.avatar,
+          avatar: user.avatar || listing.avatar,
           country: listing.country,
           title: listing.title,
         }
@@ -128,7 +137,7 @@ function loadState(): AppState {
     return {
       ...seedState,
       ...stored,
-      users: seedState.users,
+      users: parsed.users ?? seedState.users,
       toasts: [],
       liveCalls,
       activeCall: activeCallFromLive(currentUser?.id, liveCalls),
@@ -149,8 +158,9 @@ function loadState(): AppState {
   }
 }
 
-interface AppContextValue extends AppState {
-  dispatch: (action: Action) => void
+export interface AppContextValue extends AppState {
+  refreshCare: () => Promise<void>
+  dispatch: (action: Action) => Promise<boolean>
   login: (userId: string) => void
   registerAccount: (details: {
     name: string
@@ -164,9 +174,16 @@ interface AppContextValue extends AppState {
   }) => Promise<boolean>
   logout: () => void
   toast: (type: 'success' | 'error' | 'info', message: string) => void
-  sendMessage: (conversationId: string, text: string, attachments?: { name: string; size: string; url?: string; type?: string }[]) => void
+  sendMessage: (
+    conversationId: string,
+    text: string,
+    attachments?: { name: string; size: string; url?: string; type?: string; objectKey?: string; bucket?: string; sizeBytes?: number }[],
+    peerId?: string,
+  ) => Promise<void>
+  retryMessage: (messageId: string) => Promise<void>
   sendPeerMessage: (conversationId: string, senderId: string, text: string) => void
-  openConversation: (dietitianUserId: string, dietitianName: string) => string
+  openConversation: (dietitianUserId: string, dietitianName: string) => Promise<string>
+  deleteConversation: (conversationId: string) => Promise<boolean>
   bookAppointment: (
     dietitianId: string,
     date: string,
@@ -174,17 +191,19 @@ interface AppContextValue extends AppState {
     topic: string,
     kind: 'video' | 'chat',
   ) => Promise<boolean>
-  cancelAppointment: (appointmentId: string) => void
+  cancelAppointment: (appointmentId: string) => Promise<boolean>
   requestConsultation: (dietitianId: string, note: string) => void
-  respondConsultation: (id: string, status: 'accepted' | 'declined') => void
-  uploadFile: (file: { name: string; category: 'labs' | 'diary' | 'photo' | 'other'; size: string; sharedWithId?: string; url?: string }) => void
-  submitApplication: (application: Omit<DietitianApplication, 'id' | 'submittedAt' | 'adminNotes' | 'status'> & { status?: DietitianApplication['status'] }) => void
+  respondConsultation: (id: string, status: 'accepted' | 'declined') => Promise<boolean>
+  uploadFile: (file: { name: string; category: 'labs' | 'diary' | 'photo' | 'other'; size: string; sharedWithId?: string; url?: string; objectKey?: string; bucket?: string; mimeType?: string; sizeBytes?: number }) => void
+  submitApplication: (application: Omit<DietitianApplication, 'id' | 'submittedAt' | 'adminNotes' | 'status'> & { status?: DietitianApplication['status'] }) => Promise<boolean>
   updateAvailability: (dietitianId: string, availability: AvailabilitySlot[]) => void
   approveApplication: (applicationId: string) => void
   requestMoreInfo: (applicationId: string, message: string) => void
-  startCall: (conversationId: string, peerId: string, peerName: string, peerAvatar: string) => void
-  answerCall: () => void
-  endCall: () => void
+  deleteApplication: (applicationId: string) => Promise<boolean>
+  startCall: (conversationId: string, peerId: string, peerName: string, peerAvatar: string) => Promise<boolean>
+  answerCall: () => Promise<boolean>
+  endCall: () => Promise<boolean>
+  dismissCall: (callId: string) => void
   payQuote: (quoteId: string, methodId: string) => void
   addPaymentMethod: (method: Omit<SavedPaymentMethod, 'id' | 'patientId'>) => void
   savePatientProfile: (profile: PatientProfile) => void
@@ -216,10 +235,8 @@ interface AppContextValue extends AppState {
       coverImage?: string
     },
     message?: string,
-  ) => void
+  ) => Promise<void>
 }
-
-const AppContext = createContext<AppContextValue | null>(null)
 
 function parseApiError(raw: string) {
   try {
@@ -234,31 +251,122 @@ function parseApiError(raw: string) {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, reduce] = useReducer(appReducer, undefined, loadState)
   const stateRef = useRef(state)
+  const statePollInFlight = useRef(false)
+  const endedCallIds = useRef(new Set<string>())
+  const pendingCallStarts = useRef(new Set<string>())
+  const pendingCallRequests = useRef(new Map<string, ReturnType<typeof postAction>>())
+  const callRequests = useRef(new CallRequestGuard())
   stateRef.current = state
 
-  const hydrateFromServer = useCallback((server: Parameters<typeof mergeServerState>[1]) => {
-    const next = mergeServerState(stateRef.current, server)
-    if (sameAppData(stateRef.current, next)) return
-    reduce({ type: 'HYDRATE', state: next })
-  }, [])
+  const reconcileCalls = useCallback((next: AppState) => (
+    reconcileCallState(stateRef.current, next, endedCallIds.current, pendingCallStarts.current)
+  ), [])
 
-  const dispatch = useCallback((action: Action) => {
+  const dismissCall = useCallback((callId: string) => {
+    if (!callId) return
+    endedCallIds.current.add(callId)
+    pendingCallStarts.current.delete(callId)
+    callRequests.current.changed()
+    const next = reconcileCalls(stateRef.current)
+    stateRef.current = next
+    reduce({ type: 'HYDRATE', state: next })
+  }, [reconcileCalls])
+
+  const hydrateFromServer = useCallback((server: Parameters<typeof mergeServerState>[1], requestedCallVersion: number) => {
+    const protectedServer = callRequests.current.protect(server, stateRef.current.liveCalls, requestedCallVersion)
+    const next = reconcileCalls(mergeServerState(stateRef.current, protectedServer))
+    if (sameAppData(stateRef.current, next)) return
+    stateRef.current = next
+    reduce({ type: 'HYDRATE', state: next })
+  }, [reconcileCalls])
+
+  const refreshCare = useCallback(async () => {
+    if (!apiEnabled()) return
+    const userId = stateRef.current.currentUser?.id
+    if (!userId) return
+    const requestedCallVersion = callRequests.current.capture()
+    const server = await fetchServerState()
+    if (stateRef.current.currentUser?.id === userId) hydrateFromServer(server, requestedCallVersion)
+  }, [hydrateFromServer])
+
+  const applyServerPatch = useCallback((response: Parameters<typeof mergeServerPatch>[1]) => {
+    const next = reconcileCalls(mergeServerPatch(stateRef.current, response))
+    if (sameAppData(stateRef.current, next)) return
+    stateRef.current = next
+    reduce({ type: 'HYDRATE', state: next })
+  }, [reconcileCalls])
+
+  const applyPulse = useCallback((pulse: Parameters<typeof mergeCarePulse>[1]) => {
+    const next = reconcileCalls(mergeCarePulse(stateRef.current, pulse))
+    const previousCallId = stateRef.current.activeCall?.callId
+    if (previousCallId && !next.liveCalls.some((call) => call.id === previousCallId)) {
+      endedCallIds.current.add(previousCallId)
+    }
+    if (sameAppData(stateRef.current, next)) return
+    stateRef.current = next
+    reduce({ type: 'HYDRATE', state: next })
+  }, [reconcileCalls])
+
+  const dispatch = useCallback(async (action: Action): Promise<boolean> => {
+    const callAction = action.type === 'START_CALL' || action.type === 'ANSWER_CALL' || action.type === 'END_CALL'
+    const callId = action.type === 'START_CALL' ? action.call.callId : stateRef.current.activeCall?.callId
+    if (action.type === 'END_CALL' && !action.callId && !callId) return true
+    if (callAction) callRequests.current.changed()
+    if (action.type === 'END_CALL' && (action.callId || callId)) {
+      action = { ...action, callId: action.callId || callId }
+      // Notify the media channel before the local reducer tears down the peer.
+      notifyLocalCallEnded(action.callId!)
+      endedCallIds.current.add(action.callId!)
+      pendingCallStarts.current.delete(action.callId!)
+    }
     if (apiEnabled() && isRemoteAction(action)) {
-      if (action.type !== 'START_CALL') reduce(action)
-      void postAction(action.type, actionPayload(action))
-        .then((server) => {
-          hydrateFromServer(server)
+      // Call lifecycle must apply locally first so WebRTC can open media without
+      // waiting on a slow Supabase rewrite (and so the peer rings immediately).
+      if (action.type === 'START_CALL' && callId) pendingCallStarts.current.add(callId)
+      const optimisticLocal =
+        callAction ||
+        action.type === 'CANCEL_APPOINTMENT' ||
+        action.type === 'DELETE_APPOINTMENT'
+      if (optimisticLocal) {
+        stateRef.current = appReducer(stateRef.current, action)
+        reduce({ type: 'HYDRATE', state: stateRef.current })
+      }
+      const requestedCallVersion = callRequests.current.capture()
+      try {
+        if (action.type === 'END_CALL' && action.callId) {
+          // A quick cancel must arrive after START has created the server row.
+          await pendingCallRequests.current.get(action.callId)?.catch(() => undefined)
+        }
+        const request = postAction(action.type, actionPayload(action))
+        if (action.type === 'START_CALL' && callId) pendingCallRequests.current.set(callId, request)
+        const server = await request
+        const acceptCalls = callAction
+          ? callRequests.current.acknowledged(requestedCallVersion)
+          : callRequests.current.isCurrent(requestedCallVersion)
+        if (action.type === 'START_CALL' && callId) pendingCallStarts.current.delete(callId)
+        applyServerPatch(acceptCalls ? server : {
+          ...server,
+          patch: { ...server.patch, liveCalls: undefined },
         })
-        .catch(() => {
-          reduce({
-            type: 'ADD_TOAST',
-            toast: { type: 'error', message: 'Could not save that change to the server.' },
-          })
-        })
-      return
+        return true
+      } catch (error) {
+        if (action.type === 'START_CALL' || action.type === 'ANSWER_CALL') {
+          if (callId) dismissCall(callId)
+        }
+        if (!['MARK_CONVERSATION_READ', 'MARK_NOTIFICATION_READ', 'MARK_NOTIFICATIONS_READ', 'MARK_MISSED_CALLS_SEEN'].includes(action.type)) {
+          reduce({ type: 'ADD_TOAST', toast: { type: 'error', message: error instanceof Error ? error.message : 'Could not save that change to the server.' } })
+        }
+        return false
+      } finally {
+        if (action.type === 'START_CALL' && callId) {
+          pendingCallStarts.current.delete(callId)
+          pendingCallRequests.current.delete(callId)
+        }
+      }
     }
     reduce(action)
-  }, [hydrateFromServer])
+    return true
+  }, [applyServerPatch, dismissCall])
 
   useEffect(() => {
     if (!apiEnabled()) return
@@ -266,28 +374,166 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // /state responses were wiping booked appointments and blanking the inbox.
     if (!state.currentUser?.id) return
     let cancelled = false
+    const refreshCatalog = async () => {
+      const [dietitiansRes, applicationsRes] = await Promise.all([
+        fetchCatalogDietitians().catch(() => null),
+        stateRef.current.currentUser?.role === 'patient' ? Promise.resolve(null) : fetchCatalogApplications().catch(() => null),
+      ])
+      if (cancelled) return
+      const current = stateRef.current
+      const viewerId = current.currentUser?.id
+      let dietitians = dietitiansRes?.dietitians ?? current.dietitians
+      // Don't blank the specialist's own cover/avatar if catalog momentarily omits them.
+      if (viewerId && dietitiansRes?.dietitians) {
+        const localMine = current.dietitians.find((item) => item.userId === viewerId)
+        const catalogMine = dietitians.find((item) => item.userId === viewerId)
+        if (localMine && !catalogMine) {
+          dietitians = [...dietitians, localMine]
+        } else if (localMine && catalogMine) {
+          dietitians = dietitians.map((item) =>
+            item.userId === viewerId
+              ? {
+                  ...item,
+                  avatar: item.avatar || localMine.avatar,
+                  coverImage: item.coverImage || localMine.coverImage,
+                }
+              : item,
+          )
+        }
+      }
+      const next = {
+        ...current,
+        dietitians,
+        applications: applicationsRes?.applications ?? current.applications,
+      }
+      if (!sameAppData(current, next)) {
+        stateRef.current = next
+        reduce({ type: 'HYDRATE', state: next })
+      }
+    }
+    void refreshCatalog()
+    const requestedCallVersion = callRequests.current.capture()
     void fetchServerState()
       .then((server) => {
         if (cancelled) return
-        hydrateFromServer(server)
+        hydrateFromServer(server, requestedCallVersion)
       })
       .catch(() => undefined)
+    // Re-read catalog from Supabase so admin deletes show up without a full reload.
+    const catalogTimer = window.setInterval(() => {
+      void refreshCatalog()
+    }, 15_000)
     return () => {
       cancelled = true
+      window.clearInterval(catalogTimer)
     }
   }, [hydrateFromServer, state.currentUser?.id])
 
   useEffect(() => {
     if (!apiEnabled() || !state.currentUser) return
+    // Pulse only: inbox headers + live calls + notifications. Never re-download the catalog.
     const timer = window.setInterval(() => {
-      void fetchServerState()
-        .then((server) => {
-          hydrateFromServer(server)
+      if (statePollInFlight.current) return
+      statePollInFlight.current = true
+      const requestedCallVersion = callRequests.current.capture()
+      void fetchCarePulse()
+        .then((pulse) => {
+          // A request started before START/ANSWER/END cannot undo that action.
+          applyPulse(callRequests.current.protect(pulse, stateRef.current.liveCalls, requestedCallVersion))
         })
         .catch(() => undefined)
-    }, state.activeCall ? 800 : 2000)
+        .finally(() => { statePollInFlight.current = false })
+    }, state.activeCall ? 2000 : 5000)
     return () => window.clearInterval(timer)
-  }, [hydrateFromServer, state.currentUser?.id, Boolean(state.activeCall)])
+  }, [applyPulse, state.currentUser?.id, Boolean(state.activeCall)])
+
+  // Instant chat delivery over authenticated SSE (not the 5s pulse).
+  useEffect(() => {
+    if (!apiEnabled() || !state.currentUser?.id) return
+    const myId = state.currentUser.id
+    const deliveredBuffer = new Set<string>()
+    let flushTimer: number | undefined
+    const flushDelivered = () => {
+      const ids = [...deliveredBuffer]
+      deliveredBuffer.clear()
+      if (!ids.length) return
+      void postAction('MARK_MESSAGE_DELIVERED', { messageIds: ids }).catch(() => undefined)
+    }
+    const disconnect = connectCareRealtime({
+      onCallEnded: ({ callId }) => dismissCall(callId),
+      onMessage: ({ message, conversation }) => {
+        if (!message?.id) return
+        reduce({
+          type: 'UPSERT_MESSAGE',
+          message: { ...message, status: message.status || 'sent' },
+        })
+        if (conversation?.id) {
+          applyServerPatch({ patch: { conversations: [conversation] } })
+        }
+        if (message.senderId && message.senderId !== myId) {
+          deliveredBuffer.add(message.id)
+          if (flushTimer) window.clearTimeout(flushTimer)
+          flushTimer = window.setTimeout(flushDelivered, 120)
+        }
+      },
+      onMessageStatus: ({ message }) => {
+        if (!message?.id) return
+        reduce({
+          type: 'UPDATE_MESSAGE_STATUS',
+          messageId: message.id,
+          status: (message.status as 'sent' | 'delivered' | 'read') || 'sent',
+          deliveredAt: message.deliveredAt,
+          readAt: message.readAt,
+        })
+      },
+      onConversationRead: ({ conversationId, readerId, readAt }) => {
+        if (!conversationId || !readerId || readerId === myId) return
+        const stamp = readAt || new Date().toISOString()
+        for (const message of stateRef.current.messages) {
+          if (message.conversationId !== conversationId) continue
+          if (message.senderId !== myId) continue
+          reduce({
+            type: 'UPDATE_MESSAGE_STATUS',
+            messageId: message.id,
+            status: 'read',
+            readAt: stamp,
+            deliveredAt: message.deliveredAt || stamp,
+          })
+        }
+      },
+    })
+    return () => {
+      if (flushTimer) window.clearTimeout(flushTimer)
+      disconnect()
+    }
+  }, [applyServerPatch, dismissCall, state.currentUser?.id])
+
+  useEffect(() => {
+    if (!apiEnabled() || !state.currentUser?.id) return
+    let cancelled = false
+    const seen = new Map<string, string>()
+    let inFlight = false
+    const refresh = async () => {
+      if (inFlight) return
+      inFlight = true
+      try {
+        const conversations = stateRef.current.conversations.filter((item) => item.participantIds.includes(state.currentUser!.id))
+        for (const conversation of conversations) {
+          if (cancelled) return
+          if (seen.get(conversation.id) === conversation.lastAt) continue
+          try {
+            const response = await fetchConversationMessages(conversation.id, { limit: 100 })
+            if (cancelled) return
+            applyServerPatch({ patch: { messages: response.messages } })
+            seen.set(conversation.id, conversation.lastAt)
+          } catch { /* Retry on the next poll. */ }
+        }
+      } finally { inFlight = false }
+    }
+    void refresh()
+    const timer = window.setInterval(() => { void refresh() }, 2000)
+    return () => { cancelled = true; window.clearInterval(timer) }
+  }, [state.currentUser?.id, applyServerPatch])
 
   useEffect(() => {
     if (apiEnabled()) return
@@ -296,6 +542,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void _call
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable))
   }, [state])
+
+  const toastTimers = useRef(new Map<string, number>())
+  useEffect(() => {
+    const timers = toastTimers.current
+    for (const item of state.toasts) {
+      if (!timers.has(item.id)) timers.set(item.id, window.setTimeout(() => reduce({ type: 'REMOVE_TOAST', id: item.id }), 5000))
+    }
+    for (const [id, timer] of timers) {
+      if (!state.toasts.some((item) => item.id === id)) { window.clearTimeout(timer); timers.delete(id) }
+    }
+  }, [state.toasts])
+  useEffect(() => {
+    const timers = toastTimers.current
+    return () => { timers.forEach(window.clearTimeout); timers.clear() }
+  }, [])
 
   const toast = useCallback((type: 'success' | 'error' | 'info', message: string) => {
     reduce({ type: 'ADD_TOAST', toast: { type, message } })
@@ -306,8 +567,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (apiEnabled()) {
         void loginOnServer(userId)
           .then(async ({ user }) => {
+            const requestedCallVersion = callRequests.current.capture()
             const server = await fetchServerState()
-            hydrateFromServer({ ...server, currentUser: user })
+            hydrateFromServer({ ...server, currentUser: user }, requestedCallVersion)
             toast('success', `Signed in as ${user.name}`)
           })
           .catch(() => {
@@ -360,8 +622,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             role: details.role,
             profile: profile ? { ...profile, userId: '' } : undefined,
           })
+          const requestedCallVersion = callRequests.current.capture()
           const server = await fetchServerState()
-          hydrateFromServer({ ...server, currentUser: user })
+          hydrateFromServer({ ...server, currentUser: user }, requestedCallVersion)
           toast(
             'success',
             details.role === 'dietitian'
@@ -410,17 +673,70 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [dispatch])
 
   const sendMessage = useCallback(
-    (conversationId: string, text: string, attachments?: { name: string; size: string; url?: string; type?: string }[]) => {
-      if (!state.currentUser) return
-      dispatch({
+    async (
+      conversationId: string,
+      text: string,
+      attachments?: { name: string; size: string; url?: string; type?: string; objectKey?: string; bucket?: string; sizeBytes?: number }[],
+      peerId?: string,
+      existingMessageId?: string,
+    ) => {
+      if (!state.currentUser) throw new Error('Your care session is still loading.')
+      const messageId = existingMessageId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : uid('msg'))
+      // Paint immediately (pending), then sync in the background.
+      reduce({
         type: 'SEND_MESSAGE',
         conversationId,
         senderId: state.currentUser.id,
         text,
         attachments,
+        messageId,
+        status: 'pending',
       })
+      if (!apiEnabled()) {
+        reduce({ type: 'UPDATE_MESSAGE_STATUS', messageId, status: 'sent' })
+        return
+      }
+      try {
+        const server = await postAction('SEND_MESSAGE', {
+          conversationId,
+          senderId: state.currentUser.id,
+          text,
+          attachments,
+          messageId,
+          ...(peerId ? { peerId } : {}),
+        })
+        reduce({ type: 'UPDATE_MESSAGE_STATUS', messageId, status: 'sent' })
+        applyServerPatch(server)
+      } catch (error) {
+        reduce({ type: 'UPDATE_MESSAGE_STATUS', messageId, status: 'failed' })
+        throw error
+      }
     },
-    [state.currentUser],
+    [state.currentUser, applyServerPatch],
+  )
+
+  const retryMessage = useCallback(
+    async (messageId: string) => {
+      const message = stateRef.current.messages.find((item) => item.id === messageId)
+      const me = stateRef.current.currentUser
+      if (!message || !me || message.senderId !== me.id) return
+      const peerId = stateRef.current.conversations
+        .find((item) => item.id === message.conversationId)
+        ?.participantIds.find((id) => id !== me.id)
+      reduce({ type: 'UPDATE_MESSAGE_STATUS', messageId, status: 'pending' })
+      try {
+        await sendMessage(
+          message.conversationId,
+          message.text,
+          message.attachments,
+          peerId,
+          message.id,
+        )
+      } catch {
+        reduce({ type: 'UPDATE_MESSAGE_STATUS', messageId, status: 'failed' })
+      }
+    },
+    [sendMessage],
   )
 
   const sendPeerMessage = useCallback((conversationId: string, senderId: string, text: string) => {
@@ -437,7 +753,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (apiEnabled()) {
         try {
           const server = await bookAppointmentOnServer({ dietitianId, date, time, topic, kind })
-          hydrateFromServer({ ...server, currentUser: state.currentUser })
+          applyServerPatch(server)
           toast('success', `Appointment booked for ${date} at ${time}.`)
           return true
         } catch (error) {
@@ -458,53 +774,106 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toast('success', `Appointment booked for ${date} at ${time}.`)
       return true
     },
-    [state.currentUser, toast, hydrateFromServer],
+    [state.currentUser, toast, applyServerPatch],
   )
 
-  const cancelAppointment = useCallback(
-    (appointmentId: string) => {
-      if (apiEnabled()) {
-        void cancelAppointmentOnServer(appointmentId)
-          .then((server) => {
-            hydrateFromServer({ ...server, currentUser: stateRef.current.currentUser })
-            toast('info', 'Appointment cancelled.')
-          })
-          .catch(() => {
-            toast('error', 'Could not cancel that appointment.')
-          })
-        return
-      }
-      reduce({ type: 'CANCEL_APPOINTMENT', appointmentId })
-      toast('info', 'Appointment cancelled.')
-    },
-    [toast, hydrateFromServer],
-  )
+  const cancelAppointment = useCallback(async (appointmentId: string) => {
+    // Keep the row mounted so the Delete button can spin until the server confirms.
+    if (!apiEnabled()) {
+      reduce({ type: 'CANCEL_APPOINTMENT', appointmentId, status: 'deleted' })
+      toast('info', 'Appointment deleted.')
+      return true
+    }
+    try {
+      const { cancelAppointmentOnServer } = await import('@/lib/care/api')
+      const server = await cancelAppointmentOnServer(appointmentId)
+      applyServerPatch(server)
+      toast('info', 'Appointment deleted.')
+      return true
+    } catch (error) {
+      toast('error', error instanceof Error ? error.message : 'Could not delete that appointment.')
+      return false
+    }
+  }, [applyServerPatch, toast])
 
   const openConversation = useCallback(
-    (peerUserId: string, peerName: string) => {
+    async (peerUserId: string, peerName: string) => {
       if (!state.currentUser) return ''
-      const existing = state.conversations.find(
+      const existing = stateRef.current.conversations.find(
         (conversation) =>
           conversation.participantIds.includes(state.currentUser!.id) &&
-          conversation.participantIds.includes(peerUserId),
+          conversation.participantIds.includes(peerUserId) &&
+          !String(conversation.id).startsWith('conv-'),
       )
       if (existing) return existing.id
       const iAmDietitian = state.currentUser.role === 'dietitian'
-      dispatch({
+      const patientId = iAmDietitian ? peerUserId : state.currentUser.id
+      const dietitianUserId = iAmDietitian ? state.currentUser.id : peerUserId
+      const dietitianName = iAmDietitian ? state.currentUser.name : peerName
+      const { conversationIdFor } = await import('@/lib/care/calls')
+      const localId = conversationIdFor(patientId, dietitianUserId)
+      if (!apiEnabled()) reduce({
         type: 'ENSURE_CONVERSATION',
-        patientId: iAmDietitian ? peerUserId : state.currentUser.id,
-        dietitianUserId: iAmDietitian ? state.currentUser.id : peerUserId,
-        dietitianName: iAmDietitian ? state.currentUser.name : peerName,
+        patientId,
+        dietitianUserId,
+        dietitianName,
       })
-      return `conv-${[state.currentUser.id, peerUserId].sort().join('-')}`
+      if (apiEnabled()) {
+        try {
+          const server = await postAction('ENSURE_CONVERSATION', { patientId, dietitianUserId, dietitianName })
+          applyServerPatch(server)
+          const fromPatch = (server.patch?.conversations || []).find(
+            (item) =>
+              item.participantIds?.includes(patientId) && item.participantIds?.includes(dietitianUserId),
+          )
+          if (fromPatch?.id) return fromPatch.id
+          const after = stateRef.current.conversations.find(
+            (conversation) =>
+              conversation.participantIds.includes(patientId) &&
+              conversation.participantIds.includes(dietitianUserId) &&
+              !String(conversation.id).startsWith('conv-'),
+          )
+          if (after) return after.id
+        } catch (error) {
+          toast('error', error instanceof Error ? error.message : 'Could not open this conversation.')
+          return ''
+        }
+      }
+      return localId
     },
-    [state.currentUser, state.conversations],
+    [state.currentUser, applyServerPatch],
+  )
+
+  const deleteConversation = useCallback(
+    async (conversationId: string) => {
+      if (!state.currentUser) return false
+      const action: Action = {
+        type: 'DELETE_CONVERSATION',
+        conversationId,
+        userId: state.currentUser.id,
+      }
+      reduce(action)
+      if (apiEnabled()) {
+        try {
+          const server = await postAction(action.type, actionPayload(action))
+          applyServerPatch(server)
+        } catch {
+          toast('error', 'Could not delete that conversation.')
+          const requestedCallVersion = callRequests.current.capture()
+          void fetchServerState().then((snapshot) => hydrateFromServer(snapshot, requestedCallVersion)).catch(() => undefined)
+          return false
+        }
+      }
+      toast('info', 'Conversation removed from your inbox.')
+      return true
+    },
+    [state.currentUser, applyServerPatch, hydrateFromServer, toast],
   )
 
   const requestConsultation = useCallback(
-    (dietitianId: string, note: string) => {
+    async (dietitianId: string, note: string) => {
       if (!state.currentUser) return
-      dispatch({
+      const saved = await dispatch({
         type: 'REQUEST_CONSULTATION',
         request: {
           patientId: state.currentUser.id,
@@ -514,23 +883,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
           note,
         },
       })
-      toast('success', 'Consultation requested. The dietitian will respond shortly.')
+      if (saved) toast('success', 'Consultation requested. The dietitian will respond shortly.')
     },
     [state.currentUser, toast],
   )
 
   const respondConsultation = useCallback(
-    (id: string, status: 'accepted' | 'declined') => {
-      dispatch({ type: 'RESPOND_CONSULTATION', id, status })
-      toast(status === 'accepted' ? 'success' : 'info', status === 'accepted' ? 'Consultation accepted.' : 'Request declined.')
+    async (id: string, status: 'accepted' | 'declined') => {
+      const saved = await dispatch({ type: 'RESPOND_CONSULTATION', id, status })
+      if (saved) toast(status === 'accepted' ? 'success' : 'info', status === 'accepted' ? 'Consultation accepted.' : 'Request declined.')
+      return saved
     },
     [toast],
   )
 
   const uploadFile = useCallback(
-    (file: { name: string; category: 'labs' | 'diary' | 'photo' | 'other'; size: string; sharedWithId?: string; url?: string }) => {
+    async (file: { name: string; category: 'labs' | 'diary' | 'photo' | 'other'; size: string; sharedWithId?: string; url?: string; objectKey?: string; bucket?: string; mimeType?: string; sizeBytes?: number }) => {
       if (!state.currentUser) return
-      dispatch({
+      // Auto-share with the patient's linked dietitian so charts are not empty.
+      let sharedWithId = file.sharedWithId
+      if (!sharedWithId && state.currentUser.role === 'patient') {
+        const fromAppointment = state.appointments.find(
+          (item) => item.patientId === state.currentUser!.id && item.status === 'upcoming',
+        )
+        const listing = fromAppointment
+          ? state.dietitians.find((item) => item.id === fromAppointment.dietitianId)
+          : state.dietitians.find((item) =>
+              state.conversations.some(
+                (conversation) =>
+                  conversation.participantIds.includes(state.currentUser!.id) &&
+                  conversation.participantIds.includes(item.userId),
+              ),
+            )
+        sharedWithId = listing?.userId
+      }
+      const saved = await dispatch({
         type: 'UPLOAD_FILE',
         file: {
           ownerId: state.currentUser.id,
@@ -538,47 +925,109 @@ export function AppProvider({ children }: { children: ReactNode }) {
           category: file.category,
           size: file.size,
           uploadedAt: new Date().toISOString(),
-          sharedWithId: file.sharedWithId,
+          sharedWithId,
           url: file.url,
+          objectKey: file.objectKey,
+          bucket: file.bucket,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
         },
       })
-      toast('success', `${file.name} uploaded.`)
+      if (saved) toast('success', `${file.name} uploaded.`)
     },
-    [state.currentUser, toast],
+    [state.currentUser, state.appointments, state.dietitians, state.conversations, toast],
   )
 
   const submitApplication = useCallback(
-    (application: Omit<DietitianApplication, 'id' | 'submittedAt' | 'adminNotes' | 'status'> & { status?: DietitianApplication['status'] }) => {
-      if (!state.currentUser) return
+    async (application: Omit<DietitianApplication, 'id' | 'submittedAt' | 'adminNotes' | 'status'> & { status?: DietitianApplication['status'] }) => {
+      if (!state.currentUser) return false
       const payload: DietitianApplication = {
         ...application,
-        id: uid('app'),
+        id: crypto.randomUUID(),
         userId: state.currentUser.id,
         status: 'pending',
         submittedAt: new Date().toISOString(),
         adminNotes: [],
       }
-      dispatch({ type: 'SUBMIT_APPLICATION', application: payload })
-      const dietitian = state.dietitians.find((item) => item.userId === state.currentUser?.id)
-      if (dietitian && dietitian.availability.length === 0) {
-        dispatch({ type: 'UPDATE_AVAILABILITY', dietitianId: dietitian.id, availability: defaultAvailability() })
+      if (apiEnabled()) {
+        try {
+          const server = await postAction('SUBMIT_APPLICATION', { application: payload })
+          applyServerPatch(server)
+          // Refresh catalogs so admin + this dietitian see the persisted Supabase row.
+          try {
+            const [apps, diets] = await Promise.all([fetchCatalogApplications(), fetchCatalogDietitians()])
+            dispatch({
+              type: 'HYDRATE',
+              state: {
+                ...stateRef.current,
+                applications: apps.applications,
+                dietitians: diets.dietitians,
+              },
+            })
+          } catch {
+            /* patch already applied */
+          }
+        } catch (error) {
+          toast('error', error instanceof Error ? error.message : 'Your application was not saved. Please try submitting again.')
+          return false
+        }
+      } else {
+        dispatch({ type: 'SUBMIT_APPLICATION', application: payload })
       }
       toast('success', 'Application submitted for admin verification.')
+      return true
     },
-    [state.currentUser, state.dietitians, toast],
+    [state.currentUser, dispatch, applyServerPatch, toast],
   )
 
-  const updateAvailability = useCallback((dietitianId: string, availability: AvailabilitySlot[]) => {
-    dispatch({ type: 'UPDATE_AVAILABILITY', dietitianId, availability })
-    toast('success', 'Availability saved.')
-  }, [toast])
+  const updateAvailability = useCallback(
+    async (dietitianId: string, availability: AvailabilitySlot[]) => {
+      if (apiEnabled()) {
+        try {
+          const server = await postAction('UPDATE_AVAILABILITY', { dietitianId, availability })
+          applyServerPatch(server)
+          toast('success', 'Availability saved.')
+        } catch (error) {
+          toast('error', error instanceof Error ? error.message : 'Could not save availability.')
+        }
+        return
+      }
+      dispatch({ type: 'UPDATE_AVAILABILITY', dietitianId, availability })
+      toast('success', 'Availability saved.')
+    },
+    [dispatch, applyServerPatch, toast],
+  )
 
   const approveApplication = useCallback(
-    (applicationId: string) => {
-      dispatch({ type: 'APPROVE_APPLICATION', applicationId, reviewer: state.currentUser?.name ?? 'Admin' })
+    async (applicationId: string) => {
+      const reviewer = state.currentUser?.name ?? 'Admin'
+      if (apiEnabled()) {
+        try {
+          const server = await postAction('APPROVE_APPLICATION', { applicationId, reviewer })
+          applyServerPatch(server)
+          try {
+            const [apps, diets] = await Promise.all([fetchCatalogApplications(), fetchCatalogDietitians()])
+            dispatch({
+              type: 'HYDRATE',
+              state: {
+                ...stateRef.current,
+                applications: apps.applications,
+                dietitians: diets.dietitians,
+              },
+            })
+          } catch {
+            /* patch already applied */
+          }
+        } catch (error) {
+          toast('error', error instanceof Error ? error.message : 'Approval was not saved. Please try again.')
+          return
+        }
+      } else {
+        dispatch({ type: 'APPROVE_APPLICATION', applicationId, reviewer })
+      }
       toast('success', 'Dietitian approved and now visible to patients.')
     },
-    [state.currentUser, toast],
+    [state.currentUser, dispatch, applyServerPatch, toast],
   )
 
   const requestMoreInfo = useCallback(
@@ -594,27 +1043,67 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [state.currentUser, toast],
   )
 
-  const startCall = useCallback(
-    (conversationId: string, peerId: string, peerName: string, peerAvatar: string) => {
-      if (state.activeCall?.incoming && (state.activeCall.peerId === peerId || !peerId)) {
-        dispatch({ type: 'ANSWER_CALL' })
-        return
+  const deleteApplicationRecord = useCallback(
+    async (applicationId: string) => {
+      if (apiEnabled()) {
+        try {
+          const { deleteApplication } = await import('@/lib/care/api')
+          const server = await deleteApplication(applicationId)
+          applyServerPatch(server)
+          // Authoritative catalog refresh so deleted apps never linger.
+          try {
+            const { fetchCatalogApplications, fetchCatalogDietitians } = await import('@/lib/care/api')
+            const [apps, diets] = await Promise.all([fetchCatalogApplications(), fetchCatalogDietitians()])
+            dispatch({ type: 'HYDRATE', state: { ...stateRef.current, applications: apps.applications, dietitians: diets.dietitians } })
+          } catch {
+            /* patch already applied */
+          }
+        } catch {
+          toast('error', 'Could not delete this application. Please try again.')
+          return false
+        }
+      } else {
+        dispatch({ type: 'DELETE_APPLICATION', applicationId })
       }
-      dispatch({
-        type: 'START_CALL',
-        call: { conversationId, peerId, peerName, peerAvatar, status: 'ringing' },
-      })
+      toast('success', 'Application removed from the verification queue.')
+      return true
     },
-    [state.activeCall],
+    [applyServerPatch, dispatch, toast],
   )
 
+  const startCall = useCallback(
+    async (conversationId: string, peerId: string, peerName: string, peerAvatar: string) => {
+      if (state.activeCall?.incoming && (state.activeCall.peerId === peerId || !peerId)) {
+        return dispatch({ type: 'ANSWER_CALL' })
+      }
+      const callId = uid('call')
+      return dispatch({
+        type: 'START_CALL',
+        call: { conversationId, peerId, peerName, peerAvatar, status: 'ringing', callId },
+      })
+    },
+    [state.activeCall, dispatch],
+  )
+
+  // Client-side missed-call timeout if pulse expiry is delayed.
+  useEffect(() => {
+    if (!state.activeCall || state.activeCall.status !== 'ringing' || state.activeCall.incoming) return
+    const timer = window.setTimeout(() => {
+      if (stateRef.current.activeCall?.callId === state.activeCall?.callId && stateRef.current.activeCall?.status === 'ringing') {
+        dispatch({ type: 'END_CALL' })
+        toast('info', 'Call not answered — marked as missed.')
+      }
+    }, 45_000)
+    return () => window.clearTimeout(timer)
+  }, [state.activeCall?.callId, state.activeCall?.status, state.activeCall?.incoming, toast])
+
   const answerCall = useCallback(() => {
-    dispatch({ type: 'ANSWER_CALL' })
-  }, [])
+    return dispatch({ type: 'ANSWER_CALL' })
+  }, [dispatch])
 
   const endCall = useCallback(() => {
-    dispatch({ type: 'END_CALL' })
-  }, [])
+    return dispatch({ type: 'END_CALL' })
+  }, [dispatch])
 
   const payQuote = useCallback(
     (quoteId: string, methodId: string) => {
@@ -640,17 +1129,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   const savePatientProfile = useCallback(
-    (profile: PatientProfile) => {
-      dispatch({ type: 'UPDATE_PATIENT_PROFILE', profile })
-      toast('success', 'Clinical profile saved.')
+    async (profile: PatientProfile) => {
+      const saved = await dispatch({ type: 'UPDATE_PATIENT_PROFILE', profile })
+      if (saved) toast('success', 'Clinical profile saved.')
     },
     [toast],
   )
 
   const savePatientSettings = useCallback(
-    (settings: PatientAccountSettings) => {
-      dispatch({ type: 'UPDATE_PATIENT_SETTINGS', settings })
-      toast('success', 'Settings saved.')
+    async (settings: PatientAccountSettings) => {
+      const saved = await dispatch({ type: 'UPDATE_PATIENT_SETTINGS', settings })
+      if (saved) toast('success', 'Settings saved.')
     },
     [toast],
   )
@@ -664,29 +1153,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   const setFileShare = useCallback(
-    (dietitianUserId: string, granted: boolean) => {
+    async (dietitianUserId: string, granted: boolean) => {
       if (!state.currentUser) return
-      dispatch({
+      const saved = await dispatch({
         type: 'SET_FILE_SHARE',
         ownerId: state.currentUser.id,
         dietitianUserId,
         granted,
       })
-      toast(granted ? 'success' : 'info', granted ? 'File access granted.' : 'File access revoked.')
+      if (saved) toast(granted ? 'success' : 'info', granted ? 'File access granted.' : 'File access revoked.')
     },
     [state.currentUser, toast],
   )
 
   const setFileAccessBlock = useCallback(
-    (dietitianUserId: string, blocked: boolean) => {
+    async (dietitianUserId: string, blocked: boolean) => {
       if (!state.currentUser) return
-      dispatch({
+      const saved = await dispatch({
         type: 'SET_FILE_ACCESS_BLOCK',
         ownerId: state.currentUser.id,
         dietitianUserId,
         blocked,
       })
-      toast(
+      if (saved) toast(
         blocked ? 'info' : 'success',
         blocked ? 'That dietitian can no longer see your files.' : 'That dietitian is no longer blocked from your files.',
       )
@@ -716,17 +1205,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   const updateDietitianProfile = useCallback(
-    (dietitianId: string, experience: ExperienceItem[]) => {
-      dispatch({ type: 'UPDATE_DIETITIAN_PROFILE', dietitianId, experience })
-      toast('success', 'Work experience updated.')
+    async (dietitianId: string, experience: ExperienceItem[]) => {
+      const saved = await dispatch({ type: 'UPDATE_DIETITIAN_PROFILE', dietitianId, experience })
+      if (saved) toast('success', 'Work experience updated.')
     },
     [toast],
   )
 
   const addReview = useCallback(
-    (dietitianId: string, rating: number, text: string) => {
+    async (dietitianId: string, rating: number, text: string) => {
       if (!state.currentUser) return
-      dispatch({
+      const saved = await dispatch({
         type: 'ADD_REVIEW',
         dietitianId,
         review: {
@@ -736,16 +1225,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           text,
         },
       })
-      toast('success', 'Review saved.')
+      if (saved) toast('success', 'Review saved.')
     },
     [state.currentUser, toast],
   )
 
   const deleteReview = useCallback(
-    (dietitianId: string) => {
+    async (dietitianId: string) => {
       if (!state.currentUser) return
-      dispatch({ type: 'DELETE_REVIEW', dietitianId, authorId: state.currentUser.id })
-      toast('info', 'Review deleted.')
+      const saved = await dispatch({ type: 'DELETE_REVIEW', dietitianId, authorId: state.currentUser.id })
+      if (saved) toast('info', 'Review deleted.')
     },
     [state.currentUser, toast],
   )
@@ -757,10 +1246,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const markConversationRead = useCallback(
     (conversationId: string) => {
-      if (!state.currentUser) return
-      dispatch({ type: 'MARK_CONVERSATION_READ', conversationId, userId: state.currentUser.id })
+      const userId = stateRef.current.currentUser?.id
+      if (!userId) return
+      dispatch({ type: 'MARK_CONVERSATION_READ', conversationId, userId })
     },
-    [state.currentUser],
+    [dispatch],
   )
 
   const markNotificationRead = useCallback((id: string) => {
@@ -773,7 +1263,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.currentUser])
 
   const saveAccount = useCallback(
-    (
+    async (
       details: {
         name?: string
         email?: string
@@ -790,11 +1280,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       message = 'Listing saved.',
     ) => {
-      if (!state.currentUser) return
-      dispatch({ type: 'UPDATE_ACCOUNT', userId: state.currentUser.id, ...details })
+      if (!state.currentUser) throw new Error('Your account is still loading. Please retry.')
+      const action: Action = { type: 'UPDATE_ACCOUNT', userId: state.currentUser.id, ...details }
+      if (apiEnabled()) {
+        const server = await postAction(action.type, actionPayload(action))
+        applyServerPatch(server)
+      } else reduce(action)
       toast('success', message)
     },
-    [state.currentUser, toast],
+    [state.currentUser, toast, applyServerPatch],
   )
 
   const value = useMemo<AppContextValue>(
@@ -806,8 +1300,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logout,
       toast,
       sendMessage,
+      retryMessage,
       sendPeerMessage,
       openConversation,
+      deleteConversation,
       bookAppointment,
       cancelAppointment,
       requestConsultation,
@@ -817,9 +1313,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateAvailability,
       approveApplication,
       requestMoreInfo,
+      deleteApplication: deleteApplicationRecord,
       startCall,
       answerCall,
       endCall,
+      dismissCall,
       payQuote,
       addPaymentMethod,
       savePatientProfile,
@@ -836,6 +1334,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markNotificationRead,
       markNotificationsRead,
       saveAccount,
+      refreshCare,
     }),
     [
       state,
@@ -844,8 +1343,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logout,
       toast,
       sendMessage,
+      retryMessage,
       sendPeerMessage,
       openConversation,
+      deleteConversation,
       bookAppointment,
       cancelAppointment,
       requestConsultation,
@@ -855,9 +1356,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateAvailability,
       approveApplication,
       requestMoreInfo,
+      deleteApplicationRecord,
       startCall,
       answerCall,
       endCall,
+      dismissCall,
       payQuote,
       addPaymentMethod,
       savePatientProfile,
@@ -874,6 +1377,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markNotificationRead,
       markNotificationsRead,
       saveAccount,
+      refreshCare,
     ],
   )
 

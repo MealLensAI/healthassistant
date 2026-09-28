@@ -1,9 +1,11 @@
-import type { ButtonHTMLAttributes } from 'react'
+import { useRef, useState, type ButtonHTMLAttributes } from 'react'
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/care/utils'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline' | 'leaf'
   size?: 'sm' | 'md' | 'lg'
+  loading?: boolean
 }
 
 export function Button({
@@ -11,11 +13,20 @@ export function Button({
   size = 'md',
   className,
   type = 'button',
+  loading = false,
+  disabled,
+  children,
+  onClick,
   ...props
 }: ButtonProps) {
+  const [pending, setPending] = useState(false)
+  const pendingRef = useRef(false)
+  const busy = loading || pending
   return (
     <button
       type={type}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
       className={cn(
         'inline-flex items-center justify-center gap-2 font-medium tracking-normal transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50',
         size === 'sm' && 'h-8 rounded-md px-3 text-xs',
@@ -30,6 +41,20 @@ export function Button({
         className,
       )}
       {...props}
-    />
+      onClick={async (event) => {
+        if (pendingRef.current || loading) return
+        pendingRef.current = true
+        try {
+          const result = onClick?.(event) as unknown
+          if (result && typeof (result as Promise<unknown>).then === 'function') {
+            setPending(true)
+            await result
+          }
+        } finally { pendingRef.current = false; setPending(false) }
+      }}
+    >
+      {busy ? <Loader2 size={size === 'sm' ? 14 : 16} className="animate-spin" aria-hidden /> : null}
+      {children}
+    </button>
   )
 }

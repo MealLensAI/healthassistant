@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import type { Dietitian } from '@/lib/care/types'
 import { ProfilePhoto } from '@/components/care-ui/PhotoViewer'
 import { Pill, Stars } from '@/components/care-ui/Primitives'
+import { useAttachmentUrl } from '@/lib/care/useAttachmentUrl'
 
 export function DietitianHero({
   dietitian,
@@ -13,16 +14,22 @@ export function DietitianHero({
 }: {
   dietitian: Dietitian
   editable?: boolean
-  onChangeCover?: (url: string) => void
-  onChangeAvatar?: (url: string) => void
+  onChangeCover?: (file: File) => void
+  onChangeAvatar?: (file: File) => void
   actions?: ReactNode
 }) {
+  const coverRef = dietitian.coverImage
+    ? /^(https?:|blob:|data:)/i.test(dietitian.coverImage)
+      ? { url: dietitian.coverImage }
+      : { objectKey: dietitian.coverImage, bucket: 'avatars' }
+    : undefined
+  const coverSrc = useAttachmentUrl(coverRef)
   return (
     <article className="overflow-hidden rounded-2xl bg-white shadow-card">
       <div className="relative h-36 overflow-hidden bg-panel sm:h-44 md:h-52">
-        {dietitian.coverImage ? (
+        {coverSrc ? (
           <img
-            src={dietitian.coverImage}
+            src={coverSrc}
             alt=""
             className="h-full w-full object-cover object-center"
           />
@@ -37,7 +44,7 @@ export function DietitianHero({
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent" />
         {editable && onChangeCover ? (
           <ImagePicker
-            label={dietitian.coverImage ? 'Change cover photo' : 'Upload cover photo'}
+            label={coverSrc || dietitian.coverImage ? 'Change cover photo' : 'Upload cover photo'}
             className="absolute right-3 top-3 sm:right-4 sm:top-4"
             onImage={onChangeCover}
           />
@@ -93,7 +100,7 @@ function ImagePicker({
 }: {
   label: string
   className?: string
-  onImage: (url: string) => void
+  onImage: (file: File) => void
 }) {
   return (
     <label
@@ -108,50 +115,10 @@ function ImagePicker({
         onChange={(event) => {
           const file = event.target.files?.[0]
           if (!file) return
-          void compressImageFile(file)
-            .then((dataUrl) => onImage(dataUrl))
-            .catch(() => {
-              const reader = new FileReader()
-              reader.onload = () => onImage(String(reader.result))
-              reader.readAsDataURL(file)
-            })
+          onImage(file)
           event.target.value = ''
         }}
       />
     </label>
   )
-}
-
-/** Shrink cover/avatar uploads so they persist through the care API. */
-function compressImageFile(file: File, maxWidth = 1600, quality = 0.82): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file)
-    const image = new Image()
-    image.onload = () => {
-      try {
-        const scale = Math.min(1, maxWidth / Math.max(image.width, 1))
-        const width = Math.max(1, Math.round(image.width * scale))
-        const height = Math.max(1, Math.round(image.height * scale))
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          reject(new Error('Canvas unavailable'))
-          return
-        }
-        ctx.drawImage(image, 0, 0, width, height)
-        resolve(canvas.toDataURL('image/jpeg', quality))
-      } catch (error) {
-        reject(error)
-      } finally {
-        URL.revokeObjectURL(objectUrl)
-      }
-    }
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl)
-      reject(new Error('Could not read image'))
-    }
-    image.src = objectUrl
-  })
 }

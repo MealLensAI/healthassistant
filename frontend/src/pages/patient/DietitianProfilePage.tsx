@@ -7,7 +7,9 @@ import { Button } from '@/components/care-ui/Button'
 import { AreaField } from '@/components/care-ui/Form'
 import { Modal, Pill, Stars, Avatar } from '@/components/care-ui/Primitives'
 import { useApp } from '@/lib/care/context'
+import { uploadCareAsset } from '@/lib/care/api'
 import { unreadCountFor, unseenMissedCalls } from '@/lib/care/alerts'
+import { isPublicMarketplaceDietitian } from '@/lib/care/domain'
 import { draftDietitianFromUser } from '@/lib/care/draftDietitian'
 import { patientChartPath } from '@/lib/care/profilePaths'
 import { practiceBase, practicePath } from '@/lib/care/practiceBase'
@@ -34,7 +36,9 @@ export function DietitianProfilePage() {
     markMissedCallsSeen,
     updateDietitianProfile,
     saveAccount,
+    toast,
     applications,
+    openConversation,
   } = useApp()
   const location = useLocation()
   const requestedTab = params.get('tab')
@@ -45,12 +49,18 @@ export function DietitianProfilePage() {
   const [reviewOpen, setReviewOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [callsOpen, setCallsOpen] = useState(false)
+  const [chatLoading, setChatLoading] = useState(false)
+  const [respondingId, setRespondingId] = useState<string | null>(null)
   const navigate = useNavigate()
 
   const application = applications.find((item) => item.userId === currentUser?.id)
   const listing = id
     ? dietitians.find(
-        (item) => item.id === id && (item.status === 'approved' || item.userId === currentUser?.id),
+        (item) =>
+          item.id === id &&
+          (item.userId === currentUser?.id ||
+            currentUser?.role === 'admin' ||
+            isPublicMarketplaceDietitian(item)),
       )
     : dietitians.find((item) => item.userId === currentUser?.id)
   const dietitian =
@@ -94,11 +104,11 @@ export function DietitianProfilePage() {
   const profileNotLive =
     isOwner &&
     (dietitian.status !== 'approved' || dietitian.id.startsWith('draft-') || !dietitian.verified)
-  const credentialDocs = dietitian.documents.filter((doc) =>
-    dietitian.status === 'approved' && !dietitian.id.startsWith('draft-')
-      ? Boolean(doc.url || doc.fileName)
-      : Boolean(doc.url),
-  )
+  const credentialDocs = dietitian.documents.filter((doc) => {
+    const kind = String(doc.kind || '').toLowerCase()
+    if (kind === 'photo' || kind === 'cover' || kind === 'avatar') return false
+    return Boolean(doc.url || doc.fileName || doc.objectKey || doc.name)
+  })
 
   return (
     <div className="space-y-5">
@@ -127,10 +137,16 @@ export function DietitianProfilePage() {
                     <p className="text-sm text-muted">{request.note}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => respondConsultation(request.id, 'accepted')}>
+                    <Button size="sm" loading={respondingId === request.id} onClick={async () => {
+                      setRespondingId(request.id)
+                      try { await respondConsultation(request.id, 'accepted') } finally { setRespondingId(null) }
+                    }}>
                       Accept
                     </Button>
-                    <Button size="sm" variant="danger" onClick={() => respondConsultation(request.id, 'declined')}>
+                    <Button size="sm" variant="danger" loading={respondingId === request.id} onClick={async () => {
+                      setRespondingId(request.id)
+                      try { await respondConsultation(request.id, 'declined') } finally { setRespondingId(null) }
+                    }}>
                       Decline
                     </Button>
                   </div>
@@ -144,11 +160,11 @@ export function DietitianProfilePage() {
         dietitian={dietitian}
         editable={isOwner}
         onChangeCover={
-          isOwner ? (coverImage) => saveAccount({ coverImage }, 'Cover photo updated.') : undefined
+          isOwner ? (file) => { void uploadCareAsset(file, 'avatar').then(({ objectKey }) => saveAccount({ coverImage: objectKey }, 'Cover photo updated.')).catch(() => toast('error', 'Could not upload cover photo.')) } : undefined
         }
         onChangeAvatar={
           isOwner
-            ? (avatar) => {
+            ? (file) => { void uploadCareAsset(file, 'avatar').then(({ objectKey: avatar }) => {
                 saveAccount({ avatar }, 'Profile photo updated.')
                 try {
                   const raw = window.localStorage.getItem('user_data')
@@ -161,7 +177,7 @@ export function DietitianProfilePage() {
                 } catch {
                   /* ignore */
                 }
-              }
+              }).catch(() => toast('error', 'Could not upload profile photo.')) }
             : undefined
         }
         actions={
@@ -170,7 +186,16 @@ export function DietitianProfilePage() {
               <Button onClick={() => navigate(`${carePath}?tab=book`)}>
                 <CalendarDays size={16} /> Book & consult
               </Button>
-              <Button variant="outline" onClick={() => navigate(`${carePath}?tab=chat`)}>
+              <Button
+                variant="outline"
+                loading={chatLoading}
+                onClick={() => {
+                  setChatLoading(true)
+                  void openConversation(dietitian.userId, dietitian.name)
+                    .then((conversationId) => navigate(`/messages/${conversationId}`))
+                    .finally(() => setChatLoading(false))
+                }}
+              >
                 <MessageSquare size={16} /> Chat
               </Button>
               <Button variant="secondary" onClick={() => navigate(`${carePath}?tab=call`)}>
@@ -210,8 +235,8 @@ export function DietitianProfilePage() {
         </section>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
-        <section className="hy-card p-5 sm:p-6">
+      <div className="grid items-start gap-5 lg:grid-cols-[1fr_300px]">
+        <section className="hy-card h-fit p-5 sm:p-6 self-start">
           <div className="flex flex-wrap gap-2 border-b border-line pb-3">
             {tabs.map((item) => (
               <button
@@ -376,8 +401,9 @@ export function DietitianProfilePage() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      const conversationId = `conv-${[call.peerId, currentUser?.id].sort().join('-')}`
-                      navigate(practicePath(`messages/${conversationId}`))
+                      void openConversation(call.peerId, call.peerName).then((conversationId) => {
+                        navigate(practicePath(`messages/${conversationId}`))
+                      })
                     }}
                   >
                     Open chat

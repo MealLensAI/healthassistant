@@ -1,3 +1,4 @@
+import { accountAvatar } from '@/lib/care/accountAvatar'
 'use client'
 
 import {
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useApp } from '@/lib/care/context'
-import { unreadCountFor } from '@/lib/care/alerts'
+import { unreadCountFor, pendingAppointmentCount } from '@/lib/care/alerts'
 import { cn } from '@/lib/care/utils'
 import { Avatar } from '@/components/care-ui/Primitives'
 import { Logo } from '@/components/CareLogo'
@@ -54,7 +55,7 @@ export default function EnterpriseSidebar({
   onSignOut,
   onNavigate,
 }: EnterpriseSidebarProps = {}) {
-  const { currentUser, conversations, messages, logout } = useApp()
+  const { currentUser, conversations, messages, logout, appointments, dietitians, applications } = useApp()
   const unread = currentUser ? unreadCountFor(currentUser.id, conversations, messages) : 0
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -82,7 +83,7 @@ export default function EnterpriseSidebar({
       <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-2">
         {navItems.map((item) => {
           const Icon = item.icon
-          const badge = item.badgeKey === 'messages' ? unread : 0
+          const badge = item.badgeKey === 'messages' ? unread : item.to.endsWith('/appointments') && currentUser ? pendingAppointmentCount(currentUser.id, appointments, dietitians) : 0
           return (
             <NavLink
               key={item.to}
@@ -110,7 +111,7 @@ export default function EnterpriseSidebar({
             onClick={onNavigate}
             className="mb-3 flex items-center gap-3 rounded-[16px] p-2 hover:bg-panel"
           >
-            <Avatar src={currentUser.avatar} name={currentUser.name} size={40} />
+            <Avatar src={accountAvatar(currentUser, dietitians, applications)} name={currentUser.name} size={40} />
             <div className="min-w-0">
               <p className="truncate text-[14px] font-semibold leading-5 text-ink">{currentUser.name}</p>
               <p className="truncate text-[12px] capitalize leading-4 text-muted">{currentUser.role}</p>

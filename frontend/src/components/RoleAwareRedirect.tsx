@@ -26,8 +26,8 @@ const RoleAwareRedirect = () => {
   }, [authLoading, roleLoading, isAuthenticated])
 
   if (hasTimedOut) {
-    // If timed out, just redirect to Food for you
-    return <Navigate to="/food-for-you" replace />
+    // Do not leave a signed-in person on a loading screen when role lookup is slow.
+    return <Navigate to="/dietitians" replace />
   }
 
   if (authLoading || roleLoading || !isAuthenticated || role === null) {
@@ -51,7 +51,7 @@ const RoleAwareRedirect = () => {
     return <Navigate to="/admin" replace />
   }
 
-  const destination = role === "organization" ? "/enterprise" : "/food-for-you"
+  const destination = role === "organization" ? "/enterprise" : "/dietitians"
   return <Navigate to={destination} replace />
 }
 

@@ -1,16 +1,14 @@
-import { Download, FileSearch, MapPin, MessageSquare, Video } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Download, FileSearch } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { practicePath } from '@/lib/care/practiceBase'
 import { FilePreview } from '@/components/files/FilePreview'
-import { Button } from '@/components/care-ui/Button'
 import { ProfilePhoto } from '@/components/care-ui/PhotoViewer'
-import { Modal, Pill } from '@/components/care-ui/Primitives'
+import { Modal } from '@/components/care-ui/Primitives'
 import { useApp } from '@/lib/care/context'
-import { FILES, PATIENT_PROFILES } from '@/lib/care/data/mock'
-import { useCallMedia } from '@/lib/care/callMedia'
+import { PATIENT_PROFILES } from '@/lib/care/data/mock'
 import { downloadNamedFile } from '@/lib/care/documents'
-import { filesForPatient, filesVisibleToViewer, mergePatientProfile } from '@/lib/care/patients'
+import { filesVisibleToViewer, mergePatientProfile } from '@/lib/care/patients'
 import { ageFromDob, bodyMassIndex, formatDate } from '@/lib/care/utils'
 import type { PatientFile, User } from '@/lib/care/types'
 
@@ -24,14 +22,15 @@ export function PatientChartPage() {
     currentUser,
     appointments,
     dietitians,
-    conversations,
     patientSettings,
-    startCall,
-    openConversation,
+    refreshCare,
+    toast,
   } = useApp()
-  const { ensureLocalMedia } = useCallMedia()
-  const navigate = useNavigate()
   const [viewing, setViewing] = useState<PatientFile | null>(null)
+
+  useEffect(() => {
+    void refreshCare().catch(() => toast('error', 'Could not refresh this patient chart. Please try again.'))
+  }, [id, refreshCare, toast])
 
   const seedProfile = PATIENT_PROFILES.find((item) => item.userId === id)
   const profile = mergePatientProfile(
@@ -62,13 +61,10 @@ export function PatientChartPage() {
     if (currentUser?.role === 'dietitian' && blocked && currentUser.id && blocked.includes(currentUser.id)) {
       return []
     }
-    return live.length ? live : filesForPatient(FILES, id)
+    // Never fall back to mock demo files in live care charts.
+    return live
   }, [currentUser, files, id, patientSettings])
   const visits = appointments.filter((item) => item.patientId === id)
-  const conversation = conversations.find(
-    (item) => currentUser && item.participantIds.includes(currentUser.id) && item.participantIds.includes(id ?? ''),
-  )
-  const messagesPath = practicePath(`messages${conversation ? `/${conversation.id}` : ''}`)
 
   if (!id || !user) {
     return (
@@ -88,76 +84,42 @@ export function PatientChartPage() {
   const bmi = profile ? bodyMassIndex(profile.weightKg, profile.heightCm) || profile.bmi : 0
 
   return (
-    <div className="space-y-5" data-testid="patient-chart">
+    <div className="mx-auto max-w-4xl space-y-5" data-testid="patient-chart">
       <Link
         to={currentUser?.role === 'admin' ? '/admin' : practicePath()}
         className="text-sm font-semibold text-navy"
       >
         ← Back
       </Link>
-      <article className="overflow-hidden rounded-2xl bg-white shadow-card">
-        <div className="relative h-40 bg-gradient-to-br from-[#0E3E77] via-[#0E3E77] to-[#397F5E] md:h-48">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.18),transparent_45%)]" />
-        </div>
-        <div className="relative z-10 -mt-12 w-fit px-5 sm:px-8">
+      <article className="hy-card p-6">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <div className="shrink-0">
           <ProfilePhoto
             src={user.avatar}
             name={user.name}
-            className="h-24 w-24 rounded-2xl object-cover shadow-lg ring-4 ring-white md:h-28 md:w-28"
-            fallbackClassName="grid h-24 w-24 place-items-center rounded-2xl bg-navy-soft text-xl font-bold text-navy shadow-lg ring-4 ring-white md:h-28 md:w-28"
+            className="h-24 w-24 rounded-full object-cover"
+            fallbackClassName="grid h-24 w-24 place-items-center rounded-full bg-navy-soft text-xl font-bold text-navy"
           />
         </div>
-        <div className="px-5 pb-6 sm:px-8">
-          <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <p className="hy-eyebrow">Patient profile</p>
-              <h1 className="text-2xl font-extrabold tracking-tight text-ink md:text-3xl">
+              <h1 className="mt-1 text-2xl font-extrabold text-ink">
                 {profile?.preferredName || user.name}
               </h1>
-              <p className="mt-1 text-sm font-medium text-muted">
-                {profile?.legalName || user.name}
-                {profile?.dateOfBirth ? ` · ${ageFromDob(profile.dateOfBirth)} years` : ''}
-              </p>
-              {user.email ? <p className="mt-1 text-sm text-muted">{user.email}</p> : null}
-              <p className="mt-1 flex items-center gap-2 text-sm text-muted">
-                <MapPin size={16} className="text-navy" />
-                {user.country ?? '—'}
-              </p>
-              {conditions.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {conditions.map((item) => (
-                    <Pill key={item.name}>{item.name}</Pill>
-                  ))}
-                </div>
-              )}
+              <p className="text-sm text-muted">{user.email}</p>
+              <p className="mt-2 max-w-2xl text-sm text-muted">Clinical and personal snapshot your dietitian reviews before consultations.</p>
             </div>
-            {currentUser?.role === 'dietitian' && (
-              <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
-                <Button onClick={() => navigate(messagesPath)}>
-                  <MessageSquare size={16} /> Message
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    void ensureLocalMedia().finally(() => {
-                      const conversationId = openConversation(user.id, user.name)
-                      startCall(conversationId, user.id, user.name, user.avatar)
-                      navigate(practicePath(`messages/${conversationId}`))
-                    })
-                  }}
-                >
-                  <Video size={16} /> Video call
-                </Button>
-              </div>
-            )}
+
           </div>
+        </div>
         </div>
       </article>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Files" value={String(records.length)} />
-        <Stat label="Appointments" value={String(visits.length)} />
-        <Stat label="BMI" value={bmi ? String(bmi) : '—'} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="hy-card p-4 text-center"><p className="text-2xl font-extrabold text-navy">{visits.length}</p><p className="text-xs text-muted">Appointments</p></div>
+        <div className="hy-card p-4 text-center"><p className="text-2xl font-extrabold text-navy">{records.length}</p><p className="text-xs text-muted">Files</p></div>
       </div>
 
       {profile ? (
@@ -195,7 +157,7 @@ export function PatientChartPage() {
             {conditions.length === 0 && <p className="text-sm text-muted">No conditions listed.</p>}
           </Section>
 
-          <Section title="Biometrics">
+          <Section title="Biometrics & physical stats">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Stat label="Height" value={profile.heightCm ? `${profile.heightCm} cm` : '—'} />
               <Stat label="Weight" value={profile.weightKg ? `${profile.weightKg} kg` : '—'} />
@@ -205,18 +167,18 @@ export function PatientChartPage() {
             {profile.weightHistory && <p className="mt-3 text-sm text-ink">{profile.weightHistory}</p>}
           </Section>
 
-          <Section title="Allergies, intolerances & diet">
+          <Section title="Dietary profile & allergies">
             <Info label="Severe food allergies" value={(profile.allergies ?? []).join(', ') || 'None listed'} />
             <Info label="Intolerances" value={(profile.intolerances ?? []).join(', ') || 'None listed'} />
             <Info label="Diet preferences" value={(profile.dietPreferences ?? []).join(', ') || 'None listed'} />
           </Section>
 
-          <Section title="Medications & supplements">
+          <Section title="Current medications & supplements">
             <Info label="Prescriptions" value={profile.medications || 'None listed'} />
             <Info label="Vitamins and supplements" value={profile.supplements || 'None listed'} />
           </Section>
 
-          <Section title="Lifestyle">
+          <Section title="Activity & lifestyle">
             <div className="grid gap-4 sm:grid-cols-2">
               <Info label="Occupation" value={profile.occupation} />
               <Info label="Sleep" value={profile.sleep} />

@@ -64,6 +64,10 @@ class SupabaseService:
             
             # Store the key for verification
             self._service_role_key = supabase_key
+            # Dedicated client for privileged table writes. Never use this for
+            # auth.sign_in / user sessions — those mutate PostgREST Authorization
+            # and cause RLS 42501 on tables like food_for_you.
+            self._admin_db: Client = create_client(supabase_url, supabase_key)
             print("[INFO] Supabase client initialized successfully.")
                 
             print("Supabase client initialized with service role key.")
@@ -76,6 +80,30 @@ class SupabaseService:
             if hasattr(e, 'details'):
                 print(f"[ERROR] Error details: {e.details}")
             raise
+
+    def admin_db(self, *, fresh: bool = False) -> Client:
+        """Return a service-role PostgREST client that bypasses RLS.
+
+        Re-asserts the service role Authorization header each call so a
+        polluted shared session (e.g. after auth.sign_in on self.supabase)
+        cannot silently downgrade writes to anon/authenticated.
+        Pass fresh=True to build a brand-new client (safest for critical writes).
+        """
+        if fresh or getattr(self, "_admin_db", None) is None:
+            self._admin_db = create_client(self.supabase_url, self._service_role_key)
+            return self._admin_db
+        client = self._admin_db
+        try:
+            client.postgrest.auth(self._service_role_key)
+            # Also reset apikey header — some supabase-py versions only swap Bearer.
+            headers = getattr(client.postgrest, "session", None)
+            if headers is not None and hasattr(headers, "headers"):
+                headers.headers["apikey"] = self._service_role_key
+                headers.headers["Authorization"] = f"Bearer {self._service_role_key}"
+        except Exception:
+            self._admin_db = create_client(self.supabase_url, self._service_role_key)
+            client = self._admin_db
+        return client
 
     def upload_file(self, file: FileStorage, bucket_name: str, file_path: str) -> tuple[str | None, str | None]:
         """
@@ -640,10 +668,9 @@ class SupabaseService:
                 'login_at': created_at,
             }
             if session_data:
-                try:
-                    payload['device_info'] = json.dumps(session_data)
-                except Exception:
-                    payload['device_info'] = str(session_data)
+                # user_sessions.device_info is JSONB.  Keep structured device
+                # metadata queryable instead of storing a JSON string inside it.
+                payload['device_info'] = session_data
             result = self.supabase.table('user_sessions').insert(payload).execute()
             if result.data:
                 return True, None
@@ -869,7 +896,8 @@ class SupabaseService:
             
             # Get existing settings BEFORE saving (for history comparison)
             print(f"[DEBUG] Getting existing settings for comparison...")
-            existing = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
+            db = self.admin_db()
+            existing = db.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
             record_exists = bool(existing.data and len(existing.data) > 0)
             
             # Parse existing settings
@@ -944,7 +972,7 @@ class SupabaseService:
             
             try:
                 print(f"[DEBUG] Attempting RPC upsert_user_settings...")
-                result = self.supabase.rpc('upsert_user_settings', {
+                result = self.admin_db().rpc('upsert_user_settings', {
                     'p_user_id': user_id,
                     'p_settings_type': settings_type,
                     'p_settings_data': json.dumps(normalized_settings) if isinstance(normalized_settings, dict) else normalized_settings
@@ -997,7 +1025,7 @@ class SupabaseService:
                     upsert_payload['created_at'] = timestamp
                 
                 result = (
-                    self.supabase
+                    self.admin_db()
                         .table('user_settings')
                         .upsert(
                             upsert_payload,
@@ -1023,14 +1051,6 @@ class SupabaseService:
             print(f"[DEBUG] ✅ Settings saved, now creating history entry...")
             
             try:
-                # Use admin client to bypass RLS for history insert
-                from supabase import create_client
-                import os
-                admin_client = create_client(
-                    os.getenv('SUPABASE_URL'),
-                    os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-                )
-                
                 # Get settings_data from persisted record
                 settings_data_for_history = persisted_record.get('settings_data', normalized_settings)
                 if isinstance(settings_data_for_history, str):
@@ -1050,7 +1070,7 @@ class SupabaseService:
                 }
                 
                 print(f"[DEBUG] Inserting history with {len(changed_fields)} changed fields: {changed_fields}")
-                history_result = admin_client.table('user_settings_history').insert(history_data).execute()
+                history_result = self.admin_db().table('user_settings_history').insert(history_data).execute()
                 
                 if history_result.data and len(history_result.data) > 0:
                     print(f"[DEBUG] ✅ Saved settings history successfully")
@@ -1091,7 +1111,7 @@ class SupabaseService:
             # First try RPC function
             try:
                 print(f"[DEBUG] Attempting RPC get_user_settings...")
-                result = self.supabase.rpc('get_user_settings', {
+                result = self.admin_db().rpc('get_user_settings', {
                     'p_user_id': user_id,
                     'p_settings_type': settings_type
                 }).execute()
@@ -1109,7 +1129,7 @@ class SupabaseService:
             
             # Fallback: Direct table query
             print(f"[DEBUG] Using direct table query...")
-            result = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
+            result = self.admin_db().table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
             print(f"[DEBUG] Query result: {result.data}")
             
             if result.data and len(result.data) > 0:
@@ -1138,7 +1158,7 @@ class SupabaseService:
             tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
         try:
-            result = self.supabase.rpc('delete_user_settings', {
+            result = self.admin_db().rpc('delete_user_settings', {
                 'p_user_id': user_id,
                 'p_settings_type': settings_type
             }).execute()
@@ -1155,11 +1175,28 @@ class SupabaseService:
 
     _TRACKING_SETTINGS_TYPE = 'meal_tracking'
 
+    @staticmethod
+    def _normalize_settings_payload(raw) -> dict:
+        """Coerce settings_data that may be dict / JSON string / double-encoded."""
+        value = raw
+        for _ in range(3):
+            if isinstance(value, dict):
+                return value
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                    continue
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    return {}
+            break
+        return value if isinstance(value, dict) else {}
+
     def _get_tracking_data(self, user_id: str) -> dict:
         """Load the full tracking dict from user_settings."""
         try:
             result = (
-                self.supabase.table('user_settings')
+                self.admin_db()
+                .table('user_settings')
                 .select('settings_data')
                 .eq('user_id', user_id)
                 .eq('settings_type', self._TRACKING_SETTINGS_TYPE)
@@ -1167,52 +1204,45 @@ class SupabaseService:
                 .execute()
             )
             if result.data:
-                raw = result.data[0].get('settings_data', {})
-                if isinstance(raw, str):
-                    return json.loads(raw)
-                return raw if isinstance(raw, dict) else {}
+                return self._normalize_settings_payload(result.data[0].get('settings_data', {}))
         except Exception as e:
             print(f"[TRACKING] Error loading tracking data: {e}")
         return {}
 
     def _save_tracking_data(self, user_id: str, data: dict) -> None:
-        """Persist the full tracking dict into user_settings via upsert.
+        """Persist the full tracking dict into user_settings via service-role upsert.
 
-        The write is verified with a read-back so silent failures (e.g. RLS
-        policies dropping the row or a missing unique constraint) surface as
-        explicit errors instead of returning a misleading "success" to the UI.
+        Skips the flaky RPC path (string/JSONB double-encoding caused false
+        "success" + stale read-back). Uses a fresh service-role client so RLS
+        cannot reject the write with 42501.
         """
         now = datetime.utcnow().isoformat() + 'Z'
-        serialized = json.dumps(data)
-        rpc_error_msg: str | None = None
-        table_error_msg: str | None = None
+        # Store a real JSON object (not a JSON string) in the JSONB column.
+        payload = self._normalize_settings_payload(data)
 
-        # ── 1) Preferred path: SECURITY DEFINER RPC ──────────────────────
+        db = self.admin_db(fresh=True)
         try:
-            rpc_result = self.supabase.rpc('upsert_user_settings', {
-                'p_user_id': user_id,
-                'p_settings_type': self._TRACKING_SETTINGS_TYPE,
-                # Match save_user_settings (sends a JSON string; PostgREST casts to JSONB).
-                'p_settings_data': serialized,
-            }).execute()
-
-            if rpc_result.data:
-                payload = rpc_result.data[0] if isinstance(rpc_result.data, list) else rpc_result.data
-                if isinstance(payload, dict):
-                    if payload.get('status') == 'success':
-                        if self._verify_tracking_persisted(user_id, data):
-                            return
-                        rpc_error_msg = 'RPC reported success but read-back returned stale data'
-                    else:
-                        rpc_error_msg = str(payload.get('message') or 'RPC returned error status')
-        except Exception as rpc_error:
-            rpc_error_msg = str(rpc_error)
-            print(f"[TRACKING] RPC upsert failed, trying direct fallback: {rpc_error}")
-
-        # ── 2) Fallback: direct table upsert (works with service-role key) ──
-        try:
+            result = (
+                db.table('user_settings')
+                .upsert(
+                    {
+                        'user_id': user_id,
+                        'settings_type': self._TRACKING_SETTINGS_TYPE,
+                        'settings_data': payload,
+                        'updated_at': now,
+                        'created_at': now,
+                    },
+                    on_conflict='user_id,settings_type',
+                )
+                .execute()
+            )
+            print(f"[TRACKING] upsert ok rows={len(result.data or [])} user={user_id}")
+        except Exception as table_error:
+            # Older schemas may lack the unique constraint — fall back to select/update/insert.
+            print(f"[TRACKING] upsert failed ({table_error}); trying select/update/insert")
+            db = self.admin_db(fresh=True)
             existing = (
-                self.supabase.table('user_settings')
+                db.table('user_settings')
                 .select('id')
                 .eq('user_id', user_id)
                 .eq('settings_type', self._TRACKING_SETTINGS_TYPE)
@@ -1220,36 +1250,50 @@ class SupabaseService:
                 .execute()
             )
             if existing.data:
-                self.supabase.table('user_settings').update({
-                    'settings_data': serialized,
+                db.table('user_settings').update({
+                    'settings_data': payload,
                     'updated_at': now,
                 }).eq('id', existing.data[0]['id']).execute()
             else:
-                self.supabase.table('user_settings').insert({
+                db.table('user_settings').insert({
                     'user_id': user_id,
                     'settings_type': self._TRACKING_SETTINGS_TYPE,
-                    'settings_data': serialized,
+                    'settings_data': payload,
                     'created_at': now,
                     'updated_at': now,
                 }).execute()
 
-            if self._verify_tracking_persisted(user_id, data):
-                return
-            table_error_msg = 'Direct upsert returned without error but the row was not persisted (likely RLS or missing unique constraint on user_id, settings_type)'
-        except Exception as table_error:
-            table_error_msg = str(table_error)
-            print(f"[TRACKING] Error saving tracking data: {table_error}")
-
-        # If we reach here, neither path actually persisted the row.
-        combined = ' | '.join([m for m in (rpc_error_msg, table_error_msg) if m]) or 'Unknown persistence failure'
-        raise RuntimeError(f"Failed to persist meal tracking: {combined}")
+        if self._verify_tracking_persisted(user_id, payload):
+            return
+        raise RuntimeError(
+            'Failed to persist meal tracking: write completed but read-back did not match '
+            '(check user_settings unique constraint on user_id,settings_type)'
+        )
 
     def _verify_tracking_persisted(self, user_id: str, expected: dict) -> bool:
         """Re-read the tracking row to confirm the write actually stuck."""
         try:
             stored = self._get_tracking_data(user_id)
-            # Compare as JSON strings to sidestep dict ordering differences.
-            return json.dumps(stored, sort_keys=True) == json.dumps(expected, sort_keys=True)
+            expected_norm = self._normalize_settings_payload(expected)
+            if json.dumps(stored, sort_keys=True) == json.dumps(expected_norm, sort_keys=True):
+                return True
+            # Soft check: every expected plan/day/meal key exists with cooked_at.
+            for plan_id, days in expected_norm.items():
+                if not isinstance(days, dict):
+                    continue
+                stored_days = stored.get(plan_id) if isinstance(stored.get(plan_id), dict) else {}
+                for day, meals in days.items():
+                    if not isinstance(meals, dict):
+                        continue
+                    stored_meals = stored_days.get(day) if isinstance(stored_days.get(day), dict) else {}
+                    for meal_type, info in meals.items():
+                        want = info.get('cooked_at') if isinstance(info, dict) else None
+                        got = stored_meals.get(meal_type)
+                        got_at = got.get('cooked_at') if isinstance(got, dict) else None
+                        if want and got_at != want:
+                            print(f"[TRACKING] verify miss {plan_id}/{day}/{meal_type}: want={want} got={got_at}")
+                            return False
+            return True
         except Exception as verify_error:
             print(f"[TRACKING] verify read-back failed: {verify_error}")
             return False
@@ -1355,7 +1399,8 @@ class SupabaseService:
         """Get meal reminder settings stored in user_settings."""
         try:
             result = (
-                self.supabase.table('user_settings')
+                self.admin_db()
+                .table('user_settings')
                 .select('settings_data')
                 .eq('user_id', user_id)
                 .eq('settings_type', 'meal_reminder_settings')
@@ -1386,8 +1431,9 @@ class SupabaseService:
             current, _ = self.get_meal_reminder_settings(user_id)
             merged = {**(current or {}), **settings}
 
+            db = self.admin_db()
             existing = (
-                self.supabase.table('user_settings')
+                db.table('user_settings')
                 .select('id')
                 .eq('user_id', user_id)
                 .eq('settings_type', 'meal_reminder_settings')
@@ -1395,12 +1441,12 @@ class SupabaseService:
                 .execute()
             )
             if existing.data:
-                self.supabase.table('user_settings').update({
+                db.table('user_settings').update({
                     'settings_data': json.dumps(merged),
                     'updated_at': now,
                 }).eq('id', existing.data[0]['id']).execute()
             else:
-                self.supabase.table('user_settings').insert({
+                db.table('user_settings').insert({
                     'user_id': user_id,
                     'settings_type': 'meal_reminder_settings',
                     'settings_data': json.dumps(merged),
@@ -1424,7 +1470,14 @@ class SupabaseService:
             tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
         try:
-            result = self.supabase.table('user_settings_history').delete().eq('id', record_id).eq('user_id', user_id).execute()
+            result = (
+                self.admin_db()
+                .table('user_settings_history')
+                .delete()
+                .eq('id', record_id)
+                .eq('user_id', user_id)
+                .execute()
+            )
             if result.data:
                 return True, None
             return False, 'Record not found or not authorized'
@@ -1454,7 +1507,8 @@ class SupabaseService:
             result = self._food_for_you_call(
                 'get',
                 lambda: (
-                    self.supabase.table('food_for_you')
+                    self.admin_db()
+                    .table('food_for_you')
                     .select('*')
                     .eq('user_id', user_id)
                     .limit(1)
@@ -1509,7 +1563,8 @@ class SupabaseService:
 
             def do_upsert():
                 return (
-                    self.supabase.table('food_for_you')
+                    self.admin_db()
+                    .table('food_for_you')
                     .upsert(payload, on_conflict='user_id')
                     .execute()
                 )
@@ -1525,7 +1580,8 @@ class SupabaseService:
                     result = self._food_for_you_call(
                         'update',
                         lambda: (
-                            self.supabase.table('food_for_you')
+                            self.admin_db()
+                            .table('food_for_you')
                             .update({
                                 'foods': foods,
                                 'source_plan': source_plan,
@@ -1539,7 +1595,7 @@ class SupabaseService:
                 else:
                     result = self._food_for_you_call(
                         'insert',
-                        lambda: self.supabase.table('food_for_you').insert(payload).execute(),
+                        lambda: self.admin_db().table('food_for_you').insert(payload).execute(),
                     )
 
             if result.data and len(result.data) > 0:
@@ -1577,7 +1633,7 @@ class SupabaseService:
         try:
             self._food_for_you_call(
                 'delete',
-                lambda: self.supabase.table('food_for_you').delete().eq('user_id', user_id).execute(),
+                lambda: self.admin_db().table('food_for_you').delete().eq('user_id', user_id).execute(),
             )
             return True, None
         except Exception as e:

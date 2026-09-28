@@ -2,6 +2,7 @@ import { fileSizeLabel } from '@/lib/care/utils'
 import type { MessageAttachment } from '@/lib/care/types'
 
 export function readLocalFile(file: File) {
+  if (file.size > 10 * 1024 * 1024) return Promise.reject(new Error('Choose a file smaller than 10 MB.'))
   return new Promise<{ name: string; size: string; url: string; type: string }>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () =>

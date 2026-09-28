@@ -3,38 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { Bell, Menu } from "lucide-react"
-import { useAuth, cn, safeGetItem, safeSetItem } from "@/lib/utils"
+import { useAuth, cn } from "@/lib/utils"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Avatar } from "@/components/care-ui/Primitives"
 import { useApp } from "@/lib/care/context"
-import { notificationsFor, unreadNotificationCount } from "@/lib/care/alerts"
+import { notificationsFor, resolveNotificationHref, unreadNotificationCount } from "@/lib/care/alerts"
 import { formatDate } from "@/lib/care/utils"
 import { usePageHeaderState } from "@/components/PageHeaderContext"
 
-const PROFILE_PHOTO_KEY = "meallensai.profile_photo"
-
-export function readStoredProfilePhoto(): string {
-  try {
-    return safeGetItem(PROFILE_PHOTO_KEY) || ""
-  } catch {
-    return ""
-  }
-}
-
-export function writeStoredProfilePhoto(dataUrl: string) {
-  if (dataUrl) safeSetItem(PROFILE_PHOTO_KEY, dataUrl)
-  try {
-    const raw = safeGetItem("user_data")
-    if (raw) {
-      const parsed = JSON.parse(raw) as Record<string, unknown>
-      parsed.photoURL = dataUrl
-      parsed.avatar = dataUrl
-      safeSetItem("user_data", JSON.stringify(parsed))
-    }
-  } catch {
-    // ignore
-  }
-}
+import { readStoredProfilePhoto } from '@/lib/care/profilePhotoStorage'
+export { readStoredProfilePhoto, writeStoredProfilePhoto } from '@/lib/care/profilePhotoStorage'
 
 export function AppTopBar({ onOpenNav }: { onOpenNav?: () => void }) {
   const { user } = useAuth()
@@ -57,15 +35,15 @@ export function AppTopBar({ onOpenNav }: { onOpenNav?: () => void }) {
   }, [])
 
   const displayName =
-    currentUser?.name ||
     user?.displayName ||
+    (currentUser?.name && currentUser.name !== 'Member' ? currentUser.name : '') ||
     user?.email?.split("@")[0] ||
     "Member"
   const firstName = displayName.split(" ")[0]
   const avatar =
     currentUser?.avatar ||
     user?.photoURL ||
-    (photoBump >= 0 ? readStoredProfilePhoto() : "") ||
+    (photoBump >= 0 ? readStoredProfilePhoto(user?.uid) : "") ||
     ""
 
   // Page titles live in-page for care routes — avoid duplicate top-bar titles.
@@ -88,7 +66,7 @@ export function AppTopBar({ onOpenNav }: { onOpenNav?: () => void }) {
   }, [])
 
   return (
-    <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-white/90 px-3 py-3 backdrop-blur sm:gap-3 sm:px-6">
+    <header className="sticky top-0 z-50 flex items-center gap-2 border-b border-line bg-white/90 px-3 py-3 backdrop-blur sm:gap-3 sm:px-6">
       <button
         type="button"
         className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-line text-ink hover:bg-panel md:hidden"
@@ -153,11 +131,16 @@ export function AppTopBar({ onOpenNav }: { onOpenNav?: () => void }) {
                 <p className="px-4 py-8 text-center text-sm text-muted-foreground">No notifications yet.</p>
               ) : (
                 <ul className="max-h-[min(24rem,70vh)] overflow-auto">
-                  {mine.map((item) => (
-                    <li key={item.id} className={item.read ? "bg-white" : "bg-navy-soft/60"}>
-                      {item.href ? (
+                  {mine.map((item) => {
+                    const to = resolveNotificationHref(item.href, {
+                      role: currentUser?.role,
+                      pathname: location.pathname,
+                    })
+                    return (
+                    <li key={item.id} className={item.read ? "bg-white" : "bg-navy-soft"}>
+                      {to ? (
                         <Link
-                          to={item.href}
+                          to={to}
                           className="block px-4 py-3 hover:bg-panel"
                           onClick={() => {
                             markNotificationRead(item.id)
@@ -186,7 +169,8 @@ export function AppTopBar({ onOpenNav }: { onOpenNav?: () => void }) {
                         </button>
                       )}
                     </li>
-                  ))}
+                    )
+                  })}
                 </ul>
               )}
             </div>

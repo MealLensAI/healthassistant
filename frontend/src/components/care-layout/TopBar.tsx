@@ -1,8 +1,9 @@
+import { accountAvatar } from '@/lib/care/accountAvatar'
 import { Bell, Menu } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useApp } from '@/lib/care/context'
-import { notificationsFor, unreadNotificationCount } from '@/lib/care/alerts'
+import { notificationsFor, resolveNotificationHref, unreadNotificationCount } from '@/lib/care/alerts'
 import { formatDate } from '@/lib/care/utils'
 import { ownProfilePath } from '@/lib/care/profilePaths'
 import { practicePath } from '@/lib/care/practiceBase'
@@ -19,7 +20,7 @@ export function displayFirstName(fullName?: string) {
 }
 
 export function TopBar({ onOpenNav }: { onOpenNav?: () => void }) {
-  const { currentUser, notifications, markNotificationRead, markNotificationsRead } = useApp()
+  const { currentUser, dietitians, applications, notifications, markNotificationRead, markNotificationsRead } = useApp()
   const location = useLocation()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -50,7 +51,7 @@ export function TopBar({ onOpenNav }: { onOpenNav?: () => void }) {
   }, [])
 
   return (
-    <header className="flex items-center gap-2 border-b border-line bg-white/90 px-4 py-3 backdrop-blur sm:gap-3 sm:px-6">
+    <header className="relative z-50 flex items-center gap-2 border-b border-line bg-white/90 px-4 py-3 backdrop-blur sm:gap-3 sm:px-6">
       <button
         type="button"
         className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-line text-ink hover:bg-panel lg:hidden"
@@ -97,11 +98,16 @@ export function TopBar({ onOpenNav }: { onOpenNav?: () => void }) {
                 <p className="px-4 py-8 text-center text-sm text-muted">No notifications yet.</p>
               ) : (
                 <ul className="max-h-[min(24rem,70vh)] overflow-auto">
-                  {mine.map((item) => (
-                    <li key={item.id} className={item.read ? 'bg-white' : 'bg-navy-soft/60'}>
-                      {item.href ? (
+                  {mine.map((item) => {
+                    const to = resolveNotificationHref(item.href, {
+                      role: currentUser?.role,
+                      pathname: location.pathname,
+                    })
+                    return (
+                    <li key={item.id} className={item.read ? 'bg-white' : 'bg-navy-soft'}>
+                      {to ? (
                         <Link
-                          to={item.href}
+                          to={to}
                           className="block px-4 py-3 hover:bg-panel"
                           onClick={() => {
                             markNotificationRead(item.id)
@@ -120,7 +126,8 @@ export function TopBar({ onOpenNav }: { onOpenNav?: () => void }) {
                         </button>
                       )}
                     </li>
-                  ))}
+                    )
+                  })}
                 </ul>
               )}
             </div>
@@ -129,7 +136,7 @@ export function TopBar({ onOpenNav }: { onOpenNav?: () => void }) {
         {currentUser && (
           <Link to={profileTo} className="flex items-center gap-2 hover:opacity-90" aria-label="Open profile">
             <span className="hidden text-sm font-semibold text-ink sm:block">{firstName}</span>
-            <Avatar src={currentUser.avatar} name={currentUser.name} size={36} />
+            <Avatar src={accountAvatar(currentUser, dietitians, applications)} name={currentUser.name} size={36} />
           </Link>
         )}
       </div>

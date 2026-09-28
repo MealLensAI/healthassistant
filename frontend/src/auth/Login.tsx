@@ -29,7 +29,7 @@ const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const from = location.state?.from?.pathname || "/food-for-you"
+      const from = location.state?.from?.pathname || "/dietitians"
       navigate(from, { replace: true })
     }
   }, [isAuthenticated, navigate, location])
@@ -90,7 +90,8 @@ const Login = () => {
         safeSetItem('supabase_user_id', result.user_id || '')
 
         // Store user data
-        const displayName = (result.user_data?.email || email).split('@')[0]
+        const metadata = result.user_data?.metadata || {}
+        const displayName = metadata.full_name || [metadata.first_name, metadata.last_name].filter(Boolean).join(' ') || (result.user_data?.email || email).split('@')[0]
         const userData = {
           uid: result.user_id || result.user_data?.id || '',
           email: result.user_data?.email || email,

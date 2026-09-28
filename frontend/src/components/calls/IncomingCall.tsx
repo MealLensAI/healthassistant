@@ -1,5 +1,6 @@
 import { Phone, PhoneOff } from 'lucide-react'
-import { useCallMedia } from '@/lib/care/callMedia'
+import { useCallMedia } from '@/lib/care/callMediaContext'
+import { Button } from '@/components/care-ui/Button'
 import { Avatar } from '@/components/care-ui/Primitives'
 
 export function IncomingCall({
@@ -10,10 +11,10 @@ export function IncomingCall({
 }: {
   peerName: string
   peerAvatar: string
-  onAnswer: () => void
-  onDecline: () => void
+  onAnswer: () => void | Promise<unknown>
+  onDecline: () => void | Promise<unknown>
 }) {
-  const { ensureLocalMedia } = useCallMedia()
+  const { runWithLocalMedia, preparingCall, mediaError, ringtoneBlocked, enableCallSounds } = useCallMedia()
   return (
     <div
       className="fixed inset-x-4 top-20 z-[60] mx-auto max-w-sm overflow-hidden rounded-2xl border border-navy-soft bg-white shadow-elevated sm:left-auto sm:right-6 sm:top-24"
@@ -27,23 +28,24 @@ export function IncomingCall({
           <p className="truncate font-bold">{peerName}</p>
         </div>
       </div>
+      {ringtoneBlocked && <button type="button" className="m-3 text-sm font-semibold text-navy" onClick={enableCallSounds}>Enable incoming call sound</button>}
+      {mediaError && <p role="alert" className="px-3 pt-3 text-sm text-destructive">{mediaError}</p>}
       <div className="flex gap-2 p-3">
-        <button
+        <Button
           type="button"
-          onClick={() => {
-            void ensureLocalMedia().finally(() => onAnswer())
-          }}
+          loading={preparingCall}
+          onClick={() => runWithLocalMedia(onAnswer)}
           className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#397F5E] px-3 py-2.5 text-sm font-semibold text-white hover:opacity-90"
         >
           <Phone size={16} /> Answer
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={onDecline}
           className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-destructive px-3 py-2.5 text-sm font-semibold text-white hover:opacity-90"
         >
           <PhoneOff size={16} /> Decline
-        </button>
+        </Button>
       </div>
     </div>
   )

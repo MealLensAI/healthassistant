@@ -1,23 +1,19 @@
-import { CalendarDays, FileText, MessageSquare, Paperclip, Send, Trash2, Video, X } from 'lucide-react'
+import { CalendarDays, MessageSquare, Trash2, Video } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { VideoStage } from '@/components/calls/VideoStage'
-import { ChatAttachment } from '@/components/files/ChatAttachment'
 import { Avatar, Modal } from '@/components/care-ui/Primitives'
 import { Button } from '@/components/care-ui/Button'
 import { useApp } from '@/lib/care/context'
-import { apiEnabled } from '@/lib/care/api'
-import { dietitianReply, timeSlotsFor, upcomingDays } from '@/lib/care/care'
-import { fileCategoryFromName, readLocalFile } from '@/lib/care/files'
+import { accountAvatar } from '@/lib/care/accountAvatar'
+import { conversationIdFor, withCallPeerAvatar } from '@/lib/care/calls'
+import { timeSlotsFor, upcomingDays } from '@/lib/care/care'
 import { dietitianProfilePath } from '@/lib/care/profilePaths'
-import { fileSizeLabel, formatTime } from '@/lib/care/utils'
-import type { MessageAttachment } from '@/lib/care/types'
 
-type Panel = 'book' | 'chat' | 'call'
+type Panel = 'book' | 'call'
 
 function panelFromSearch(value: string | null): Panel {
-  if (value === 'chat' || value === 'call' || value === 'book') return value
-  if (value === '1') return 'call'
+  if (value === 'call') return 'call'
   return 'book'
 }
 
@@ -27,20 +23,18 @@ export function CarePage() {
   const navigate = useNavigate()
   const {
     dietitians,
+    applications,
+    users,
     currentUser,
     openConversation,
-    sendMessage,
-    sendPeerMessage,
     bookAppointment,
     cancelAppointment,
-    messages,
     appointments,
     conversations,
     startCall,
     answerCall,
     endCall,
     activeCall,
-    uploadFile,
   } = useApp()
   const dietitian = dietitians.find((item) => item.id === id && item.status === 'approved')
   const panel = panelFromSearch(params.get('tab') ?? (params.get('call') === '1' ? 'call' : null))
@@ -48,43 +42,53 @@ export function CarePage() {
   const [selectedTime, setSelectedTime] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [booking, setBooking] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [pendingFiles, setPendingFiles] = useState<MessageAttachment[]>([])
+  const [openingChat, setOpeningChat] = useState(false)
 
   const conversationId =
     currentUser && dietitian
       ? conversations.find(
           (item) =>
             item.participantIds.includes(currentUser.id) &&
-            item.participantIds.includes(dietitian.userId),
-        )?.id ?? `conv-${[currentUser.id, dietitian.userId].sort().join('-')}`
+            item.participantIds.includes(dietitian.userId) &&
+            !String(item.id).startsWith('conv-'),
+        )?.id ?? conversationIdFor(currentUser.id, dietitian.userId)
       : ''
 
   const days = useMemo(() => upcomingDays(), [])
   const slots = dietitian ? timeSlotsFor(dietitian.availability, selectedDay) : []
 
+  // Chat tab used to be an embedded inbox — always send people to Messages instead.
+  useEffect(() => {
+    if (params.get('tab') !== 'chat' || !currentUser || !dietitian) return
+    let cancelled = false
+    setOpeningChat(true)
+    void openConversation(dietitian.userId, dietitian.name)
+      .then((id) => {
+        if (cancelled) return
+        if (id) navigate(`/messages/${id}`, { replace: true })
+      })
+      .finally(() => {
+        if (!cancelled) setOpeningChat(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [params, currentUser, dietitian, openConversation, navigate, conversationId])
+
   useEffect(() => {
     if (!currentUser || !dietitian) return
-    openConversation(dietitian.userId, dietitian.name)
+    void openConversation(dietitian.userId, dietitian.name)
   }, [currentUser, dietitian, openConversation])
 
   useEffect(() => {
-    if (apiEnabled()) return
-    if (!conversationId || !dietitian || !currentUser) return
-    const thread = messages.filter((item) => item.conversationId === conversationId)
-    if (thread.length > 0) return
-    sendPeerMessage(
-      conversationId,
-      dietitian.userId,
-      `Hi ${currentUser.name.split(' ')[0]} — ${dietitian.name.split(' ').slice(-1)[0]} here. Book a time, chat with me here, or start a video call whenever you’re ready.`,
-    )
-  }, [conversationId, dietitian, currentUser, messages, sendPeerMessage])
-
-  useEffect(() => {
     if (panel === 'call' && params.get('call') === '1' && dietitian && conversationId && !activeCall) {
+      const next = new URLSearchParams(params)
+      next.delete('call')
+      next.set('tab', 'call')
+      setParams(next, { replace: true })
       startCall(conversationId, dietitian.userId, dietitian.name, dietitian.avatar)
     }
-  }, [panel, params, dietitian, conversationId, startCall, activeCall])
+  }, [panel, params, dietitian, conversationId, startCall, activeCall, setParams])
 
   if (!dietitian || !currentUser) {
     return (
@@ -97,13 +101,10 @@ export function CarePage() {
     )
   }
 
-  const thread = messages.filter((item) => item.conversationId === conversationId)
   const booked = appointments.filter(
     (item) => item.dietitianId === dietitian.id && item.patientId === currentUser.id && item.status === 'upcoming',
   )
   const inCall = activeCall?.peerId === dietitian.userId
-  const firstName = dietitian.name.split(' ')[0] ?? dietitian.name
-  const dietitianUserId = dietitian.userId
 
   function setPanel(next: Panel) {
     const search = new URLSearchParams(params)
@@ -112,26 +113,15 @@ export function CarePage() {
     setParams(search, { replace: true })
   }
 
-  function sendChat(text: string, attachments?: MessageAttachment[]) {
-    if (!conversationId) return
-    const files = attachments ?? pendingFiles
-    const body = text.trim() || (files.length ? `Shared ${files.map((file) => file.name).join(', ')}` : '')
-    if (!body) return
-    sendMessage(conversationId, body, files.length ? files : undefined)
-    files.forEach((file) => {
-      uploadFile({
-        name: file.name,
-        category: fileCategoryFromName(file.name, file.type),
-        size: file.size,
-        sharedWithId: dietitianUserId,
-        url: file.url,
-      })
-    })
-    setPendingFiles([])
-    if (apiEnabled()) return
-    window.setTimeout(() => {
-      sendPeerMessage(conversationId, dietitianUserId, dietitianReply(body, firstName))
-    }, 700)
+  async function goToMessages() {
+    if (!dietitian) return
+    setOpeningChat(true)
+    try {
+      const threadId = await openConversation(dietitian.userId, dietitian.name)
+      if (threadId) navigate(`/messages/${threadId}`)
+    } finally {
+      setOpeningChat(false)
+    }
   }
 
   return (
@@ -166,8 +156,9 @@ export function CarePage() {
               </Button>
               <Button
                 className="w-full justify-center sm:w-auto sm:min-w-[168px]"
-                variant={panel === 'chat' ? 'primary' : 'outline'}
-                onClick={() => setPanel('chat')}
+                variant="outline"
+                loading={openingChat}
+                onClick={() => void goToMessages()}
               >
                 <MessageSquare size={16} /> Chat
               </Button>
@@ -248,13 +239,14 @@ export function CarePage() {
                   <p className="text-sm font-semibold text-ink">
                     {item.date} · {item.time}
                   </p>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-destructive hover:underline"
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    className="h-7 px-2 text-xs"
                     onClick={() => cancelAppointment(item.id)}
                   >
                     <Trash2 size={12} /> Delete
-                  </button>
+                  </Button>
                 </div>
               ))}
               <button className="mt-2 text-xs font-semibold text-navy" onClick={() => navigate('/appointments')}>
@@ -265,103 +257,16 @@ export function CarePage() {
         </section>
       )}
 
-      {panel === 'chat' && (
-        <section className="flex min-h-[560px] flex-col overflow-hidden rounded-lg border border-line bg-white" aria-label="Messages">
-          <div className="border-b border-line px-4 py-3">
-            <p className="font-bold text-ink">Message {dietitian.name}</p>
-            <p className="text-xs text-muted">They reply in this thread.</p>
-          </div>
-          <div className="flex-1 space-y-3 overflow-auto bg-panel p-4">
-            {thread.map((message) => {
-              const mine = message.senderId === currentUser.id
-              return (
-                <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-[#0E3E77] text-white' : 'bg-white text-ink shadow-sm'}`}>
-                    {message.text ? <p>{message.text}</p> : null}
-                    {message.attachments?.map((file) => (
-                      <ChatAttachment key={`${file.name}-${file.size}`} file={file} mine={mine} />
-                    ))}
-                    <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-muted'}`}>{formatTime(message.timestamp)}</p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          <form
-            className="border-t border-line p-3"
-            onSubmit={(event) => {
-              event.preventDefault()
-              sendChat(draft)
-              setDraft('')
-            }}
-          >
-            {pendingFiles.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-2">
-                {pendingFiles.map((file) => (
-                  <span key={`${file.name}-${file.size}`} className="inline-flex items-center gap-1.5 rounded-full bg-navy-soft px-2.5 py-1 text-xs font-medium text-navy">
-                    <FileText size={12} />
-                    {file.name}
-                    <button
-                      type="button"
-                      aria-label={`Remove ${file.name}`}
-                      onClick={() => setPendingFiles((current) => current.filter((item) => item.name !== file.name))}
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <label className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl border border-line text-muted hover:bg-panel">
-                <Paperclip size={16} />
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  aria-label="Attach file"
-                  onChange={(event) => {
-                    const chosen = Array.from(event.target.files ?? [])
-                    if (chosen.length === 0) return
-                    const placeholders = chosen.map((file) => ({
-                      name: file.name,
-                      size: fileSizeLabel(file.size),
-                      type: file.type,
-                    }))
-                    setPendingFiles((current) => [...current, ...placeholders])
-                    void Promise.all(chosen.map(readLocalFile)).then((read) => {
-                      setPendingFiles((current) =>
-                        current.map((item) => read.find((file) => file.name === item.name) ?? item),
-                      )
-                    })
-                    event.target.value = ''
-                  }}
-                />
-              </label>
-              <input
-                className="hy-input"
-                placeholder={`Message ${firstName}…`}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-              />
-              <Button type="submit" aria-label="Send" disabled={!draft.trim() && pendingFiles.length === 0}>
-                <Send size={16} />
-              </Button>
-            </div>
-          </form>
-        </section>
-      )}
-
-      {panel === 'call' && (
+      {panel === 'call' && !(activeCall && !activeCall.incoming) ? (
         <VideoStage
-          call={inCall ? activeCall : null}
-          selfAvatar={currentUser.avatar}
+          call={inCall ? withCallPeerAvatar(activeCall, users, dietitians, applications) : null}
+          selfAvatar={accountAvatar(currentUser, dietitians, applications)}
           selfName={currentUser.name}
           onEnd={endCall}
           onAnswer={answerCall}
           onStart={() => startCall(conversationId, dietitian.userId, dietitian.name, dietitian.avatar)}
         />
-      )}
+      ) : null}
 
       <Modal open={confirmOpen} title="Confirm appointment" onClose={() => setConfirmOpen(false)}>
         <p className="text-sm text-muted">
@@ -372,7 +277,7 @@ export function CarePage() {
             Back
           </Button>
           <Button
-            disabled={booking}
+            loading={booking}
             onClick={() => {
               if (!selectedTime || booking) return
               setBooking(true)
@@ -385,7 +290,6 @@ export function CarePage() {
                   'video',
                 )
                 if (ok) {
-                  sendChat(`I’d like to book ${selectedDay} at ${selectedTime}.`, [])
                   setConfirmOpen(false)
                   setSelectedTime('')
                 }

@@ -179,3 +179,11 @@ html.dark .marketplace-root .bg-white\/90 {
 .animate-register-pulse {
   animation: register-pulse 1.2s ease-in-out infinite;
 }
+
+/* Shared care surfaces must remain opaque and readable in either theme. */
+.marketplace-root .bg-panel { background-color: var(--panel); }
+.marketplace-root .bg-navy-soft { background-color: var(--navy-soft); }
+.marketplace-root input::placeholder, .marketplace-root textarea::placeholder { color: var(--care-muted); opacity: 1; }
+html.dark .marketplace-root table { background: var(--surface); color: var(--ink); }
+html.dark .marketplace-root thead, html.dark .marketplace-root th { background: var(--panel); color: var(--care-muted); }
+html.dark .marketplace-root tbody, html.dark .marketplace-root tbody tr, html.dark .marketplace-root td { background-color: var(--surface); color: var(--ink); }

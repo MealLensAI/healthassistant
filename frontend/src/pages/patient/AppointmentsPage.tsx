@@ -1,16 +1,18 @@
 import { CalendarDays, Trash2, Video } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { practicePath } from '@/lib/care/practiceBase'
 import { Button } from '@/components/care-ui/Button'
 import { Avatar } from '@/components/care-ui/Primitives'
 import { useApp } from '@/lib/care/context'
-import { useCallMedia } from '@/lib/care/callMedia'
+import { useCallMedia } from '@/lib/care/callMediaContext'
 import { dietitianProfilePath, patientProfilePath } from '@/lib/care/profilePaths'
 
 export function AppointmentsPage({ role = 'patient' }: { role?: 'patient' | 'dietitian' }) {
-  const { appointments, dietitians, users, currentUser, startCall, dispatch, cancelAppointment } = useApp()
+  const { appointments, dietitians, users, currentUser, startCall, dispatch, cancelAppointment, openConversation } = useApp()
   const { ensureLocalMedia } = useCallMedia()
   const navigate = useNavigate()
+  const [messagingId, setMessagingId] = useState<string | null>(null)
 
   if (!currentUser) {
     return (
@@ -25,6 +27,7 @@ export function AppointmentsPage({ role = 'patient' }: { role?: 'patient' | 'die
   }
 
   const mine = appointments
+    .filter((appointment) => appointment.status !== 'deleted')
     .filter((appointment) =>
       role === 'dietitian'
         ? dietitians.find((item) => item.id === appointment.dietitianId)?.userId === currentUser.id
@@ -79,36 +82,49 @@ export function AppointmentsPage({ role = 'patient' }: { role?: 'patient' | 'die
               <span className="rounded-full bg-navy-soft px-3 py-1 text-xs font-bold capitalize text-navy-deep">
                 {appointment.status}
               </span>
-              {appointment.status === 'upcoming' && (
-                <div className="flex flex-wrap gap-2">
-                  {appointment.type === 'video' && dietitian && (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (role === 'patient') {
-                          void ensureLocalMedia().finally(() => navigate(`/care/${dietitian.id}?call=1`))
-                          return
-                        }
-                        const peerUser = patient
-                        if (!peerUser) return
-                        void ensureLocalMedia().finally(() => startCall('live', peerUser.id, peerUser.name, peerUser.avatar))
-                      }}
-                    >
-                      <Video size={14} /> Join
-                    </Button>
-                  )}
+              <div className="flex flex-wrap gap-2">
+                {appointment.status === 'upcoming' && appointment.type === 'video' && dietitian ? (
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      if (role === 'patient') {
+                        if (!dietitian) return
+                        const stream = await ensureLocalMedia()
+                        if (stream) await startCall('live', dietitian.userId, dietitian.name, dietitian.avatar || '')
+                        return
+                      }
+                      const peerUser = patient
+                      if (!peerUser) return
+                      const stream = await ensureLocalMedia()
+                      if (stream) await startCall('live', peerUser.id, peerUser.name, peerUser.avatar)
+                    }}
+                  >
+                    <Video size={14} /> Join
+                  </Button>
+                ) : null}
+                {appointment.status === 'upcoming' ? (
                   <Button
                     size="sm"
                     variant="outline"
+                    loading={messagingId === appointment.id}
                     onClick={() => {
                       const dietitianUserId = dietitian?.userId
-                      if (!dietitianUserId) return
-                      const conversationId = `conv-${[appointment.patientId, dietitianUserId].sort().join('-')}`
-                      navigate(role === 'dietitian' ? practicePath(`messages/${conversationId}`) : `/messages/${conversationId}`)
+                      if (!dietitianUserId || !currentUser) return
+                      setMessagingId(appointment.id)
+                      const peerId = role === 'dietitian' ? appointment.patientId : dietitianUserId
+                      const peerName = role === 'dietitian' ? (patient?.name || 'Patient') : (dietitian?.name || 'Dietitian')
+                      void openConversation(peerId, peerName)
+                        .then((conversationId) => {
+                          if (!conversationId) return
+                          navigate(role === 'dietitian' ? practicePath(`messages/${conversationId}`) : `/messages/${conversationId}`)
+                        })
+                        .finally(() => setMessagingId(null))
                     }}
                   >
                     Message
                   </Button>
+                ) : null}
+                {appointment.status === 'upcoming' ? (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -116,11 +132,11 @@ export function AppointmentsPage({ role = 'patient' }: { role?: 'patient' | 'die
                   >
                     Complete
                   </Button>
-                  <Button size="sm" variant="danger" onClick={() => cancelAppointment(appointment.id)}>
-                    <Trash2 size={14} /> Delete
-                  </Button>
-                </div>
-              )}
+                ) : null}
+                <Button size="sm" variant="danger" onClick={() => cancelAppointment(appointment.id)}>
+                  <Trash2 size={14} /> Delete
+                </Button>
+              </div>
             </article>
           )
         })}

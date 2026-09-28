@@ -41,8 +41,15 @@ const MainLayout = ({ children }: { children: ReactNode }) => {
   const profileComplete = isHealthProfileComplete()
 
   return (
-    <MarketplaceProvider>
-      <MarketplaceBootGate allowGuest={false} blocking>
+    <MarketplaceProvider
+      mainAppUser={user ? {
+        uid: user.uid,
+        email: user.email,
+        name: user.displayName || user.email.split('@')[0] || 'Member',
+        avatar: user.photoURL || '',
+      } : null}
+    >
+      <MarketplaceBootGate allowGuest={false} blocking={false}>
         <PageHeaderProvider>
           <div className="marketplace-root flex min-h-screen bg-cream text-left">
             <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />

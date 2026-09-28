@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { PasswordSecuritySection } from '@/components/PasswordSecuritySection'
 import { Button } from '@/components/care-ui/Button'
 import { ProfilePhoto } from '@/components/care-ui/PhotoViewer'
 import { Pill } from '@/components/care-ui/Primitives'
@@ -180,9 +181,11 @@ export function PatientProfilePage() {
         </ul>
         {recordFiles.length === 0 && <p className="text-sm text-muted">No lab records yet.</p>}
         <Link to="/files" className="mt-3 inline-block text-sm font-semibold text-navy">
-          Open My Files
+          Open My Health Files
         </Link>
       </Section>
+
+      <PasswordSecuritySection />
 
       <Button onClick={() => savePatientProfile({ ...profile, userId: currentUser.id })}>Save clinical profile</Button>
     </div>

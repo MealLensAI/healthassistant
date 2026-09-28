@@ -1,4 +1,6 @@
-from supabase import Client  # Import Client for type hinting
+import os
+
+from supabase import Client, create_client  # Import Client for type hinting
 from typing import Optional, Tuple
 
 class AuthService:
@@ -13,6 +15,18 @@ class AuthService:
             supabase_admin_client (Client): Supabase client initialized with service_role key.
         """
         self.supabase_admin = supabase_admin_client
+        # Separate clients for token verify + profile lookup so get_user / sessions
+        # never rewrite Authorization on the shared app write client (RLS 42501).
+        url = os.environ.get("SUPABASE_URL") or getattr(supabase_admin_client, "supabase_url", None)
+        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        self._verify_client: Optional[Client] = None
+        self._profile_client: Optional[Client] = None
+        if url and key:
+            try:
+                self._verify_client = create_client(url, key)
+                self._profile_client = create_client(url, key)
+            except Exception as e:
+                print(f"Warning: AuthService could not create isolated clients: {e}")
 
     def _verify_supabase_token(self, token: str) -> Tuple[Optional[str], str]:
         """
@@ -25,13 +39,20 @@ class AuthService:
             Tuple[Optional[str], str]: (user_id, auth_type) or (None, '') if verification fails
         """
         try:
+            auth_client = self._verify_client or self.supabase_admin
+            db_client = self._profile_client or self.supabase_admin
             # Use Supabase admin client to verify the token
             # This will decode the JWT and verify it's valid
-            user = self.supabase_admin.auth.get_user(token)
+            user = auth_client.auth.get_user(token)
             if user and getattr(user, 'user', None):
                 # Prefer profiles.id if present, otherwise fall back to auth user ID
                 try:
-                    profile_data = self.supabase_admin.table('profiles').select('id').eq('id', user.user.id).single().execute()
+                    # Keep service-role on profile reads even if get_user mutated auth_client.
+                    try:
+                        db_client.postgrest.auth(os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "")
+                    except Exception:
+                        pass
+                    profile_data = db_client.table('profiles').select('id').eq('id', user.user.id).single().execute()
                     if profile_data.data and profile_data.data.get('id'):
                         return profile_data.data['id'], 'supabase'
                 except Exception:

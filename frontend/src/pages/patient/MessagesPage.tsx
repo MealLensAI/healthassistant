@@ -1,19 +1,20 @@
-import { Paperclip, Send, Video } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Check, CheckCheck, Clock3, MoreHorizontal, Paperclip, RotateCcw, Send, Trash2, Video } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { VideoStage } from '@/components/calls/VideoStage'
 import { ChatAttachment } from '@/components/files/ChatAttachment'
 import { Avatar } from '@/components/care-ui/Primitives'
 import { Button } from '@/components/care-ui/Button'
 import { useApp } from '@/lib/care/context'
-import { apiEnabled } from '@/lib/care/api'
-import { useCallMedia } from '@/lib/care/callMedia'
+import { accountAvatar } from '@/lib/care/accountAvatar'
+import { withCallPeerAvatar } from '@/lib/care/calls'
+import { apiEnabled, uploadCareAsset } from '@/lib/care/api'
+import { useCallMedia } from '@/lib/care/callMediaContext'
 import { dietitianReply } from '@/lib/care/care'
-import { fileCategoryFromName, readLocalFile } from '@/lib/care/files'
 import { peerProfilePath } from '@/lib/care/profilePaths'
 import { practicePath } from '@/lib/care/practiceBase'
-import { cn, formatTime } from '@/lib/care/utils'
-import type { Conversation } from '@/lib/care/types'
+import { cn, fileSizeLabel, formatTime } from '@/lib/care/utils'
+import type { Conversation, MessageDeliveryStatus } from '@/lib/care/types'
 
 export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietitian' }) {
   const { id } = useParams()
@@ -24,16 +25,33 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
     messages,
     users,
     dietitians,
+    applications,
     sendMessage,
+    retryMessage,
     sendPeerMessage,
     startCall,
     answerCall,
     endCall,
     activeCall,
-    uploadFile,
+    markConversationRead,
+    deleteConversation,
+    toast,
   } = useApp()
-  const { ensureLocalMedia } = useCallMedia()
+  const { runWithLocalMedia, preparingCall } = useCallMedia()
   const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [menuForId, setMenuForId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuForId) return
+    const onPointer = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuForId(null)
+    }
+    document.addEventListener('mousedown', onPointer)
+    return () => document.removeEventListener('mousedown', onPointer)
+  }, [menuForId])
 
   const mine = useMemo(
     () =>
@@ -45,6 +63,17 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
 
   const active = mine.find((conversation) => conversation.id === id) ?? mine[0]
   const inboxTo = role === 'dietitian' ? practicePath('messages') : '/messages'
+
+  const activeId = active?.id
+  const lastIncoming = messages.filter((message) => message.conversationId === active?.id && message.senderId !== currentUser?.id).slice(-1)[0]?.timestamp
+  useEffect(() => {
+    const markVisible = () => {
+      if (activeId && document.visibilityState === 'visible' && (id || window.matchMedia('(min-width: 1024px)').matches)) markConversationRead(activeId)
+    }
+    markVisible()
+    document.addEventListener('visibilitychange', markVisible)
+    return () => document.removeEventListener('visibilitychange', markVisible)
+  }, [activeId, lastIncoming, id, currentUser?.id, markConversationRead])
 
   // Deep-link the first thread on desktop so the 3-column layout matches the care product.
   useEffect(() => {
@@ -65,6 +94,8 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
   }
 
   const peer = active ? peerFor(active, currentUser.id, users, dietitians) : null
+  const selfAvatar = accountAvatar(currentUser, dietitians, applications)
+  const displayCall = withCallPeerAvatar(activeCall, users, dietitians, applications)
   const thread = messages.filter((message) => message.conversationId === active?.id)
   const threadOpen = Boolean(id)
   const showThread = Boolean(active && peer)
@@ -83,10 +114,12 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
         <div className="min-h-0 flex-1 overflow-auto">
           {mine.map((conversation) => {
             const person = peerFor(conversation, currentUser.id, users, dietitians)
+            const menuOpen = menuForId === conversation.id
+            const deleting = deletingId === conversation.id
             return (
               <div
                 key={conversation.id}
-                className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-panel ${
+                className={`flex w-full items-center gap-2 px-3 py-3 text-left hover:bg-panel ${
                   active?.id === conversation.id ? 'bg-navy-soft' : ''
                 }`}
               >
@@ -100,6 +133,44 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
                   <span className="block truncate text-sm font-semibold text-ink">{person?.name}</span>
                   <span className="block truncate text-xs text-muted">{conversation.lastMessage}</span>
                 </button>
+                <div className="relative shrink-0" ref={menuOpen ? menuRef : undefined}>
+                  <button
+                    type="button"
+                    aria-label={`Options for ${person?.name ?? 'conversation'}`}
+                    aria-expanded={menuOpen}
+                    className="grid h-8 w-8 place-items-center rounded-full text-muted hover:bg-white hover:text-ink"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setMenuForId(menuOpen ? null : conversation.id)
+                    }}
+                  >
+                    <MoreHorizontal size={16} />
+                  </button>
+                  {menuOpen ? (
+                    <div className="absolute right-0 top-9 z-20 min-w-[10.5rem] overflow-hidden rounded-xl border border-line bg-white py-1 shadow-elevated">
+                      <button
+                        type="button"
+                        disabled={deleting}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-panel disabled:opacity-50"
+                        onClick={() => {
+                          if (deleting) return
+                          if (!window.confirm(`Delete chat with ${person?.name ?? 'this person'}? This removes the conversation for both of you.`)) return
+                          setMenuForId(null)
+                          setDeletingId(conversation.id)
+                          void deleteConversation(conversation.id)
+                            .then((ok) => {
+                              if (!ok) return
+                              if (active?.id === conversation.id) navigate(inboxTo, { replace: true })
+                            })
+                            .finally(() => setDeletingId(null))
+                        }}
+                      >
+                        <Trash2 size={14} />
+                        {deleting ? 'Deleting…' : 'Delete chat'}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             )
           })}
@@ -111,7 +182,7 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
         </div>
       </aside>
 
-      <section className={cn('min-h-0 flex-col', threadOpen || showThread ? 'flex' : 'hidden lg:flex')}>
+      <section className={cn('min-h-0 flex-col', threadOpen ? 'flex' : 'hidden lg:flex')}>
         {showThread && active && peer ? (
           <>
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line px-3 py-3 sm:px-4">
@@ -137,22 +208,28 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
                   <p className="text-xs text-muted">{peer.title ?? 'MealLensAI care'}</p>
                 </Link>
               </div>
-              <Button
-                size="sm"
-                className="shrink-0"
-                onClick={() => {
-                  void ensureLocalMedia().finally(() => {
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  size="sm"
+                  className="shrink-0"
+                  loading={preparingCall}
+                  onClick={() => runWithLocalMedia(() => {
                     if (activeCall?.incoming && activeCall.peerId === peer.id) {
-                      answerCall()
-                      return
+                      return answerCall()
                     }
-                    startCall(active.id, peer.id, peer.name, peer.avatar ?? '')
-                  })
-                }}
-              >
-                <Video size={14} /> {activeCall?.incoming && activeCall.peerId === peer.id ? 'Answer' : 'Video call'}
-              </Button>
+                    return startCall(active.id, peer.id, peer.name, peer.avatar ?? '')
+                  })}
+                >
+                  <Video size={14} /> {activeCall?.incoming && activeCall.peerId === peer.id ? 'Answer' : 'Video call'}
+                </Button>
+              </div>
             </div>
+            {/* Incoming only — active calls use CallWindow (expand / minimize). */}
+            {activeCall?.peerId === peer.id && activeCall.incoming ? (
+              <div className="shrink-0 lg:hidden">
+                <VideoStage call={displayCall} selfAvatar={selfAvatar} selfName={currentUser.name} compact onEnd={endCall} onAnswer={answerCall} />
+              </div>
+            ) : null}
             <div className="min-h-0 flex-1 space-y-3 overflow-auto bg-panel/60 p-4">
               {thread.map((message) => {
                 const mineMsg = message.senderId === currentUser.id
@@ -175,16 +252,17 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
                     )}
                     <div
                       className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                        mineMsg ? 'bg-navy text-white' : 'bg-white text-ink shadow-sm'
+                        mineMsg ? 'bg-[#0E3E77] text-white' : 'bg-white text-ink shadow-sm'
                       }`}
                     >
                       <p>{message.text}</p>
                       {message.attachments?.map((file) => (
                         <ChatAttachment key={`${file.name}-${file.size}`} file={file} mine={mineMsg} />
                       ))}
-                      <p className={`mt-1 text-[10px] ${mineMsg ? 'text-white/70' : 'text-muted'}`}>
-                        {formatTime(message.timestamp)}
-                      </p>
+                      <div className={`mt-1 flex items-center gap-1.5 text-[10px] ${mineMsg ? 'justify-end text-white/70' : 'text-muted'}`}>
+                        <span>{formatTime(message.timestamp)}</span>
+                        {mineMsg ? <MessageStatus status={message.status} onRetry={() => void retryMessage(message.id)} /> : null}
+                      </div>
                     </div>
                   </div>
                 )
@@ -192,38 +270,41 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
             </div>
             <form
               className="flex shrink-0 items-center gap-2 border-t border-line p-3"
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault()
                 if (!draft.trim()) return
-                sendMessage(active.id, draft.trim())
+                if (sending) return
+                const outgoing = draft.trim()
+                setDraft('')
+                // Fire-and-forget: bubble appears as pending immediately.
+                void sendMessage(active.id, outgoing, undefined, peer?.id).catch(() => {
+                  toast('error', 'Message failed to send. Tap Retry on the bubble.')
+                })
                 if (!apiEnabled() && role === 'patient' && peer) {
                   const firstName = peer.name.split(' ')[0] ?? peer.name
-                  const outgoing = draft.trim()
                   window.setTimeout(() => {
                     sendPeerMessage(active.id, peer.id, dietitianReply(outgoing, firstName))
                   }, 700)
                 }
-                setDraft('')
               }}
             >
               <label className="grid h-10 w-10 cursor-pointer place-items-center rounded-xl border border-line text-muted hover:bg-panel">
                 <Paperclip size={16} />
                 <input
                   type="file"
+                  disabled={sending}
+                  aria-label="Attach a file"
                   className="hidden"
                   onChange={(event) => {
                     const file = event.target.files?.[0]
                     if (!file || !active || !peer) return
-                    void readLocalFile(file).then((read) => {
-                      sendMessage(active.id, `Shared a file: ${read.name}`, [read])
-                      uploadFile({
-                        name: read.name,
-                        category: fileCategoryFromName(read.name, read.type),
-                        size: read.size,
-                        sharedWithId: peer.id,
-                        url: read.url,
-                      })
-                    })
+                    setSending(true)
+                    void (apiEnabled()
+                      ? uploadCareAsset(file, 'attachment').then((uploaded) => ({ name: uploaded.name, size: fileSizeLabel(uploaded.sizeBytes), type: uploaded.type, objectKey: uploaded.objectKey, bucket: uploaded.bucket, sizeBytes: uploaded.sizeBytes }))
+                      : Promise.resolve({ name: file.name, size: fileSizeLabel(file.size), type: file.type, url: URL.createObjectURL(file), sizeBytes: file.size }))
+                      .then((read) => sendMessage(active.id, `Shared a file: ${read.name}`, [read]))
+                      .catch((error) => toast('error', error instanceof Error ? error.message : 'File could not be sent. Please try again.'))
+                      .finally(() => setSending(false))
                     event.target.value = ''
                   }}
                 />
@@ -234,7 +315,7 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
               />
-              <Button type="submit" aria-label="Send">
+              <Button type="submit" loading={sending} aria-label={sending ? "Sending" : "Send"}>
                 <Send size={16} />
               </Button>
             </form>
@@ -257,15 +338,19 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
           {peer ? (
             <>
               <VideoStage
-                call={activeCall?.peerId === peer.id ? activeCall : null}
-                selfAvatar={currentUser.avatar}
+                call={
+                  activeCall?.peerId === peer.id && activeCall.incoming
+                    ? displayCall
+                    : null
+                }
+                selfAvatar={selfAvatar}
                 selfName={currentUser.name}
                 compact
                 onEnd={endCall}
                 onAnswer={answerCall}
                 onStart={() => {
                   if (!active) return
-                  void ensureLocalMedia().finally(() => startCall(active.id, peer.id, peer.name, peer.avatar ?? ''))
+                  return startCall(active.id, peer.id, peer.name, peer.avatar ?? '')
                 }}
               />
               <Link
@@ -287,6 +372,30 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
   )
 }
 
+function MessageStatus({
+  status,
+  onRetry,
+}: {
+  status?: MessageDeliveryStatus
+  onRetry: () => void
+}) {
+  if (status === 'failed') {
+    return (
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5 py-0.5 font-semibold text-white hover:bg-white/25"
+      >
+        <RotateCcw size={10} /> Retry
+      </button>
+    )
+  }
+  if (status === 'pending') return <Clock3 size={12} aria-label="Sending" />
+  if (status === 'read') return <CheckCheck size={12} className="text-sky-300" aria-label="Read" />
+  if (status === 'delivered') return <CheckCheck size={12} aria-label="Delivered" />
+  return <Check size={12} aria-label="Sent" />
+}
+
 function peerFor(
   conversation: Conversation,
   myId: string,
@@ -296,7 +405,8 @@ function peerFor(
   const peerId = conversation.participantIds.find((id) => id !== myId)
   const user = users.find((item) => item.id === peerId)
   const dietitian = dietitians.find((item) => item.userId === peerId)
-  if (user) return { id: user.id, name: user.name, avatar: user.avatar, title: user.title }
-  if (dietitian) return { id: dietitian.userId, name: dietitian.name, avatar: dietitian.avatar, title: dietitian.title }
-  return { id: peerId ?? '', name: 'Care team', avatar: '', title: '' }
+  const avatar = user?.avatar || dietitian?.avatar || ''
+  const name = user?.name || dietitian?.name || 'Care team'
+  const title = user?.title || dietitian?.title || ''
+  return { id: peerId ?? user?.id ?? dietitian?.userId ?? '', name, avatar, title }
 }

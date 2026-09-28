@@ -249,6 +249,12 @@ const AdminMealPlanManager: React.FC<AdminMealPlanManagerProps> = ({
         </div>
       );
     }
+    return (
+      <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs font-medium">
+        <Shield className="w-3 h-3" />
+        <span>Regular Plan</span>
+      </div>
+    );
   };
 
   const renderCreatorIndicator = (plan: SavedMealPlan) => {
@@ -271,13 +277,6 @@ const AdminMealPlanManager: React.FC<AdminMealPlanManagerProps> = ({
         </div>
       );
     }
-  };
-    return (
-      <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs font-medium">
-        <Shield className="w-3 h-3" />
-        <span>Regular Plan</span>
-      </div>
-    );
   };
 
   const getUserName = (user: UserInfo) => {

@@ -232,23 +232,23 @@ const Payment: React.FC = () => {
       <section className="container mx-auto px-4 py-10">
         {/* Optional header skeletons */}
         <div className="max-w-3xl mx-auto text-center mb-10">
-          <div className="h-8 w-64 bg-gray-200 rounded mx-auto animate-pulse" />
-          <div className="h-4 w-80 bg-gray-200 rounded mx-auto mt-3 animate-pulse" />
+          <div className="h-8 w-64 bg-secondary rounded mx-auto animate-pulse" />
+          <div className="h-4 w-80 bg-secondary rounded mx-auto mt-3 animate-pulse" />
         </div>
 
         {/* Pricing skeleton grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="rounded-2xl border border-gray-200 p-6 shadow-sm animate-pulse bg-white">
-              <div className="h-8 w-24 bg-gray-200 rounded mb-4" />
-              <div className="h-4 w-32 bg-gray-200 rounded mb-6" />
-              <div className="h-10 w-40 bg-gray-300 rounded mb-8" />
+            <div key={i} className="rounded-2xl border border-border p-6 shadow-sm animate-pulse bg-white">
+              <div className="h-8 w-24 bg-secondary rounded mb-4" />
+              <div className="h-4 w-32 bg-secondary rounded mb-6" />
+              <div className="h-10 w-40 bg-secondary rounded mb-8" />
               <div className="space-y-3 mb-8">
                 {[...Array(5)].map((_, idx) => (
-                  <div key={idx} className="h-4 w-full bg-gray-200 rounded" />
+                  <div key={idx} className="h-4 w-full bg-secondary rounded" />
                 ))}
               </div>
-              <div className="h-10 w-full bg-gray-300 rounded" />
+              <div className="h-10 w-full bg-secondary rounded" />
             </div>
           ))}
         </div>
@@ -726,7 +726,7 @@ return (
         )}
 
 
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-foreground">Plans & Pricing</h2>
         <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Choose the plan that fits your needs. Start with three free 7-day meal plans, then subscribe from $20/month. Change anytime.</p>
       </div>
 
@@ -750,7 +750,7 @@ return (
               </div>
             </div>
 
-            <ul className="mb-8 w-full text-gray-700 text-left space-y-3">
+            <ul className="mb-8 w-full text-foreground text-left space-y-3">
               {FEATURES.map((feature, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <span className="inline-block w-5 h-5 rounded-full bg-leaf mr-3 flex-shrink-0 flex items-center justify-center">
@@ -783,10 +783,10 @@ return (
 
           <div className="space-y-6 py-4">
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Your Name</label>
+              <label className="block text-sm font-semibold mb-2 text-foreground">Your Name</label>
               <input
                 type="text"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+                className="w-full bg-background text-foreground p-3 border border-border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your full name"
@@ -795,10 +795,10 @@ return (
             </div>
 
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Email Address</label>
+              <label className="block text-sm font-semibold mb-2 text-foreground">Email Address</label>
               <input
                 type="email"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+                className="w-full bg-background text-foreground p-3 border border-border rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email address"
@@ -806,14 +806,14 @@ return (
               />
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg border">
-              <div className="text-lg font-semibold text-gray-800 mb-2">
+            <div className="bg-secondary p-4 rounded-lg border">
+              <div className="text-lg font-semibold text-foreground mb-2">
                 Selected Plan:
               </div>
               <div className="text-xl font-bold text-primary">
                 {selectedPlan?.label}
               </div>
-              <div className="text-sm text-gray-600 mt-1">
+              <div className="text-sm text-muted-foreground mt-1">
                 Amount: ${selectedPlan?.price?.toLocaleString()}
               </div>
             </div>

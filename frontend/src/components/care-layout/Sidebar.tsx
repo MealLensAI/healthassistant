@@ -1,3 +1,4 @@
+import { accountAvatar } from '@/lib/care/accountAvatar'
 import type { LucideIcon } from 'lucide-react'
 import {
   CalendarDays,
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useApp } from '@/lib/care/context'
-import { unreadCountFor } from '@/lib/care/alerts'
+import { unreadCountFor, pendingAppointmentCount } from '@/lib/care/alerts'
 import { ownProfilePath } from '@/lib/care/profilePaths'
 import { cn } from '@/lib/care/utils'
 import { Avatar } from '@/components/care-ui/Primitives'
@@ -34,7 +35,7 @@ const patientNav: NavItem[] = [
   { to: '/dietitians', label: 'Home', icon: Home },
   { to: '/appointments', label: 'Appointments', icon: CalendarDays },
   { to: '/messages', label: 'Messages', icon: MessageSquare },
-  { to: '/files', label: 'My Files', icon: FolderOpen },
+  { to: '/files', label: 'My Health Files', icon: FolderOpen },
   { to: '/care-settings', label: 'Settings', icon: Settings },
   { to: '/food-for-you', label: 'Meal tools', icon: UtensilsCrossed },
 ]
@@ -46,7 +47,7 @@ const adminNav: NavItem[] = [
 ]
 
 export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: () => void }) {
-  const { currentUser, logout, conversations, messages } = useApp()
+  const { currentUser, logout, conversations, messages, appointments, dietitians, applications } = useApp()
   if (!currentUser) return null
 
   const unread = unreadCountFor(currentUser.id, conversations, messages)
@@ -61,8 +62,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
     { to: '/dietitian/settings', label: 'Settings', icon: Settings },
   ]
 
-  const items =
-    currentUser.role === 'admin' ? adminNav : currentUser.role === 'dietitian' ? dietitianNav : patientNav
+  const items = (currentUser.role === 'admin' ? adminNav : currentUser.role === 'dietitian' ? dietitianNav : patientNav).map((item) => ({ ...item, badge: item.to.endsWith('/appointments') ? pendingAppointmentCount(currentUser.id, appointments, dietitians) : item.to.endsWith('/messages') ? unread : item.badge }))
 
   const profileTo = ownProfilePath(currentUser.role)
   const homeTo = currentUser.role === 'admin' ? '/admin' : currentUser.role === 'dietitian' ? '/dietitian' : '/dietitians'
@@ -113,7 +113,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
       </nav>
       <div className="border-t border-line p-4">
         <NavLink to={profileTo} onClick={onClose} className="mb-3 flex items-center gap-3 rounded-[16px] p-2 hover:bg-panel">
-          <Avatar src={currentUser.avatar} name={currentUser.name} size={40} />
+          <Avatar src={accountAvatar(currentUser, dietitians, applications)} name={currentUser.name} size={40} />
           <div className="min-w-0">
             <p className="truncate text-[14px] font-semibold leading-5 text-ink">{currentUser.name}</p>
             <p className="truncate text-[12px] capitalize leading-4 text-muted">{currentUser.role}</p>

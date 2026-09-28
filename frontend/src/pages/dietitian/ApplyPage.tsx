@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/care-ui/Button'
 import { SpecialtyPicker } from '@/components/dietitians/SpecialtyPicker'
 import { useApp } from '@/lib/care/context'
+import { apiEnabled, uploadCareAsset } from '@/lib/care/api'
 import { validateApplication, type ApplicationDraft } from '@/lib/care/domain'
 import { cn, formatDate } from '@/lib/care/utils'
 
@@ -25,7 +26,7 @@ const emptyDraft: ApplicationDraft = {
 }
 
 export function ApplyPage() {
-  const { currentUser, applications, dietitians, submitApplication } = useApp()
+  const { currentUser, applications, dietitians, submitApplication, toast } = useApp()
   const [params, setParams] = useSearchParams()
   const application = applications.find((item) => item.userId === currentUser?.id)
   const me = dietitians.find((item) => item.userId === currentUser?.id)
@@ -90,6 +91,7 @@ export function ApplyPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [files, setFiles] = useState<Record<string, string>>({})
   const [fileUrls, setFileUrls] = useState<Record<string, string>>({})
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, { objectKey: string; bucket: string; mimeType: string; sizeBytes: number }>>({})
 
   const statusCopy = useMemo(() => {
     if (existing?.status === 'pending') return 'Your application is in the admin verification queue.'
@@ -99,33 +101,41 @@ export function ApplyPage() {
     return 'Complete the credentialing form. Uploads are mandatory before review.'
   }, [existing, me, registered])
 
-  function markFile(kind: keyof ApplicationDraft['documents'], file?: File) {
+  async function markFile(kind: keyof ApplicationDraft['documents'], file?: File) {
+    if (!file) return
+    try {
+      if (apiEnabled()) {
+        const uploaded = await uploadCareAsset(file, kind === 'photo' ? 'avatar' : 'document')
+        setUploadedFiles((current) => ({ ...current, [kind]: { objectKey: uploaded.objectKey, bucket: uploaded.bucket, mimeType: uploaded.type, sizeBytes: uploaded.sizeBytes } }))
+      } else {
+        const url = URL.createObjectURL(file)
+        setFileUrls((current) => ({ ...current, [kind]: url }))
+      }
+    } catch (error) {
+      toast('error', error instanceof Error ? error.message : 'Could not upload file.')
+      return
+    }
     setDraft((current) => ({
       ...current,
-      documents: { ...current.documents, [kind]: Boolean(file) },
+      documents: { ...current.documents, [kind]: true },
     }))
-    if (file) {
-      setFiles((current) => ({ ...current, [kind]: file.name }))
-      const reader = new FileReader()
-      reader.onload = () => setFileUrls((current) => ({ ...current, [kind]: String(reader.result) }))
-      reader.readAsDataURL(file)
-    }
+    setFiles((current) => ({ ...current, [kind]: file.name }))
   }
 
-  function submit() {
+  async function submit() {
     const nextErrors = validateApplication(draft)
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
       setStep(nextErrors.fullName || nextErrors.email || nextErrors.country ? 1 : nextErrors.license || nextErrors.degree1 || nextErrors.degree2 ? 2 : 3)
       return
     }
-    submitApplication({
+    const saved = await submitApplication({
       userId: currentUser?.id ?? '',
       fullName: draft.fullName,
       email: draft.email,
       phone: draft.phone,
       country: draft.country,
-      yearsExperience: Number(draft.yearsExperience),
+      yearsExperience: Math.min(80, Math.max(0, Math.floor(Number(draft.yearsExperience) || 0))),
       bio: draft.bio,
       specialties: draft.specialties,
       workplace: draft.workplace,
@@ -145,12 +155,13 @@ export function ApplyPage() {
           years: item.years || 'Current',
         })),
       documents: [
-        { kind: 'photo', name: 'Profile Photo', fileName: files.photo ?? 'profile.jpg', uploaded: draft.documents.photo, url: fileUrls.photo || currentUser?.avatar },
-        { kind: 'license', name: 'Practice License', fileName: files.license ?? 'license.pdf', uploaded: true, url: fileUrls.license },
-        { kind: 'degree1', name: 'University Degree 1', fileName: files.degree1 ?? 'degree-1.pdf', uploaded: true, url: fileUrls.degree1 },
-        { kind: 'degree2', name: 'University Degree 2', fileName: files.degree2 ?? 'degree-2.pdf', uploaded: true, url: fileUrls.degree2 },
+        { kind: 'photo', name: 'Profile Photo', fileName: files.photo ?? 'profile.jpg', uploaded: draft.documents.photo, url: fileUrls.photo || currentUser?.avatar, ...uploadedFiles.photo },
+        { kind: 'license', name: 'Practice License', fileName: files.license ?? 'license.pdf', uploaded: true, url: fileUrls.license, ...uploadedFiles.license },
+        { kind: 'degree1', name: 'University Degree 1', fileName: files.degree1 ?? 'degree-1.pdf', uploaded: true, url: fileUrls.degree1, ...uploadedFiles.degree1 },
+        { kind: 'degree2', name: 'University Degree 2', fileName: files.degree2 ?? 'degree-2.pdf', uploaded: true, url: fileUrls.degree2, ...uploadedFiles.degree2 },
       ],
     })
+    if (!saved) return
     setEditing(false)
     setParams({})
   }
@@ -279,7 +290,15 @@ export function ApplyPage() {
           <section className="space-y-4">
             <h2 className="text-lg font-bold">3. Professional Details</h2>
             <Field label="Years of Experience" error={errors.yearsExperience}>
-              <input className="hy-input" type="number" min={0} value={draft.yearsExperience} onChange={(event) => setDraft({ ...draft, yearsExperience: event.target.value })} />
+              <input
+                className="hy-input"
+                type="number"
+                min={0}
+                max={80}
+                step={1}
+                value={draft.yearsExperience}
+                onChange={(event) => setDraft({ ...draft, yearsExperience: event.target.value })}
+              />
             </Field>
             <Field label="Biography & Specialties" error={errors.bio}>
               <textarea className="hy-input min-h-32" value={draft.bio} onChange={(event) => setDraft({ ...draft, bio: event.target.value })} />

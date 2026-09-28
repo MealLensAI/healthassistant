@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { AppProvider, useApp } from '@/lib/care/context'
 import { ThemeProvider } from '@/lib/care/theme'
@@ -23,8 +23,11 @@ let marketplaceBooted = false
 let marketplaceBootPromise: Promise<void> | null = null
 let bootedRole: CareSyncRole | null = null
 
-function overlayMainIdentity(base: User, pathRole: CareSyncRole): User {
-  const ha = readHealthAppUser()
+type MainAppIdentity = { uid: string; email: string; name: string; avatar?: string }
+const MarketplaceIdentityContext = createContext<MainAppIdentity | null>(null)
+
+function overlayMainIdentity(base: User, pathRole: CareSyncRole, mainAppUser?: MainAppIdentity | null): User {
+  const ha = mainAppUser ?? readHealthAppUser()
   // Never demote an admin. Path role only applies for patient/dietitian shells.
   const role: User['role'] = base.role === 'admin' ? 'admin' : pathRole === 'admin' ? base.role : pathRole
   if (!ha) return { ...base, role }
@@ -33,7 +36,9 @@ function overlayMainIdentity(base: User, pathRole: CareSyncRole): User {
     role,
     name: ha.name || base.name,
     email: ha.email || base.email,
-    avatar: ha.avatar || base.avatar,
+    // Prefer a fresh marketplace/care avatar over a stale host identity photo.
+    // Never lend a demo identity photo to a different signed-in account.
+    avatar: (base.id === ha.uid && base.avatar) || ha.avatar || '',
   }
 }
 
@@ -82,9 +87,11 @@ async function bootAdminWorkspace(dispatch: ReturnType<typeof useApp>['dispatch'
       await hydrateAs(dispatch, user, server as never)
     } else {
       setSessionUserId(null)
+      dispatch({ type: 'LOGOUT' })
     }
   } catch {
     setSessionUserId(null)
+    dispatch({ type: 'LOGOUT' })
   }
   return true
 }
@@ -92,7 +99,20 @@ async function bootAdminWorkspace(dispatch: ReturnType<typeof useApp>['dispatch'
 async function bootMarketplace(
   dispatch: ReturnType<typeof useApp>['dispatch'],
   role: CareSyncRole = 'patient',
+  mainAppUser?: MainAppIdentity | null,
 ) {
+  // The care session is derived from the signed-in MealLensAI account.  An
+  // earlier browser session may belong to a different person, so clear it
+  // before *any* request can use its X-User-Id header.
+  const healthUser = role === 'admin' ? null : mainAppUser ?? readHealthAppUser()
+  if (role !== 'admin') {
+    const sessionId = getSessionUserId()
+    if (!healthUser || sessionId !== healthUser.uid) {
+      setSessionUserId(null)
+      marketplaceBooted = false
+      bootedRole = null
+    }
+  }
   if (marketplaceBooted && bootedRole === role) return
 
   try {
@@ -104,27 +124,22 @@ async function bootMarketplace(
         return
       }
 
-      const result = await bootstrapEmbeddedSession(role)
-      if (result?.server && result.user) {
-        const user = overlayMainIdentity(result.user as User, role)
-        const server = (await fetchServerState().catch(() => result.server)) as typeof result.server
+      const result = await bootstrapEmbeddedSession(role, healthUser)
+      // Never hydrate the UI from a response for another account.  This is
+      // intentionally strict because profile, clinical, and appointment data
+      // must never cross user boundaries.
+      if (result?.server && result.user && healthUser && result.user.id === healthUser.uid) {
+        const user = overlayMainIdentity(result.user as User, role, healthUser)
+        const server = result.server
         await hydrateAs(dispatch, user, server as never)
         marketplaceBooted = true
         bootedRole = role
         return
       }
 
-      const server = await fetchServerState()
-      if (server.currentUser) {
-        const user = overlayMainIdentity(server.currentUser as User, role)
-        await hydrateAs(dispatch, user, server as never)
-        marketplaceBooted = true
-        bootedRole = role
-        return
-      }
     }
   } catch {
-    // local seed below
+    // Fall through to the safe, empty account shell below.
   }
 
   if (role === 'admin') {
@@ -134,31 +149,41 @@ async function bootMarketplace(
     return
   }
 
-  const seed =
-    USERS.find((u) => u.role === role) ||
-    USERS.find((u) => u.role === 'patient') ||
-    null
+  const seed = healthUser
+    ? ({
+        id: healthUser.uid,
+        name: healthUser.name,
+        email: healthUser.email,
+        role,
+        // A new account starts with no image unless it explicitly supplied one.
+        avatar: healthUser.avatar || '',
+      } as User)
+    // Mock identities are available only in the explicit browser-only demo.
+    // A signed-out real application must never become a demo patient.
+    : !apiEnabled()
+      ? USERS.find((u) => u.role === role) || USERS.find((u) => u.role === 'patient') || null
+      : null
   if (seed) {
-    const user = overlayMainIdentity(seed, role)
+    const user = overlayMainIdentity(seed, role, healthUser)
     setSessionUserId(user.id)
     dispatch({ type: 'LOGIN', user })
-    if (apiEnabled()) {
-      try {
-        const server = await fetchServerState()
-        await hydrateAs(dispatch, user, server as never)
-      } catch {
-        // keep local seed login
-      }
-    }
   }
   marketplaceBooted = true
   bootedRole = role
 }
 
-export function MarketplaceProvider({ children }: { children: ReactNode }) {
+export function MarketplaceProvider({
+  children,
+  mainAppUser,
+}: {
+  children: ReactNode
+  mainAppUser?: MainAppIdentity | null
+}) {
   return (
     <ThemeProvider>
-      <AppProvider>{children}</AppProvider>
+      <MarketplaceIdentityContext.Provider value={mainAppUser ?? null}>
+        <AppProvider>{children}</AppProvider>
+      </MarketplaceIdentityContext.Provider>
     </ThemeProvider>
   )
 }
@@ -176,6 +201,8 @@ export function MarketplaceBootGate({
   const { currentUser, dispatch } = useApp()
   const [ready, setReady] = useState(!blocking)
   const role = careRoleFromPath()
+  const mainAppUser = useContext(MarketplaceIdentityContext)
+  const healthUserId = role === 'admin' ? null : mainAppUser?.uid ?? readHealthAppUser()?.uid
 
   useEffect(() => {
     let cancelled = false
@@ -186,14 +213,14 @@ export function MarketplaceBootGate({
         marketplaceBooted = false
       }
       if (!marketplaceBootPromise) {
-        marketplaceBootPromise = bootMarketplace(dispatch, target).finally(() => {
+        marketplaceBootPromise = bootMarketplace(dispatch, target, mainAppUser).finally(() => {
           marketplaceBootPromise = null
         })
       }
       await marketplaceBootPromise
       if (bootedRole !== target && !cancelled) {
         marketplaceBooted = false
-        marketplaceBootPromise = bootMarketplace(dispatch, target).finally(() => {
+        marketplaceBootPromise = bootMarketplace(dispatch, target, mainAppUser).finally(() => {
           marketplaceBootPromise = null
         })
         await marketplaceBootPromise
@@ -204,7 +231,7 @@ export function MarketplaceBootGate({
     return () => {
       cancelled = true
     }
-  }, [dispatch, role])
+  }, [dispatch, role, healthUserId, mainAppUser])
 
   if (blocking && !ready) {
     return (

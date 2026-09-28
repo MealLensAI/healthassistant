@@ -1,4 +1,4 @@
-import { apiEnabled, fetchServerState, loginOnServer, registerAccountOnServer, setSessionUserId } from '@/lib/care/api'
+import { apiEnabled, fetchServerState, setSessionUserId } from '@/lib/care/api'
 
 const HA_USER_KEY = 'user_data'
 const HA_TOKEN_KEY = 'access_token'
@@ -72,57 +72,78 @@ export function careRoleFromPath(pathname = window.location.pathname): CareSyncR
   return 'patient'
 }
 
-async function syncViaApi(haUser: { uid: string; email: string; name: string }, role: CareSyncRole) {
+async function syncViaApi(haUser: { uid: string; email: string; name: string; avatar?: string }, role: CareSyncRole) {
   const base = (import.meta.env.VITE_API_URL as string | undefined) || ''
-  const response = await fetch(`${base}/api/care/auth/sync`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(window.localStorage.getItem(HA_TOKEN_KEY)
-        ? { Authorization: `Bearer ${window.localStorage.getItem(HA_TOKEN_KEY)}` }
-        : {}),
-    },
-    body: JSON.stringify({
-      externalUserId: haUser.uid,
-      email: haUser.email,
-      name: haUser.name,
-      role,
-    }),
-  })
-  if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(detail || 'Could not sync account')
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 60_000)
+  let response: Response
+  try {
+    response = await fetch(`${base}/api/marketplace/auth/sync`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(window.localStorage.getItem(HA_TOKEN_KEY)
+          ? { Authorization: `Bearer ${window.localStorage.getItem(HA_TOKEN_KEY)}` }
+          : {}),
+      },
+      body: JSON.stringify({
+        externalUserId: haUser.uid,
+        email: haUser.email,
+        name: haUser.name,
+        avatar: haUser.avatar,
+        role,
+      }),
+    })
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('The care service did not respond.')
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
   }
-  return response.json() as Promise<{ user: { id: string; name: string; role?: string } }>
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.detail || 'Your profile could not be synced. Please retry shortly.')
+  }
+  const result = await response.json() as { user: { id: string; name: string; role?: string } }
+  if (result.user.id !== haUser.uid) throw new Error('Account sync returned a different user. Please retry.')
+  return result
+}
+
+const pendingSyncs = new Map<string, ReturnType<typeof syncViaApi>>()
+
+export async function ensureCareAccount(user = readHealthAppUser(), role = careRoleFromPath()) {
+  if (!user) throw new Error('Your main account session is unavailable. Please sign in again.')
+  const key = `${user.uid}:${role}`
+  let pending = pendingSyncs.get(key)
+  if (!pending) {
+    pending = syncViaApi(user, role).finally(() => pendingSyncs.delete(key))
+    pendingSyncs.set(key, pending)
+  }
+  const synced = await pending
+  if (readHealthAppUser()?.uid !== user.uid) throw new Error('The signed-in account changed. Please retry.')
+  setSessionUserId(user.uid)
+  return synced
 }
 
 /** When mounted under MealLensAI main app (/care), reuse the existing Supabase signup session. */
-export async function bootstrapEmbeddedSession(preferredRole?: CareSyncRole) {
+export async function bootstrapEmbeddedSession(
+  preferredRole?: CareSyncRole,
+  mainAppUser?: { uid: string; email: string; name: string; avatar?: string } | null,
+) {
   if (!apiEnabled() || !embeddedInHealthApp()) return null
-  const haUser = readHealthAppUser()
+  // The host AuthProvider is authoritative.  Local storage is retained only
+  // for standalone care routes which do not have that provider mounted.
+  const haUser = mainAppUser ?? readHealthAppUser()
   if (!haUser) return null
   const role = preferredRole ?? careRoleFromPath()
 
   try {
-    const synced = await syncViaApi(haUser, role)
-    setSessionUserId(synced.user.id)
-    await loginOnServer(synced.user.id)
+    const synced = await ensureCareAccount(haUser, role)
     const server = await fetchServerState()
     return { user: synced.user, server }
   } catch {
-    try {
-      // Admin accounts are allowlisted on the API — never self-register as admin.
-      if (role === 'admin') return null
-      const registered = await registerAccountOnServer({
-        name: haUser.name,
-        email: haUser.email,
-        role,
-      })
-      setSessionUserId(registered.user.id)
-      const server = await fetchServerState()
-      return { user: registered.user, server }
-    } catch {
-      return null
-    }
+    // Failed sync must never create a separate marketplace account.
+    return null
   }
 }

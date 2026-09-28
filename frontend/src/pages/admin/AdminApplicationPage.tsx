@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AdminReviewTools } from '@/components/admin/AdminReviewTools'
 import { AdminSpecialistRecord } from '@/components/admin/AdminSpecialistRecord'
 import { DocumentFileCard } from '@/components/admin/DocumentFileCard'
@@ -13,12 +13,14 @@ import { defaultAvailability } from '@/lib/care/utils'
 
 export function AdminApplicationPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [params] = useSearchParams()
-  const { applications, approveApplication, requestMoreInfo, users, dietitians } = useApp()
+  const { applications, approveApplication, requestMoreInfo, deleteApplication, users, dietitians } = useApp()
   const application = applications.find((item) => item.id === id)
   const [message, setMessage] = useState('Please upload a clearer scan of your practice license and confirm years of experience.')
   const [docOpen, setDocOpen] = useState(false)
   const [analysisOpen, setAnalysisOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const wantsInfo = params.get('action') === 'info'
 
   const analysis = useMemo(
@@ -137,6 +139,16 @@ export function AdminApplicationPage() {
           onDocumentCheck={() => setDocOpen(true)}
           onTextAnalysis={() => setAnalysisOpen(true)}
           onApprove={() => approveApplication(application.id)}
+          onDelete={async () => {
+            if (deleting) return
+            if (!window.confirm(`Permanently delete ${application.fullName}'s application? This cannot be undone.`)) {
+              return
+            }
+            setDeleting(true)
+            const ok = await deleteApplication(application.id)
+            setDeleting(false)
+            if (ok) navigate('/admin')
+          }}
         />
       </aside>
 

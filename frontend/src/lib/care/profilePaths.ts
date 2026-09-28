@@ -7,8 +7,8 @@ export function ownProfilePath(role: Role, pathname?: string) {
   return '/admin/settings'
 }
 
-export function dietitianProfilePath(dietitianId: string, viewerRole: Role, pathname?: string) {
-  if (viewerRole === 'dietitian') return practicePath(`dietitians/${dietitianId}`, pathname)
+export function dietitianProfilePath(dietitianId: string, viewerRole: Role, _pathname?: string) {
+  if (viewerRole === 'dietitian') return `/dietitians/${dietitianId}`
   if (viewerRole === 'admin') return `/admin/public/${dietitianId}`
   return `/dietitians/${dietitianId}`
 }
@@ -46,7 +46,12 @@ export function peerProfilePath({
   }
 
   const listing = dietitians.find((item) => item.userId === peerUserId || item.id === peerUserId)
-  if (listing) return dietitianProfilePath(listing.id, currentUser.role, pathname)
+  if (listing) {
+    // Patients (and anyone viewing a public listing) always use the public profile URL.
+    // Practice `/dietitian/dietitians/:id` is only for dietitian-to-dietitian admin views.
+    if (currentUser.role === 'patient') return `/dietitians/${listing.id}`
+    return dietitianProfilePath(listing.id, currentUser.role, pathname)
+  }
 
   if (currentUser.role === 'dietitian' || currentUser.role === 'admin') {
     return patientChartPath(peerUserId, currentUser.role, pathname)

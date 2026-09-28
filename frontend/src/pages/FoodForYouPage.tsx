@@ -637,7 +637,25 @@ const FoodForYouPage: React.FC = () => {
     [viewMode, loading],
   );
 
-  usePageHeader('Food for you', headerActions);
+  usePageHeader(
+    showTutorial && selectedFood ? selectedFood.name : 'Food for you',
+    showTutorial ? undefined : headerActions,
+  );
+
+  if (showTutorial && selectedFood) {
+    return (
+      <CookingTutorialModal
+        isOpen
+        embedded
+        onClose={() => {
+          setShowTutorial(false);
+          setSelectedFood(null);
+        }}
+        recipeName={selectedFood.name}
+        ingredients={selectedFood.ingredients || []}
+      />
+    );
+  }
 
   return (
     <div className="min-h-full bg-background">
@@ -928,16 +946,6 @@ const FoodForYouPage: React.FC = () => {
           </div>
         )}
       </div>
-
-      <CookingTutorialModal
-        isOpen={showTutorial}
-        onClose={() => {
-          setShowTutorial(false);
-          setSelectedFood(null);
-        }}
-        recipeName={selectedFood?.name || ''}
-        ingredients={selectedFood?.ingredients || []}
-      />
     </div>
   );
 };

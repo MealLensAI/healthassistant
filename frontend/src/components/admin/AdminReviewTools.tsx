@@ -1,14 +1,16 @@
-import { FileSearch, ScanSearch } from 'lucide-react'
+import { FileSearch, ScanSearch, Trash2 } from 'lucide-react'
 import { Button } from '@/components/care-ui/Button'
 
 export function AdminReviewTools({
   onDocumentCheck,
   onTextAnalysis,
   onApprove,
+  onDelete,
 }: {
   onDocumentCheck: () => void
   onTextAnalysis: () => void
   onApprove: () => void
+  onDelete?: () => void
 }) {
   return (
     <aside className="rounded-2xl bg-navy-soft p-5">
@@ -19,6 +21,17 @@ export function AdminReviewTools({
         <Button className="h-11 w-full" onClick={onApprove} data-testid="approve-application">
           Approve and Update status
         </Button>
+        {onDelete ? (
+          <Button
+            className="h-11 w-full"
+            variant="danger"
+            onClick={onDelete}
+            data-testid="delete-application"
+          >
+            <Trash2 size={16} className="mr-2 inline" />
+            Delete application
+          </Button>
+        ) : null}
       </div>
     </aside>
   )

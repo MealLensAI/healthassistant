@@ -282,11 +282,13 @@ def create_app():
   else:
       print("Meal tracking routes disabled.")
 
-  # Dietitian marketplace / patient care (JSON or Supabase via care.db)
+  # Dietitian marketplace — first-class under /api/marketplace (same pattern as /api/payment).
+  # /api/care kept as a compatibility alias so older clients keep working during rollout.
   try:
       from routes.care_routes import care_bp
-      app.register_blueprint(care_bp, url_prefix='/api/care')
-      print("Care marketplace routes registered at /api/care.")
+      app.register_blueprint(care_bp, url_prefix='/api/marketplace')
+      app.register_blueprint(care_bp, url_prefix='/api/care', name='care_compat')
+      print("Marketplace routes registered at /api/marketplace (compat alias /api/care).")
   except Exception as e:
       print(f"Care marketplace routes not available: {e}")
 

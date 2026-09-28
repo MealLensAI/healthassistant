@@ -8,6 +8,7 @@ requests
 gunicorn
 pytz
 apscheduler
+boto3
 pymysql
 resend
 psycopg[binary]

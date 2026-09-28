@@ -260,6 +260,12 @@ export function useProvideAuth(): AuthContextType {
               const profileResult = await api.getUserProfile()
 
               if (profileResult.status === 'success') {
+                const profile = (profileResult as any).profile
+                if (profile?.id === parsedUser.uid && profile.display_name?.trim()) {
+                  const updated = { ...parsedUser, displayName: profile.display_name.trim() }
+                  safeSetItem(USER_KEY, JSON.stringify(updated))
+                  setUser(updated)
+                }
                 console.log('✅ Token verified, auth state confirmed')
               } else {
                 console.warn('⚠️ Token verification returned non-success, but keeping session')

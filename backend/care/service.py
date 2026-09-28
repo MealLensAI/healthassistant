@@ -3,15 +3,29 @@ from __future__ import annotations
 import copy
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 
 from .seed_data import default_availability
+from .config import settings
+from .media import account_avatar
 
 Json = dict[str, Any]
 
 
 def uid(prefix: str) -> str:
+    # Supabase marketplace primary keys are UUIDs.  Preserve readable IDs for
+    # the local demo data, but never attempt to write those demo IDs remotely.
+    if settings.use_supabase:
+        return str(uuid.uuid4())
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
+
+
+def _looks_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(str(value))
+        return True
+    except (TypeError, ValueError):
+        return False
 
 
 def now_iso() -> str:
@@ -25,7 +39,35 @@ def next_weekday() -> str:
 
 
 def conversation_id_for(patient_id: str, dietitian_user_id: str) -> str:
-    return "conv-" + "-".join(sorted([patient_id, dietitian_user_id]))
+    # Always UUID v5 so SPA + Supabase share the same conversation primary key.
+    members = ":".join(sorted([patient_id, dietitian_user_id]))
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"meallens-care:{members}"))
+
+
+def _user_is_dietitian(state: Json, user_id: str | None) -> bool:
+    if not user_id:
+        return False
+    user = next((item for item in state.get("users") or [] if item.get("id") == user_id), None)
+    if (user or {}).get("role") == "dietitian":
+        return True
+    # Role can be missing from a partial snapshot — listing ownership is authoritative.
+    return any(item.get("userId") == user_id for item in state.get("dietitians") or [])
+
+
+def notification_href_for(state: Json, user_id: str | None, *, surface: str, resource_id: str = "") -> str:
+    """Deep-link a notification to the surface the recipient actually uses."""
+    dietitian = _user_is_dietitian(state, user_id)
+    if surface == "messages":
+        if dietitian:
+            return f"/dietitian/messages/{resource_id}" if resource_id else "/dietitian/messages"
+        return f"/messages/{resource_id}" if resource_id else "/messages"
+    if surface == "appointments":
+        return "/dietitian/appointments" if dietitian else "/appointments"
+    if surface == "practice_home":
+        return "/dietitian" if dietitian else "/dietitians"
+    if surface == "admin_application":
+        return f"/admin/applications/{resource_id}" if resource_id else "/admin"
+    return "/dietitians"
 
 
 def score_reviews(reviews: list[Json]) -> dict[str, Any]:
@@ -36,7 +78,7 @@ def score_reviews(reviews: list[Json]) -> dict[str, Any]:
 
 def upsert_pending_dietitian(dietitians: list[Json], application: Json) -> list[Json]:
     existing = next((item for item in dietitians if item["userId"] == application["userId"]), None)
-    photo = next((doc.get("url") for doc in application.get("documents", []) if doc.get("kind") == "photo"), "")
+    photo = next(((doc.get("objectKey") or doc.get("url")) for doc in application.get("documents", []) if doc.get("kind") == "photo"), "")
     documents = []
     for doc in application.get("documents", []):
         kind = doc.get("kind")
@@ -49,12 +91,16 @@ def upsert_pending_dietitian(dietitians: list[Json], application: Json) -> list[
                 "kind": mapped,
                 "fileName": doc.get("fileName"),
                 "url": doc.get("url"),
+                "objectKey": doc.get("objectKey"),
+                "bucket": doc.get("bucket"),
+                "mimeType": doc.get("mimeType"),
+                "sizeBytes": doc.get("sizeBytes"),
             }
         )
     status = application.get("status")
     next_status = "approved" if status == "approved" else "needs_info" if status == "needs_info" else "pending"
     next_item = {
-        "id": (existing or {}).get("id") or f"dt-{application['userId'].replace('user-', '')}",
+        "id": (existing or {}).get("id") or uid("dt"),
         "userId": application["userId"],
         "name": application["fullName"],
         "title": (existing or {}).get("title") or "Dietitian",
@@ -200,8 +246,19 @@ def sync_account(state: Json, payload: Json) -> tuple[Json, Json]:
         name = email.split("@")[0]
 
     next_state = copy.deepcopy(state)
-    user = next((item for item in next_state.get("users", []) if str(item.get("email") or "").lower() == email), None)
+    # Supabase Auth's UUID is the account identity.  Do not identify a care
+    # profile by email when a UUID is present: a recreated account can reuse an
+    # email, and matching it to the prior UUID would expose that account's
+    # profile, files, appointments, and avatar.
+    user = (
+        next((item for item in next_state.get("users", []) if item.get("id") == external_user_id), None)
+        if external_user_id
+        else next((item for item in next_state.get("users", []) if str(item.get("email") or "").lower() == email), None)
+    )
     if user:
+        if payload.get('avatar') and not user.get('avatar'):
+            from .media import sanitize_asset_ref
+            user['avatar'] = sanitize_asset_ref(payload['avatar'])
         # Never downgrade credential-review admins.
         if user.get("role") == "admin" or settings.is_admin_email(email):
             user = {
@@ -214,12 +271,13 @@ def sync_account(state: Json, payload: Json) -> tuple[Json, Json]:
                 user if item.get("id") == user["id"] else item for item in next_state.get("users", [])
             ]
             return next_state, user
-        # Org/dietitian accounts may open marketplace after an earlier patient sync — upgrade role.
-        if role == "dietitian" and user.get("role") != "dietitian":
+        # The host supplies the active patient/practice role on every sync.
+        # A previous visit to a practice URL must not permanently lock a patient out.
+        if role in {"patient", "dietitian"} and user.get("role") != role:
             user = {
                 **user,
-                "role": "dietitian",
-                "title": user.get("title") or "Dietitian",
+                "role": role,
+                "title": "Dietitian" if role == "dietitian" else "Patient",
                 "name": name or user.get("name"),
             }
             next_state["users"] = [
@@ -236,12 +294,13 @@ def sync_account(state: Json, payload: Json) -> tuple[Json, Json]:
     if any(item.get("id") == user_id for item in next_state.get("users", [])):
         user_id = uid("user")
     resolved_role = "admin" if settings.is_admin_email(email) else role
+    from .media import sanitize_asset_ref
     user = {
         "id": user_id,
         "name": name,
         "email": email,
         "role": resolved_role,
-        "avatar": "",
+        "avatar": sanitize_asset_ref(payload.get("avatar") or ""),
         "country": str(payload.get("country") or "").strip(),
         "title": "Admin" if resolved_role == "admin" else ("Dietitian" if resolved_role == "dietitian" else None),
         "phone": str(payload.get("phone") or "").strip(),
@@ -253,7 +312,10 @@ def sync_account(state: Json, payload: Json) -> tuple[Json, Json]:
     return next_state, user
 
 
-def login_admin(state: Json, email: str, password: str, name: str | None = None) -> tuple[Json, Json]:
+def login_admin(
+    state: Json, email: str, password: str, name: str | None = None,
+    resolve_auth_id: Callable[[str], str] | None = None,
+) -> tuple[Json, Json]:
     """Authenticate an env-allowlisted admin with email + password."""
     from care.config import settings
 
@@ -265,6 +327,9 @@ def login_admin(state: Json, email: str, password: str, name: str | None = None)
     if not settings.verify_admin_password(email_key, password):
         raise ValueError("Incorrect email or password")
 
+    # Resolve only after credentials pass; the UUID must reference auth.users.
+    existing = next((item for item in state.get("users", []) if str(item.get("email", "")).lower() == email_key), None)
+    external_id = existing["id"] if existing else (resolve_auth_id(email_key) if resolve_auth_id else uid("admin"))
     display = (name or "").strip() or email_key.split("@")[0].replace(".", " ").title()
     return sync_account(
         state,
@@ -272,7 +337,7 @@ def login_admin(state: Json, email: str, password: str, name: str | None = None)
             "email": email_key,
             "name": display,
             "role": "admin",
-            "externalUserId": f"admin-{email_key}",
+            "externalUserId": external_id,
         },
     )
 
@@ -286,20 +351,93 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
     _guard_dietitian_marketplace(next_state, actor, kind)
 
     if kind == "SEND_MESSAGE":
+        from .media import sanitize_attachment
+
+        conversation = next((item for item in next_state['conversations'] if item['id'] == action['conversationId']), None)
+        # Resolve ghost/legacy ids by participant pair so patients can still reply.
+        if (not conversation or actor_id not in (conversation.get("participantIds") or [])) and actor_id:
+            peer_id = action.get("peerId")
+            if peer_id:
+                conversation = next(
+                    (
+                        item
+                        for item in next_state["conversations"]
+                        if actor_id in (item.get("participantIds") or [])
+                        and peer_id in (item.get("participantIds") or [])
+                    ),
+                    None,
+                )
+                if conversation:
+                    action = {**action, "conversationId": conversation["id"]}
+        if not conversation or actor_id not in conversation['participantIds']:
+            raise ValueError('Conversation not found')
+        attachments = action.get('attachments') or []
+        clean_attachments = []
+        for file in attachments:
+            url = file.get('url') or ''
+            object_key = file.get('objectKey') or ''
+            if url.startswith('data:'):
+                raise ValueError('Upload the file first, then attach the stored object key.')
+            if len(url) > 14 * 1024 * 1024:
+                raise ValueError('Choose a file smaller than 10 MB.')
+            if not object_key and not url.startswith(('https://', 'http://')):
+                raise ValueError('Attachment content is missing')
+            clean = sanitize_attachment(file)
+            clean_attachments.append(clean)
+            next_state['files'].insert(0, {
+                'id': uid('file'), 'ownerId': actor_id,
+                'sharedWithId': next((pid for pid in conversation['participantIds'] if pid != actor_id), None),
+                'name': clean['name'], 'size': clean.get('size', ''), 'url': None,
+                'objectKey': clean.get('objectKey'), 'bucket': clean.get('bucket'),
+                'mimeType': clean.get('type') or None, 'sizeBytes': clean.get('sizeBytes') or 0,
+                'category': 'photo' if (clean.get('type') or '').startswith('image/') else 'other',
+                'uploadedAt': now_iso(),
+            })
         timestamp = now_iso()
+        client_id = action.get("messageId") or action.get("id")
+        message_id = str(client_id) if client_id and _looks_uuid(str(client_id)) else uid("msg")
+        # Idempotent resend / optimistic retry with the same client id.
+        existing_msg = next((item for item in next_state["messages"] if item.get("id") == message_id), None)
+        if existing_msg:
+            return next_state
         message = {
-            "id": uid("msg"),
+            "id": message_id,
             "conversationId": action["conversationId"],
-            "senderId": action.get("senderId") or actor_id,
+            "senderId": actor_id,
             "text": action["text"],
             "timestamp": timestamp,
-            "attachments": action.get("attachments") or [],
+            "attachments": clean_attachments,
+            "status": "sent",
+            "deliveredAt": None,
+            "readAt": None,
         }
         next_state["messages"].append(message)
         for conversation in next_state["conversations"]:
             if conversation["id"] == action["conversationId"]:
                 conversation["lastMessage"] = action["text"]
                 conversation["lastAt"] = timestamp
+        return next_state
+
+    if kind == "MARK_MESSAGE_DELIVERED":
+        message_ids = action.get("messageIds") or ([action["messageId"]] if action.get("messageId") else [])
+        if not actor_id or not message_ids:
+            return next_state
+        stamp = now_iso()
+        for message in next_state["messages"]:
+            if message.get("id") not in message_ids:
+                continue
+            if message.get("senderId") == actor_id:
+                continue
+            conversation = next(
+                (item for item in next_state["conversations"] if item["id"] == message.get("conversationId")),
+                None,
+            )
+            if not conversation or actor_id not in (conversation.get("participantIds") or []):
+                continue
+            if message.get("status") in ("delivered", "read"):
+                continue
+            message["status"] = "delivered"
+            message["deliveredAt"] = stamp
         return next_state
 
     if kind == "ENSURE_CONVERSATION":
@@ -334,6 +472,8 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         request = next((item for item in next_state["consultationRequests"] if item["id"] == action["id"]), None)
         if not request:
             return next_state
+        if request.get("status") != "pending":
+            return next_state
         request["status"] = action["status"]
         if action["status"] == "accepted":
             dietitian = next((item for item in next_state["dietitians"] if item["id"] == request["dietitianId"]), None)
@@ -358,7 +498,49 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         return next_state
 
     if kind == "SUBMIT_APPLICATION":
-        application = action["application"]
+        if not actor:
+            raise ValueError("Sign in first")
+        # /dietitian/apply is the registration path — never block on a stale patient role.
+        if actor.get("role") != "dietitian":
+            actor = {**actor, "role": "dietitian"}
+        actor_id = actor["id"]
+        # Ensure the actor is present in users so UUID persist filters keep the row.
+        users = list(next_state.get("users") or [])
+        if any(item.get("id") == actor_id for item in users):
+            next_state["users"] = [
+                {**item, "role": "dietitian"} if item.get("id") == actor_id else item for item in users
+            ]
+        else:
+            next_state["users"] = [*users, dict(actor)]
+        previous = next((item for item in next_state["applications"] if item["userId"] == actor_id), None)
+        incoming = action.get("application") or {}
+        app_id = previous["id"] if previous else None
+        try:
+            if app_id:
+                uuid.UUID(str(app_id))
+            else:
+                raise ValueError("missing")
+        except (ValueError, TypeError, AttributeError):
+            try:
+                uuid.UUID(str(incoming.get("id") or ""))
+                app_id = str(incoming["id"])
+            except (ValueError, TypeError, AttributeError, KeyError):
+                app_id = uid("app")
+        try:
+            years = int(float(incoming.get("yearsExperience") or 0))
+        except (TypeError, ValueError, OverflowError):
+            years = 0
+        if years < 0 or years > 80:
+            years = 0
+        application = {
+            **incoming,
+            "id": app_id,
+            "userId": actor_id,
+            "yearsExperience": years,
+            "status": "pending",
+            "submittedAt": now_iso(),
+            "adminNotes": (previous or {}).get("adminNotes", []),
+        }
         is_update = any(item["userId"] == application["userId"] for item in next_state["applications"])
         next_state["applications"] = [application, *[item for item in next_state["applications"] if item["userId"] != application["userId"]]]
         next_state["dietitians"] = upsert_pending_dietitian(next_state["dietitians"], application)
@@ -375,7 +557,9 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                         if is_update
                         else f"{application['fullName']} registered as a dietitian and is waiting for verification."
                     ),
-                    "href": f"/admin/applications/{application['id']}",
+                    "href": notification_href_for(
+                        next_state, admin["id"], surface="admin_application", resource_id=application["id"]
+                    ),
                     "createdAt": application["submittedAt"],
                     "read": False,
                 },
@@ -389,9 +573,11 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         return next_state
 
     if kind == "APPROVE_APPLICATION":
+        if not actor or actor.get("role") != "admin":
+            raise ValueError("Admin only")
         application = next((item for item in next_state["applications"] if item["id"] == action["applicationId"]), None)
         if not application:
-            return next_state
+            raise ValueError("Application not found")
         application["status"] = "approved"
         application["adminNotes"] = [*(application.get("adminNotes") or []), f"Approved by {actor_name}"]
         next_state["dietitians"] = upsert_pending_dietitian(next_state["dietitians"], application)
@@ -400,6 +586,19 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                 dietitian["status"] = "approved"
                 dietitian["verified"] = True
                 dietitian["featured"] = True
+        next_state["notifications"].insert(
+            0,
+            {
+                "id": uid("ntf"),
+                "userId": application["userId"],
+                "kind": "info",
+                "title": "You're approved",
+                "body": "Your dietitian application was approved. Open your practice to set availability.",
+                "href": notification_href_for(next_state, application["userId"], surface="practice_home"),
+                "createdAt": now_iso(),
+                "read": False,
+            },
+        )
         return next_state
 
     if kind == "REQUEST_MORE_INFO":
@@ -412,15 +611,79 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         for dietitian in next_state["dietitians"]:
             if dietitian["userId"] == application["userId"]:
                 dietitian["status"] = "needs_info"
+        next_state["notifications"].insert(
+            0,
+            {
+                "id": uid("ntf"),
+                "userId": application["userId"],
+                "kind": "info",
+                "title": "More information needed",
+                "body": action.get("message") or "An admin asked for more details on your application.",
+                "href": "/dietitian/apply",
+                "createdAt": now_iso(),
+                "read": False,
+            },
+        )
         return next_state
+
+    if kind == "DELETE_APPLICATION":
+        if not actor or actor.get("role") != "admin":
+            raise ValueError("Admin only")
+        application_id = action.get("applicationId")
+        application = next((item for item in next_state["applications"] if item["id"] == application_id), None)
+        user_id = application.get("userId") if application else None
+        next_state["applications"] = [
+            item for item in next_state["applications"] if item["id"] != application_id
+        ]
+        if user_id:
+            next_state["dietitians"] = [
+                item
+                for item in next_state["dietitians"]
+                if not (item.get("userId") == user_id and item.get("status") != "approved")
+            ]
+        return next_state
+
+    if kind in {"CANCEL_APPOINTMENT", "DELETE_APPOINTMENT", "COMPLETE_APPOINTMENT"}:
+        appointment = next((item for item in next_state["appointments"] if item["id"] == action.get("appointmentId")), None)
+        listing = next((item for item in next_state["dietitians"] if appointment and item["id"] == appointment["dietitianId"]), None)
+        if not appointment or not actor or (actor.get("role") != "admin" and actor_id not in {appointment["patientId"], (listing or {}).get("userId")}):
+            raise ValueError("Appointment not found")
+        if kind == "COMPLETE_APPOINTMENT" and appointment.get("status") == "deleted":
+            raise ValueError("This appointment has been deleted")
 
     if kind == "CANCEL_APPOINTMENT":
         for appointment in next_state["appointments"]:
             if appointment["id"] == action["appointmentId"]:
-                appointment["status"] = "cancelled"
+                # Trash / delete from UI → deleted (not completed). Legacy cancel still ok.
+                appointment["status"] = action.get("status") or "deleted"
+        return next_state
+
+    if kind == "DELETE_APPOINTMENT":
+        for appointment in next_state["appointments"]:
+            if appointment["id"] == action["appointmentId"]:
+                appointment["status"] = "deleted"
+        return next_state
+
+    if kind == "DELETE_CONVERSATION":
+        conv_id = action.get("conversationId")
+        if not actor_id or not conv_id:
+            raise ValueError("Conversation not found")
+        conversation = next((item for item in next_state["conversations"] if item["id"] == conv_id), None)
+        if not conversation or actor_id not in (conversation.get("participantIds") or []):
+            raise ValueError("Conversation not found")
+        # Hard-delete the thread so it cannot return via pulse (works without hidden_for column).
+        next_state["conversations"] = [item for item in next_state["conversations"] if item["id"] != conv_id]
+        next_state["messages"] = [item for item in next_state["messages"] if item.get("conversationId") != conv_id]
         return next_state
 
     if kind == "ADD_APPOINTMENT":
+        listing = next((item for item in next_state["dietitians"] if item["id"] == action["dietitianId"]), None)
+        if not listing or listing.get("status") != "approved":
+            raise ValueError("This dietitian is not available for booking")
+        if not actor or action["patientId"] != actor_id:
+            raise ValueError("Sign in as the patient to book")
+        if any(item["patientId"] == actor_id and item["dietitianId"] == listing["id"] and item["date"] == action["date"] and item["time"] == action["time"] and item["status"] == "upcoming" for item in next_state["appointments"]):
+            return next_state
         next_state["appointments"].insert(
             0,
             {
@@ -432,6 +695,34 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                 "status": "upcoming",
                 "type": action["kind"],
                 "topic": action["topic"],
+            },
+        )
+        dietitian_user_id = listing.get("userId")
+        if dietitian_user_id:
+            next_state["notifications"].insert(
+                0,
+                {
+                    "id": uid("ntf"),
+                    "userId": dietitian_user_id,
+                    "kind": "info",
+                    "title": "New appointment booked",
+                    "body": f"{actor_name} booked {action['date']} at {action['time']}.",
+                    "href": notification_href_for(next_state, dietitian_user_id, surface="appointments"),
+                    "createdAt": now_iso(),
+                    "read": False,
+                },
+            )
+        next_state["notifications"].insert(
+            0,
+            {
+                "id": uid("ntf"),
+                "userId": actor_id,
+                "kind": "info",
+                "title": "Appointment confirmed",
+                "body": f"Your visit with {listing.get('name') or 'your dietitian'} is set for {action['date']} at {action['time']}.",
+                "href": notification_href_for(next_state, actor_id, surface="appointments"),
+                "createdAt": now_iso(),
+                "read": False,
             },
         )
         return next_state
@@ -546,9 +837,19 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         return next_state
 
     if kind == "MARK_CONVERSATION_READ":
+        stamp = now_iso()
         for conversation in next_state["conversations"]:
-            if conversation["id"] == action["conversationId"]:
-                conversation["lastReadAt"] = {**(conversation.get("lastReadAt") or {}), action["userId"]: now_iso()}
+            if conversation["id"] == action["conversationId"] and actor_id in conversation["participantIds"]:
+                conversation["lastReadAt"] = {**(conversation.get("lastReadAt") or {}), actor_id: stamp}
+                for message in next_state["messages"]:
+                    if message.get("conversationId") != conversation["id"]:
+                        continue
+                    if message.get("senderId") == actor_id:
+                        continue
+                    message["status"] = "read"
+                    message["readAt"] = stamp
+                    if not message.get("deliveredAt"):
+                        message["deliveredAt"] = stamp
         return next_state
 
     if kind == "MARK_NOTIFICATION_READ":
@@ -572,7 +873,12 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
             account_user = user
             for key in ("name", "email", "phone", "country", "title", "avatar"):
                 if action.get(key) is not None:
-                    user[key] = action[key]
+                    value = action[key]
+                    if key == "avatar":
+                        from .media import storage_key_for_asset
+
+                        value = storage_key_for_asset(value)
+                    user[key] = value
         listing = next((item for item in next_state["dietitians"] if item["userId"] == user_id), None)
         mapping = {
             "name": "name",
@@ -589,10 +895,18 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         if listing:
             for src, dest in mapping.items():
                 if action.get(src) is not None:
-                    listing[dest] = action[src]
+                    value = action[src]
+                    if dest in ("avatar", "coverImage"):
+                        from .media import storage_key_for_asset
+
+                        value = storage_key_for_asset(value)
+                    listing[dest] = value
         elif account_user and account_user.get("role") == "dietitian":
+            from .media import storage_key_for_asset
+
             stub = {
-                "id": f"dt-{user_id.replace('user-', '', 1)}",
+                # UUID so Supabase upsert + catalog refresh keep cover/avatar.
+                "id": uid("dt"),
                 "userId": user_id,
                 "name": action.get("name") or account_user.get("name") or "",
                 "title": action.get("title") or account_user.get("title") or "",
@@ -605,8 +919,8 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                 "bio": action.get("bio") or "",
                 "languages": action.get("languages") or [],
                 "workplace": action.get("workplace") or "",
-                "avatar": action.get("avatar") or account_user.get("avatar") or "",
-                "coverImage": action.get("coverImage") or "",
+                "avatar": storage_key_for_asset(action.get("avatar") or account_user.get("avatar") or ""),
+                "coverImage": storage_key_for_asset(action.get("coverImage") or ""),
                 "verified": False,
                 "featured": False,
                 "education": [],
@@ -644,16 +958,27 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         if existing:
             return next_state
         peer = next((item for item in next_state["users"] if item["id"] == peer_id), None)
-        next_state["liveCalls"] = [
+        if not peer or peer_id == actor_id:
+            raise ValueError("Choose another care team member to call")
+        conversation = next((item for item in next_state["conversations"] if set(item.get("participantIds") or []) == {actor_id, peer_id}), None)
+        if conversation:
+            conv_id = conversation["id"]
+        else:
+            conv_id = conversation_id_for(actor_id, peer_id)
+            next_state["conversations"].append({"id": conv_id, "participantIds": [actor_id, peer_id], "lastMessage": "Video call", "lastAt": now_iso(), "lastReadAt": {}})
+        # Honor client callId (UUID) so WebRTC signals don't race a server-generated id.
+        client_call_id = call.get("callId") or action.get("callId")
+        call_id = str(client_call_id) if client_call_id and _looks_uuid(str(client_call_id)) else uid("call")
+        next_state["liveCalls"] = [*next_state["liveCalls"],
             {
-                "id": uid("call"),
+                "id": call_id,
                 "conversationId": conv_id,
                 "callerId": actor_id,
                 "calleeId": peer_id,
                 "callerName": actor_name,
-                "callerAvatar": (actor or {}).get("avatar") or "",
+                "callerAvatar": account_avatar(actor, next_state["dietitians"], next_state.get("applications")),
                 "calleeName": call.get("peerName") or (peer or {}).get("name") or "Care",
-                "calleeAvatar": call.get("peerAvatar") or (peer or {}).get("avatar") or "",
+                "calleeAvatar": account_avatar(peer, next_state["dietitians"], next_state.get("applications")),
                 "status": "ringing",
                 "startedAt": now_iso(),
                 "offer": None,
@@ -661,7 +986,6 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                 "ice": [],
             }
         ]
-        href = f"/dietitian/messages/{conv_id}" if (peer or {}).get("role") == "dietitian" else f"/messages/{conv_id}"
         next_state["notifications"].insert(
             0,
             {
@@ -670,7 +994,7 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                 "kind": "info",
                 "title": "Incoming video call",
                 "body": f"{actor_name} is calling you.",
-                "href": href,
+                "href": notification_href_for(next_state, peer_id, surface="messages", resource_id=conv_id),
                 "createdAt": now_iso(),
                 "read": False,
             },
@@ -681,15 +1005,34 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         for item in next_state.get("liveCalls", []):
             if item["calleeId"] == actor_id and item["status"] == "ringing":
                 item["status"] = "live"
+                for notification in next_state['notifications']:
+                    if notification.get('userId') == actor_id and notification.get('href', '').endswith(item['conversationId']) and notification.get('title') == 'Incoming video call':
+                        notification['read'] = True
         return next_state
 
     if kind == "END_CALL":
         remaining = []
         for item in next_state.get("liveCalls", []):
-            if actor_id not in (item["callerId"], item["calleeId"]):
+            if actor_id not in (item["callerId"], item["calleeId"]) or (action.get("callId") and item["id"] != action["callId"]):
                 remaining.append(item)
                 continue
-            if item["status"] == "ringing":
+            for notification in next_state['notifications']:
+                if notification.get('userId') == item['calleeId'] and notification.get('title') == 'Incoming video call' and notification.get('href', '').endswith(item['conversationId']):
+                    notification['read'] = True
+            missed = item['status'] == 'ringing'
+            call_text = 'Missed video call' if missed else 'Video call completed (answered)'
+            if missed:
+                for target, title, body in [
+                    (item['calleeId'], 'Missed video call', f"You missed a call from {item['callerName']}."),
+                    (item['callerId'], 'Call not answered', f"{item['calleeName']} did not answer your call."),
+                ]:
+                    next_state['notifications'].insert(0, {
+                        'id': uid('notif'), 'userId': target, 'title': title, 'body': body,
+                        'href': notification_href_for(
+                            next_state, target, surface="messages", resource_id=item["conversationId"]
+                        ),
+                        'createdAt': now_iso(), 'read': False,
+                    })
                 next_state["missedCalls"].insert(
                     0,
                     {
@@ -706,14 +1049,14 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                     "id": uid("msg"),
                     "conversationId": item["conversationId"],
                     "senderId": actor_id,
-                    "text": "Video call ended",
+                    "text": call_text,
                     "timestamp": now_iso(),
                     "attachments": [],
                 }
             )
             for conversation in next_state["conversations"]:
                 if conversation["id"] == item["conversationId"]:
-                    conversation["lastMessage"] = "Video call ended"
+                    conversation["lastMessage"] = call_text
                     conversation["lastAt"] = now_iso()
         next_state["liveCalls"] = remaining
         return next_state
@@ -741,9 +1084,12 @@ def apply_call_signal(state: Json, call_id: str, actor_id: str, payload: Json) -
         raise ValueError("Call not found")
     if actor_id not in (call["callerId"], call["calleeId"]):
         raise ValueError("Not in this call")
-    if payload.get("offer") and not call.get("offer"):
-        call["offer"] = payload["offer"]
-    if payload.get("answer") and not call.get("answer"):
+    # Replace offer until answered so a recreated peer connection can publish fresh SDP.
+    if payload.get("offer") and actor_id == call["callerId"] and not call.get("answer"):
+        if call.get("offer") != payload["offer"]:
+            call["offer"] = payload["offer"]
+            call["ice"] = []
+    if payload.get("answer") and actor_id == call["calleeId"] and not call.get("answer"):
         call["answer"] = payload["answer"]
     ice = list(call.get("ice") or [])
     incoming = payload.get("ice") or []
@@ -763,3 +1109,20 @@ def apply_call_signal(state: Json, call_id: str, actor_id: str, payload: Json) -
         )
     call["ice"] = ice[-48:]
     return next_state
+
+
+def expire_ringing_calls(state: Json, now: datetime | None = None) -> Json:
+    now = now or datetime.now(timezone.utc)
+    for call in list(state.get('liveCalls', [])):
+        if call.get('status') != 'ringing':
+            continue
+        try:
+            started = datetime.fromisoformat(call['startedAt'].replace('Z', '+00:00'))
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+        except (KeyError, ValueError):
+            continue
+        if (now - started).total_seconds() >= 45:
+            actor = next((user for user in state['users'] if user['id'] == call['callerId']), None)
+            state = apply_action(state, {'type': 'END_CALL', 'callId': call['id']}, actor)
+    return state

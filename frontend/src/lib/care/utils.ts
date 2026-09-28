@@ -3,6 +3,10 @@ export function cn(...parts: Array<string | false | null | undefined>) {
 }
 
 export function uid(prefix = 'id') {
+  // Prefer real UUIDs so optimistic call/message ids match Supabase PKs.
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
 }
 

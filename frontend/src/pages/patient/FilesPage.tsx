@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom'
 import { FilePreview } from '@/components/files/FilePreview'
 import { Modal, Pill } from '@/components/care-ui/Primitives'
 import { useApp } from '@/lib/care/context'
-import { fileCategoryFromName, readLocalFile } from '@/lib/care/files'
+import { fileCategoryFromName } from '@/lib/care/files'
+import { uploadCareAsset } from '@/lib/care/api'
 import { carePatientIds, filesVisibleToViewer } from '@/lib/care/patients'
 import { formatDate } from '@/lib/care/utils'
 import type { PatientFile } from '@/lib/care/types'
@@ -20,8 +21,10 @@ export function FilesPage({ role = 'patient' }: { role?: 'patient' | 'dietitian'
     consultationRequests,
     patientSettings,
     uploadFile,
+    toast,
   } = useApp()
   const [viewing, setViewing] = useState<PatientFile | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const visible = useMemo(() => {
     if (!currentUser) return []
@@ -60,7 +63,7 @@ export function FilesPage({ role = 'patient' }: { role?: 'patient' | 'dietitian'
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-ink">{role === 'dietitian' ? 'Patient files' : 'My Files'}</h1>
+          <h1 className="text-2xl font-extrabold text-ink">{role === 'dietitian' ? 'Patient files' : 'My Health Files'}</h1>
           <p className="text-sm text-muted">
             {role === 'dietitian'
               ? 'Every lab, diary, and photo your patients have uploaded. Open a file or jump to their chart.'
@@ -68,22 +71,28 @@ export function FilesPage({ role = 'patient' }: { role?: 'patient' | 'dietitian'
           </p>
         </div>
         {role === 'patient' && (
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-navy px-4 py-2.5 text-sm font-semibold text-white">
-            <Upload size={16} /> Upload file
+          <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl bg-navy px-4 py-2.5 text-sm font-semibold text-white ${uploading ? 'opacity-70' : ''}`}>
+            <Upload size={16} className={uploading ? 'animate-spin' : undefined} /> {uploading ? 'Uploading…' : 'Upload file'}
             <input
               type="file"
               className="hidden"
+              disabled={uploading}
               onChange={(event) => {
                 const file = event.target.files?.[0]
-                if (!file) return
-                void readLocalFile(file).then((read) => {
+                if (!file || uploading) return
+                setUploading(true)
+                void uploadCareAsset(file).then((stored) => {
                   uploadFile({
-                    name: read.name,
-                    category: fileCategoryFromName(read.name, read.type),
-                    size: read.size,
-                    url: read.url,
+                    name: stored.name,
+                    category: fileCategoryFromName(stored.name, stored.type),
+                    size: `${Math.ceil(stored.sizeBytes / 1024)} KB`,
+                    objectKey: stored.objectKey,
+                    bucket: stored.bucket,
+                    mimeType: stored.type,
+                    sizeBytes: stored.sizeBytes,
                   })
-                })
+                }).catch((error) => toast('error', error instanceof Error ? error.message : 'Could not read file.'))
+                  .finally(() => setUploading(false))
                 event.target.value = ''
               }}
             />

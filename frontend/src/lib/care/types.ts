@@ -2,7 +2,7 @@ export type Role = 'patient' | 'dietitian' | 'admin'
 
 export type ApplicationStatus = 'draft' | 'pending' | 'approved' | 'needs_info' | 'rejected'
 export type DietitianStatus = 'approved' | 'pending' | 'needs_info'
-export type AppointmentStatus = 'upcoming' | 'completed' | 'cancelled'
+export type AppointmentStatus = 'upcoming' | 'completed' | 'cancelled' | 'deleted'
 export type AppointmentType = 'video' | 'chat'
 export type RequestStatus = 'pending' | 'accepted' | 'declined'
 
@@ -47,6 +47,10 @@ export interface CredentialDocument {
   issuedOn?: string
   reference?: string
   url?: string
+  objectKey?: string
+  bucket?: string
+  mimeType?: string
+  sizeBytes?: number
 }
 
 export interface AvailabilitySlot {
@@ -88,6 +92,10 @@ export interface ApplicationDocument {
   fileName: string
   uploaded: boolean
   url?: string
+  objectKey?: string
+  bucket?: string
+  mimeType?: string
+  sizeBytes?: number
 }
 
 export interface DietitianApplication {
@@ -116,7 +124,12 @@ export interface MessageAttachment {
   size: string
   url?: string
   type?: string
+  objectKey?: string
+  bucket?: string
+  sizeBytes?: number
 }
+
+export type MessageDeliveryStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed'
 
 export interface ChatMessage {
   id: string
@@ -125,6 +138,9 @@ export interface ChatMessage {
   text: string
   timestamp: string
   attachments?: MessageAttachment[]
+  status?: MessageDeliveryStatus
+  deliveredAt?: string | null
+  readAt?: string | null
 }
 
 export interface Conversation {
@@ -133,6 +149,7 @@ export interface Conversation {
   lastMessage: string
   lastAt: string
   lastReadAt?: Record<string, string>
+  hiddenFor?: string[]
 }
 
 export interface Appointment {
@@ -155,6 +172,10 @@ export interface PatientFile {
   size: string
   uploadedAt: string
   url?: string
+  objectKey?: string
+  bucket?: string
+  mimeType?: string
+  sizeBytes?: number
 }
 
 export interface ConsultationRequest {

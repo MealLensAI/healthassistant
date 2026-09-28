@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Camera } from 'lucide-react'
+import { Camera, Loader2 } from 'lucide-react'
+import { PasswordSecuritySection } from '@/components/PasswordSecuritySection'
 import { Button } from '@/components/care-ui/Button'
 import { ProfilePhoto } from '@/components/care-ui/PhotoViewer'
 import { Pill } from '@/components/care-ui/Primitives'
 import { useApp } from '@/lib/care/context'
+import { apiEnabled, uploadCareAsset } from '@/lib/care/api'
 import { formatDate } from '@/lib/care/utils'
 import { emptyPatientProfile } from '@/lib/care/patients'
 import type { PatientProfile } from '@/lib/care/types'
@@ -79,16 +81,24 @@ export default function Profile() {
   const [location, setLocation] = useState('')
   const [healthCondition, setHealthCondition] = useState('')
   const [saving, setSaving] = useState(false)
+  const [savingHealth, setSavingHealth] = useState(false)
   const [seededFromHealth, setSeededFromHealth] = useState(false)
-  const [photoUrl, setPhotoUrl] = useState(() => readStoredProfilePhoto())
+  const [photoUrl, setPhotoUrl] = useState('')
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoUploadInFlight = useRef(false)
+  useEffect(() => { setPhotoUrl('') }, [user?.uid, currentUser?.id])
 
   const displayName =
-    currentUser?.name || user?.displayName || user?.email?.split('@')[0] || 'Member'
+    user?.displayName ||
+    (currentUser?.name && currentUser.name !== 'Member' ? currentUser.name : '') ||
+    user?.email?.split('@')[0] ||
+    'Member'
   const email = currentUser?.email || user?.email || ''
-  const avatar = photoUrl || currentUser?.avatar || user?.photoURL || ''
+  const avatar = currentUser?.avatar || photoUrl || user?.photoURL || readStoredProfilePhoto(user?.uid) || ''
   const careUserId = currentUser?.id || user?.uid || 'local'
 
-  function handlePhotoPick(file: File | null) {
+  async function handlePhotoPick(file: File | null) {
+    if (photoUploadInFlight.current || !file) return
     if (!file || !file.type.startsWith('image/')) {
       toast({ title: 'Invalid file', description: 'Please choose an image.', variant: 'destructive' })
       return
@@ -97,20 +107,53 @@ export default function Profile() {
       toast({ title: 'Too large', description: 'Please use an image under 5MB.', variant: 'destructive' })
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const dataUrl = String(reader.result || '')
+    photoUploadInFlight.current = true
+    setUploadingPhoto(true)
+    try {
+      if (currentUser && apiEnabled()) {
+        const stored = await uploadCareAsset(file, 'avatar')
+        // Optimistic local preview so the UI doesn't wait on a signed URL refresh.
+        const preview = URL.createObjectURL(file)
+        setPhotoUrl(preview)
+        writeStoredProfilePhoto(preview, user?.uid)
+        try {
+          const raw = window.localStorage.getItem('user_data')
+          if (raw) {
+            const parsed = JSON.parse(raw) as Record<string, unknown>
+            parsed.photoURL = preview
+            parsed.avatar = stored.objectKey
+            window.localStorage.setItem('user_data', JSON.stringify(parsed))
+          }
+        } catch {
+          /* ignore */
+        }
+        window.dispatchEvent(new Event('meallensai-profile-photo'))
+        await saveAccount({ avatar: stored.objectKey }, 'Profile photo updated.')
+        return
+      }
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ''))
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(file)
+      })
       if (!dataUrl) return
       setPhotoUrl(dataUrl)
-      writeStoredProfilePhoto(dataUrl)
+      writeStoredProfilePhoto(dataUrl, user?.uid)
       window.dispatchEvent(new Event('meallensai-profile-photo'))
-      if (currentUser) {
-        saveAccount({ avatar: dataUrl }, 'Profile photo updated.')
-      } else {
-        toast({ title: 'Photo saved', description: 'Your profile picture was updated.' })
-      }
+      if (currentUser) await saveAccount({ avatar: dataUrl }, 'Profile photo updated.')
+      else toast({ title: 'Photo saved', description: 'Your profile picture was updated.' })
+    } catch (error) {
+      toast({
+        title: 'Could not upload photo',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      photoUploadInFlight.current = false
+      setUploadingPhoto(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
-    reader.readAsDataURL(file)
   }
 
   const mine = files.filter((file) => file.ownerId === currentUser?.id)
@@ -171,7 +214,7 @@ export default function Profile() {
     setDraft({ ...profile, [key]: value })
   }
 
-  async function handleSave() {
+  function buildMealPayload(): { payload: SicknessSettings; condition: string } | null {
     const gender = genderToSettings(profile.biologicalSex || profile.genderIdentity)
     const condition =
       healthCondition.trim() ||
@@ -207,8 +250,40 @@ export default function Profile() {
         description: `Please fill: ${missing.join(', ')}`,
         variant: 'destructive',
       })
-      return
+      return null
     }
+    return { payload: mealPayload, condition }
+  }
+
+  /** Save only MealLens health / meal-recommendation fields. */
+  async function handleSaveHealth() {
+    const built = buildMealPayload()
+    if (!built) return
+    setSavingHealth(true)
+    try {
+      const result = await saveSettings(built.payload)
+      if (result.success) {
+        toast({
+          title: 'Health information saved',
+          description: 'Your meal recommendation health profile was updated.',
+        })
+      } else {
+        toast({
+          title: 'Could not save health information',
+          description: result.error || 'Please try again.',
+          variant: 'destructive',
+        })
+      }
+    } finally {
+      setSavingHealth(false)
+    }
+  }
+
+  /** Save clinical care profile and health / meal-recommendation fields together. */
+  async function handleSave() {
+    const built = buildMealPayload()
+    if (!built) return
+    const { payload: mealPayload, condition } = built
 
     setSaving(true)
     try {
@@ -255,15 +330,22 @@ export default function Profile() {
       <div className="mx-auto max-w-4xl space-y-5">
         <div className="hy-card p-6">
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-            <div className="relative">
+            <div className="relative" aria-busy={uploadingPhoto}>
               <ProfilePhoto
                 src={avatar}
                 name={displayName}
                 className="h-24 w-24 rounded-full object-cover"
                 fallbackClassName="grid h-24 w-24 place-items-center rounded-full bg-navy-soft text-xl font-bold text-navy"
               />
+              {uploadingPhoto && (
+                <div className="absolute inset-0 z-10 grid place-items-center rounded-full bg-black/50 text-white" role="status">
+                  <Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
+                  <span className="sr-only">Uploading profile photo…</span>
+                </div>
+              )}
               <button
                 type="button"
+                disabled={uploadingPhoto}
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute bottom-0 right-0 grid h-9 w-9 place-items-center rounded-full border border-line bg-white text-navy shadow-soft hover:bg-panel"
                 aria-label="Upload profile photo"
@@ -273,6 +355,7 @@ export default function Profile() {
               <input
                 ref={fileInputRef}
                 type="file"
+                disabled={uploadingPhoto}
                 accept="image/*"
                 className="hidden"
                 onChange={(event) => handlePhotoPick(event.target.files?.[0] ?? null)}
@@ -289,10 +372,11 @@ export default function Profile() {
               </p>
               <button
                 type="button"
+                disabled={uploadingPhoto}
                 onClick={() => fileInputRef.current?.click()}
                 className="mt-3 text-sm font-semibold text-navy hover:underline"
               >
-                {avatar ? 'Change profile photo' : 'Upload profile photo'}
+                {uploadingPhoto ? 'Uploading photo…' : avatar ? 'Change profile photo' : 'Upload profile photo'}
               </button>
             </div>
           </div>
@@ -402,6 +486,18 @@ export default function Profile() {
           {activityLevel ? (
             <p className="mt-2 text-xs text-muted">Selected activity: {activityLabel(activityLevel)}</p>
           ) : null}
+          <div className="mt-4">
+            <Button
+              type="button"
+              onClick={() => void handleSaveHealth()}
+              disabled={savingHealth || saving}
+            >
+              {savingHealth ? 'Saving…' : 'Save health information'}
+            </Button>
+            <p className="mt-2 text-xs text-muted">
+              Saves only this health section for meal recommendations. Use “Save clinical profile” below to update everything.
+            </p>
+          </div>
         </Section>
 
         <Section title="Demographics & contact">
@@ -572,11 +668,13 @@ export default function Profile() {
           </ul>
           {recordFiles.length === 0 && <p className="text-sm text-muted">No lab records yet.</p>}
           <Link to="/files" className="mt-3 inline-block text-sm font-semibold text-navy">
-            Open My Files
+            Open My Health Files
           </Link>
         </Section>
 
-        <Button onClick={() => void handleSave()} disabled={saving}>
+      <PasswordSecuritySection />
+
+        <Button onClick={() => void handleSave()} disabled={saving || savingHealth}>
           {saving ? 'Saving…' : 'Save clinical profile'}
         </Button>
       </div>

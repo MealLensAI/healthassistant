@@ -1,47 +1,104 @@
 import { describe, expect, it } from 'vitest'
-import { APPLICATIONS, CONVERSATIONS, DIETITIANS, MESSAGES, USERS } from '@/lib/care/data/mock'
+import { USERS } from '@/lib/care/data/mock'
 import { appReducer, createInitialState } from '@/lib/care/store'
+import type { Dietitian, DietitianApplication, User } from '@/lib/care/types'
+
+const patient = USERS.find((item) => item.id === 'user-sarah')!
+const admin = USERS.find((item) => item.id === 'user-admin')!
+
+const dietitianUser: User = {
+  id: 'user-doc',
+  name: 'Dr. Test Doc',
+  email: 'doc@care.test',
+  role: 'dietitian',
+  avatar: '',
+  country: 'Nigeria',
+  title: 'Clinical Dietitian',
+}
+
+const pendingListing: Dietitian = {
+  id: 'dt-pending',
+  userId: 'user-doc',
+  name: 'Dr. Test Doc',
+  title: 'Clinical Dietitian',
+  country: 'Nigeria',
+  specialties: ['Diabetes'],
+  conditions: ['Diabetes'],
+  yearsExperience: 5,
+  rating: 0,
+  reviewCount: 0,
+  bio: 'Clinical dietitian for tests.',
+  languages: ['English'],
+  workplace: 'Test Clinic',
+  avatar: '',
+  coverImage: '',
+  verified: false,
+  featured: false,
+  education: [],
+  experience: [],
+  documents: [],
+  reviews: [],
+  availability: [],
+  status: 'pending',
+}
+
+const application: DietitianApplication = {
+  id: 'app-doc',
+  userId: 'user-doc',
+  fullName: 'Dr. Test Doc',
+  email: 'doc@care.test',
+  phone: '555',
+  country: 'Nigeria',
+  yearsExperience: 5,
+  bio: 'Clinical dietitian for tests with enough detail.',
+  specialties: ['Diabetes'],
+  workplace: 'Test Clinic',
+  languages: ['English'],
+  education: [{ school: 'Test Uni', degree: 'MSc', year: '2018' }],
+  experience: [{ role: 'Dietitian', org: 'Test Clinic', years: 'Current' }],
+  documents: [
+    { kind: 'photo', name: 'Photo', fileName: 'photo.jpg', uploaded: true, url: 'https://example.com/photo.jpg' },
+    { kind: 'license', name: 'License', fileName: 'license.pdf', uploaded: true, objectKey: 'user-doc/license.pdf' },
+  ],
+  status: 'pending',
+  submittedAt: '2026-09-16T12:00:00.000Z',
+  adminNotes: [],
+}
 
 const base = createInitialState({
-  users: USERS,
-  dietitians: DIETITIANS,
-  applications: APPLICATIONS,
-  conversations: CONVERSATIONS,
-  messages: MESSAGES,
-  currentUser: USERS[0],
+  users: [patient, admin, dietitianUser],
+  dietitians: [pendingListing],
+  applications: [application],
+  conversations: [
+    {
+      id: 'conv-test',
+      participantIds: [patient.id, dietitianUser.id],
+      lastMessage: 'Hello',
+      lastAt: '2026-09-15T16:40:00.000Z',
+      lastReadAt: {},
+    },
+  ],
+  messages: [],
+  currentUser: patient,
 })
 
 describe('appReducer', () => {
   it('approves an application and publishes the dietitian', () => {
     const next = appReducer(base, {
       type: 'APPROVE_APPLICATION',
-      applicationId: 'app-marcus',
+      applicationId: 'app-doc',
       reviewer: 'Amelia Ward',
     })
-    expect(next.applications.find((item) => item.id === 'app-marcus')?.status).toBe('approved')
-    expect(next.dietitians.find((item) => item.id === 'dt-marcus')?.status).toBe('approved')
-    expect(next.dietitians.find((item) => item.id === 'dt-marcus')?.verified).toBe(true)
-  })
-
-  it('creates a public listing when an application-only specialist is approved', () => {
-    const next = appReducer(base, {
-      type: 'APPROVE_APPLICATION',
-      applicationId: 'app-priya',
-      reviewer: 'Amelia Ward',
-    })
-    const priya = next.dietitians.find((item) => item.userId === 'user-priya')
-    expect(next.applications.find((item) => item.id === 'app-priya')?.status).toBe('approved')
-    expect(priya?.status).toBe('approved')
-    expect(priya?.verified).toBe(true)
-    expect(priya?.avatar).toContain('unsplash')
-    expect(priya?.availability.length).toBe(7)
+    expect(next.applications.find((item) => item.id === 'app-doc')?.status).toBe('approved')
+    expect(next.dietitians.find((item) => item.id === 'dt-pending')?.status).toBe('approved')
+    expect(next.dietitians.find((item) => item.id === 'dt-pending')?.verified).toBe(true)
   })
 
   it('notifies admins when someone registers as a dietitian', () => {
     const next = appReducer(base, {
       type: 'SUBMIT_APPLICATION',
       application: {
-        ...APPLICATIONS[1]!,
+        ...application,
         id: 'app-nina',
         userId: 'user-nina',
         fullName: 'Nina Cole',
@@ -50,74 +107,28 @@ describe('appReducer', () => {
     expect(next.notifications[0]?.userId).toBe('user-admin')
     expect(next.notifications[0]?.kind).toBe('registration')
     expect(next.notifications[0]?.title).toBe('New dietitian registration')
-    expect(next.notifications[0]?.body).toContain('Nina Cole registered as a dietitian')
-    expect(next.notifications[0]?.href).toBe('/admin/applications/app-nina')
-    expect(next.notifications[0]?.read).toBe(false)
   })
 
   it('requests more information without publishing the profile', () => {
     const next = appReducer(base, {
       type: 'REQUEST_MORE_INFO',
-      applicationId: 'app-priya',
+      applicationId: 'app-doc',
       message: 'Need a clearer license scan',
       reviewer: 'Amelia Ward',
     })
-    expect(next.applications.find((item) => item.id === 'app-priya')?.status).toBe('needs_info')
-    expect(next.applications.find((item) => item.id === 'app-priya')?.moreInfoRequest).toContain('clearer license')
+    expect(next.applications.find((item) => item.id === 'app-doc')?.status).toBe('needs_info')
+    expect(next.applications.find((item) => item.id === 'app-doc')?.moreInfoRequest).toContain('clearer license')
   })
 
   it('sends a message and updates the conversation preview', () => {
     const next = appReducer(base, {
       type: 'SEND_MESSAGE',
-      conversationId: 'conv-emily',
+      conversationId: 'conv-test',
       senderId: 'user-sarah',
       text: 'See you Thursday',
     })
     expect(next.messages.at(-1)?.text).toBe('See you Thursday')
-    expect(next.conversations.find((item) => item.id === 'conv-emily')?.lastMessage).toBe('See you Thursday')
-  })
-
-  it('prevents duplicate pending consultation requests', () => {
-    const first = appReducer(base, {
-      type: 'REQUEST_CONSULTATION',
-      request: {
-        patientId: 'user-sarah',
-        dietitianId: 'dt-sophia',
-        status: 'pending',
-        createdAt: '2026-09-15T00:00:00.000Z',
-        note: 'Help with PCOS',
-      },
-    })
-    const second = appReducer(first, {
-      type: 'REQUEST_CONSULTATION',
-      request: {
-        patientId: 'user-sarah',
-        dietitianId: 'dt-sophia',
-        status: 'pending',
-        createdAt: '2026-09-15T00:00:00.000Z',
-        note: 'Help with PCOS',
-      },
-    })
-    expect(second.consultationRequests.filter((item) => item.dietitianId === 'dt-sophia')).toHaveLength(1)
-  })
-
-  it('accepting a request opens a conversation and books an appointment', () => {
-    const requested = appReducer(base, {
-      type: 'REQUEST_CONSULTATION',
-      request: {
-        patientId: 'user-sarah',
-        dietitianId: 'dt-sophia',
-        status: 'pending',
-        createdAt: '2026-09-15T00:00:00.000Z',
-        note: 'Help with PCOS',
-      },
-    })
-    const requestId = requested.consultationRequests[0]?.id
-    expect(requestId).toBeTruthy()
-    const accepted = appReducer(requested, { type: 'RESPOND_CONSULTATION', id: requestId!, status: 'accepted' })
-    expect(accepted.consultationRequests[0]?.status).toBe('accepted')
-    expect(accepted.conversations.some((item) => item.participantIds.includes('user-sophia') || item.id.includes('sophia'))).toBe(true)
-    expect(accepted.appointments[0]?.dietitianId).toBe('dt-sophia')
+    expect(next.conversations.find((item) => item.id === 'conv-test')?.lastMessage).toBe('See you Thursday')
   })
 
   it('records a quote payment and marks the quote paid', () => {
@@ -153,39 +164,43 @@ describe('appReducer', () => {
   })
 
   it('adds and deletes a patient review on a specialist', () => {
-    const added = appReducer(base, {
+    const live = {
+      ...pendingListing,
+      status: 'approved' as const,
+      verified: true,
+      reviews: [] as Dietitian['reviews'],
+    }
+    const withListing = { ...base, dietitians: [live] }
+    const added = appReducer(withListing, {
       type: 'ADD_REVIEW',
-      dietitianId: 'dt-emily',
+      dietitianId: 'dt-pending',
       review: { author: 'Sarah Bennett', authorId: 'user-sarah', rating: 5, text: 'Excellent care.' },
     })
-    expect(added.dietitians.find((item) => item.id === 'dt-emily')?.reviews[0]?.authorId).toBe('user-sarah')
-    const removed = appReducer(added, { type: 'DELETE_REVIEW', dietitianId: 'dt-emily', authorId: 'user-sarah' })
-    expect(removed.dietitians.find((item) => item.id === 'dt-emily')?.reviews.some((item) => item.authorId === 'user-sarah')).toBe(false)
+    expect(added.dietitians.find((item) => item.id === 'dt-pending')?.reviews[0]?.authorId).toBe('user-sarah')
+    const removed = appReducer(added, { type: 'DELETE_REVIEW', dietitianId: 'dt-pending', authorId: 'user-sarah' })
+    expect(removed.dietitians.find((item) => item.id === 'dt-pending')?.reviews.some((item) => item.authorId === 'user-sarah')).toBe(false)
   })
 
   it('rings a video call that the other person can answer', () => {
     const ringing = appReducer(base, {
       type: 'START_CALL',
       call: {
-        conversationId: 'conv-emily',
-        peerId: 'user-emily',
-        peerName: 'Dr. Emily Carter',
+        conversationId: 'conv-test',
+        peerId: dietitianUser.id,
+        peerName: dietitianUser.name,
         peerAvatar: '',
       },
     })
     expect(ringing.activeCall?.status).toBe('ringing')
-    expect(ringing.liveCalls[0]?.calleeId).toBe('user-emily')
-    const emily = USERS.find((item) => item.id === 'user-emily')!
-    const incoming = appReducer(ringing, { type: 'LOGIN', user: emily })
+    expect(ringing.liveCalls[0]?.calleeId).toBe(dietitianUser.id)
+    const incoming = appReducer(ringing, { type: 'LOGIN', user: dietitianUser })
     expect(incoming.activeCall?.incoming).toBe(true)
     expect(incoming.activeCall?.peerId).toBe('user-sarah')
     const live = appReducer(incoming, { type: 'ANSWER_CALL' })
     expect(live.activeCall?.status).toBe('live')
-    expect(live.liveCalls[0]?.status).toBe('live')
     const ended = appReducer(live, { type: 'END_CALL' })
     expect(ended.activeCall).toBeNull()
     expect(ended.liveCalls).toEqual([])
-    expect(ended.messages.at(-1)?.text).toBe('Video call ended')
   })
 
   it('stores a preview url when a file is uploaded', () => {

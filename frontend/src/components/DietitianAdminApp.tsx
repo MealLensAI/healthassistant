@@ -31,8 +31,8 @@ function CareFallbackRedirect() {
 
 /**
  * Dietitian + admin practice shell (from meallensaidieticnafrontend).
- * /admin boots the verification queue without MealLens ProtectedRoute.
- * Patients only see specialists after admin approval.
+ * Mounted under App at `/dietitian/*`, so descendant routes match the
+ * remaining path (`apply`, `availability`, …) — not `/dietitian/apply`.
  */
 export default function DietitianAdminApp() {
   return (
@@ -44,8 +44,8 @@ export default function DietitianAdminApp() {
               <Route path="/onboarding/doctor" element={<DoctorOnboardingPage />} />
               <Route path="/signup/doctor" element={<Navigate to="/onboarding/doctor" replace />} />
 
+              {/* Relative to /dietitian/* splat: "", "apply", "availability", ... */}
               <Route
-                path="/dietitian"
                 element={
                   <RequireAuth roles={['dietitian']}>
                     <AppShell />

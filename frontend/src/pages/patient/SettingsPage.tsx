@@ -1,3 +1,4 @@
+import { PasswordSecuritySection } from '@/components/PasswordSecuritySection'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/care-ui/Button'
@@ -148,75 +149,6 @@ export function SettingsPage() {
   )
 }
 
-function PasswordSecuritySection() {
-  const { toast } = useApp()
-  const [password, setPassword] = useState({ current: '', next: '', confirm: '' })
-  const [twoFactorSms, setTwoFactorSms] = useState(true)
-  const [twoFactorApp, setTwoFactorApp] = useState(false)
-
-  function sendReset() {
-    toast('success', 'Password reset link sent to your email.')
-  }
-
-  function savePassword() {
-    if (password.next.length < 8) {
-      toast('error', 'New password must be at least 8 characters.')
-      return
-    }
-    if (password.next !== password.confirm) {
-      toast('error', 'New password and confirmation do not match.')
-      return
-    }
-    setPassword({ current: '', next: '', confirm: '' })
-    toast('success', 'Password updated.')
-  }
-
-  return (
-    <section className="hy-card p-5">
-      <h2 className="font-bold text-ink">Password & security</h2>
-      <p className="mt-1 text-sm text-muted">Reset from email or set a new password here.</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="sm:col-span-2">
-          <span className="hy-label">Current password</span>
-          <input
-            className="hy-input"
-            type="password"
-            value={password.current}
-            onChange={(event) => setPassword({ ...password, current: event.target.value })}
-          />
-        </label>
-        <label>
-          <span className="hy-label">New password</span>
-          <input
-            className="hy-input"
-            type="password"
-            value={password.next}
-            onChange={(event) => setPassword({ ...password, next: event.target.value })}
-          />
-        </label>
-        <label>
-          <span className="hy-label">Confirm new password</span>
-          <input
-            className="hy-input"
-            type="password"
-            value={password.confirm}
-            onChange={(event) => setPassword({ ...password, confirm: event.target.value })}
-          />
-        </label>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button onClick={savePassword}>Update password</Button>
-        <Button variant="outline" onClick={sendReset}>
-          Send password reset
-        </Button>
-      </div>
-      <div className="mt-5 space-y-1">
-        <Toggle label="Two-factor authentication via SMS" checked={twoFactorSms} onChange={setTwoFactorSms} />
-        <Toggle label="Authenticator app" checked={twoFactorApp} onChange={setTwoFactorApp} />
-      </div>
-    </section>
-  )
-}
 
 function PatientSettingsSections({
   settings,

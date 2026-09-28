@@ -1,3 +1,4 @@
+import { useAttachmentUrl } from '@/lib/care/useAttachmentUrl'
 import type { CredentialDocument, Dietitian } from '@/lib/care/types'
 import { formatDate } from '@/lib/care/utils'
 
@@ -8,12 +9,37 @@ export function CredentialPreview({
   dietitian: Dietitian
   document: CredentialDocument
 }) {
+  const fileUrl = useAttachmentUrl(document)
   const degree = dietitian.education.find((item) =>
     document.reference ? item.degree === document.reference : true,
   ) ?? dietitian.education[0]
   const issuer = document.issuer ?? degree?.school ?? dietitian.workplace
   const issuedOn = document.issuedOn ?? (degree ? `${degree.year}-06-01` : '2018-01-01')
   const reference = document.reference ?? document.fileName.replace(/\.[^.]+$/, '').toUpperCase()
+
+  // Prefer the real uploaded file when we can resolve a signed URL.
+  if (fileUrl) {
+    const isImage = /\.(png|jpe?g|gif|webp|avif)$/i.test(document.fileName || document.name || '')
+      || (document.mimeType || '').startsWith('image/')
+    return (
+      <figure className="overflow-hidden rounded-2xl border border-line bg-panel">
+        {isImage ? (
+          <img src={fileUrl} alt={document.name} className="max-h-[70vh] w-full object-contain bg-card" />
+        ) : (
+          <iframe title={document.name} src={fileUrl} className="h-[70vh] w-full bg-card" />
+        )}
+        <figcaption className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-ink">{document.name}</p>
+            <p className="truncate text-xs text-muted">{document.fileName}</p>
+          </div>
+          <a href={fileUrl} download={document.fileName || document.name} target="_blank" rel="noreferrer" className="shrink-0 text-xs font-semibold text-navy hover:underline">
+            Download
+          </a>
+        </figcaption>
+      </figure>
+    )
+  }
 
   if (document.kind === 'photo') {
     const src = document.url || dietitian.avatar
@@ -77,16 +103,7 @@ export function CredentialPreview({
     <article className="rounded-2xl border border-line bg-panel p-5">
       <h3 className="font-bold text-ink">{document.name}</h3>
       <p className="mt-1 text-sm text-muted">{document.fileName}</p>
-      <ul className="mt-4 space-y-2 text-sm">
-        {dietitian.experience.map((item) => (
-          <li key={`${item.org}-${item.role}`} className="rounded-xl bg-card px-3 py-2">
-            <p className="font-semibold text-ink">{item.role}</p>
-            <p className="text-xs text-muted">
-              {item.org} · {item.years}
-            </p>
-          </li>
-        ))}
-      </ul>
+      <p className="mt-3 text-sm text-muted">Document preview is preparing. Try again in a moment.</p>
     </article>
   )
 }

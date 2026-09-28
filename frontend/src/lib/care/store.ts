@@ -1,4 +1,5 @@
 import { activeCallFromLive, conversationIdFor } from '@/lib/care/calls'
+import { accountAvatar } from '@/lib/care/accountAvatar'
 import { defaultAvailability, uid } from '@/lib/care/utils'
 import type {
   AppState,
@@ -24,7 +25,17 @@ export type Action =
   | { type: 'LOGOUT' }
   | { type: 'ADD_TOAST'; toast: Omit<Toast, 'id'> }
   | { type: 'REMOVE_TOAST'; id: string }
-  | { type: 'SEND_MESSAGE'; conversationId: string; senderId: string; text: string; attachments?: { name: string; size: string; url?: string; type?: string }[] }
+  | {
+      type: 'SEND_MESSAGE'
+      conversationId: string
+      senderId: string
+      text: string
+      messageId?: string
+      attachments?: { name: string; size: string; url?: string; type?: string; objectKey?: string; bucket?: string; sizeBytes?: number }[]
+      status?: import('./types').MessageDeliveryStatus
+    }
+  | { type: 'UPDATE_MESSAGE_STATUS'; messageId: string; status: import('./types').MessageDeliveryStatus; deliveredAt?: string | null; readAt?: string | null }
+  | { type: 'UPSERT_MESSAGE'; message: import('./types').ChatMessage }
   | { type: 'ENSURE_CONVERSATION'; patientId: string; dietitianUserId: string; dietitianName: string }
   | { type: 'REQUEST_CONSULTATION'; request: Omit<ConsultationRequest, 'id'> }
   | { type: 'RESPOND_CONSULTATION'; id: string; status: 'accepted' | 'declined' }
@@ -35,11 +46,14 @@ export type Action =
   | { type: 'UPDATE_AVAILABILITY'; dietitianId: string; availability: AvailabilitySlot[] }
   | { type: 'APPROVE_APPLICATION'; applicationId: string; reviewer: string }
   | { type: 'REQUEST_MORE_INFO'; applicationId: string; message: string; reviewer: string }
+  | { type: 'DELETE_APPLICATION'; applicationId: string }
   | { type: 'START_CALL'; call: VideoCallState }
   | { type: 'ANSWER_CALL' }
-  | { type: 'END_CALL' }
+  | { type: 'END_CALL'; callId?: string }
   | { type: 'COMPLETE_APPOINTMENT'; appointmentId: string }
-  | { type: 'CANCEL_APPOINTMENT'; appointmentId: string }
+  | { type: 'CANCEL_APPOINTMENT'; appointmentId: string; status?: 'cancelled' | 'deleted' }
+  | { type: 'DELETE_APPOINTMENT'; appointmentId: string }
+  | { type: 'DELETE_CONVERSATION'; conversationId: string; userId: string }
   | { type: 'ADD_APPOINTMENT'; patientId: string; dietitianId: string; date: string; time: string; topic: string; kind: 'video' | 'chat' }
   | { type: 'ADD_PAYMENT'; payment: Omit<Payment, 'id' | 'status' | 'paidAt' | 'receipt'> }
   | { type: 'ADD_PAYMENT_METHOD'; method: SavedPaymentMethod }
@@ -122,13 +136,16 @@ export function appReducer(state: AppState, action: Action): AppState {
       return { ...state, toasts: state.toasts.filter((toast) => toast.id !== action.id) }
     case 'SEND_MESSAGE': {
       const timestamp = new Date().toISOString()
+      const messageId = action.messageId || uid('msg')
+      if (state.messages.some((item) => item.id === messageId)) return state
       const message = {
-        id: uid('msg'),
+        id: messageId,
         conversationId: action.conversationId,
         senderId: action.senderId,
         text: action.text,
         timestamp,
         attachments: action.attachments,
+        status: action.status || 'pending',
       }
       return {
         ...state,
@@ -136,6 +153,42 @@ export function appReducer(state: AppState, action: Action): AppState {
         conversations: state.conversations.map((conversation) =>
           conversation.id === action.conversationId
             ? { ...conversation, lastMessage: action.text, lastAt: timestamp }
+            : conversation,
+        ),
+      }
+    }
+    case 'UPDATE_MESSAGE_STATUS':
+      return {
+        ...state,
+        messages: state.messages.map((message) => {
+          if (message.id !== action.messageId) return message
+          const rank = { pending: 0, failed: 0, sent: 1, delivered: 2, read: 3 } as const
+          const current = rank[message.status || 'sent'] ?? 1
+          const next = rank[action.status] ?? 1
+          if (action.status !== 'failed' && next < current) return message
+          return {
+            ...message,
+            status: action.status,
+            deliveredAt: action.deliveredAt !== undefined ? action.deliveredAt : message.deliveredAt,
+            readAt: action.readAt !== undefined ? action.readAt : message.readAt,
+          }
+        }),
+      }
+    case 'UPSERT_MESSAGE': {
+      const existing = state.messages.find((item) => item.id === action.message.id)
+      const messages = existing
+        ? state.messages.map((item) => (item.id === action.message.id ? { ...item, ...action.message } : item))
+        : [...state.messages, action.message]
+      return {
+        ...state,
+        messages,
+        conversations: state.conversations.map((conversation) =>
+          conversation.id === action.message.conversationId
+            ? {
+                ...conversation,
+                lastMessage: action.message.text || conversation.lastMessage,
+                lastAt: action.message.timestamp || conversation.lastAt,
+              }
             : conversation,
         ),
       }
@@ -307,6 +360,19 @@ export function appReducer(state: AppState, action: Action): AppState {
         ),
       }
     }
+    case 'DELETE_APPLICATION': {
+      const application = state.applications.find((item) => item.id === action.applicationId)
+      const userId = application?.userId
+      return {
+        ...state,
+        applications: state.applications.filter((item) => item.id !== action.applicationId),
+        dietitians: userId
+          ? state.dietitians.filter(
+              (item) => !(item.userId === userId && item.status !== 'approved'),
+            )
+          : state.dietitians,
+      }
+    }
     case 'START_CALL': {
       const caller = state.currentUser
       const peerId = action.call.peerId
@@ -331,9 +397,9 @@ export function appReducer(state: AppState, action: Action): AppState {
         callerId: caller.id,
         calleeId: peerId,
         callerName: caller.name,
-        callerAvatar: caller.avatar ?? '',
+        callerAvatar: accountAvatar(caller, state.dietitians, state.applications),
         calleeName: action.call.peerName,
-        calleeAvatar: action.call.peerAvatar,
+        calleeAvatar: accountAvatar(state.users.find((user) => user.id === peerId), state.dietitians, state.applications) || action.call.peerAvatar,
         status: 'ringing' as const,
         startedAt: new Date().toISOString(),
         offer: null,
@@ -342,7 +408,7 @@ export function appReducer(state: AppState, action: Action): AppState {
       }
       return {
         ...state,
-        liveCalls: [live],
+        liveCalls: [...state.liveCalls.filter((item) => item.id !== live.id), live],
         activeCall: { ...action.call, conversationId, status: 'ringing', incoming: false, callId: live.id },
       }
     }
@@ -364,7 +430,7 @@ export function appReducer(state: AppState, action: Action): AppState {
       const messages = [...state.messages]
       const conversations = state.conversations.map((item) => ({ ...item }))
       for (const item of state.liveCalls) {
-        if (userId && userId !== item.callerId && userId !== item.calleeId) {
+        if ((action.callId && item.id !== action.callId) || (userId && userId !== item.callerId && userId !== item.calleeId)) {
           remaining.push(item)
           continue
         }
@@ -395,7 +461,7 @@ export function appReducer(state: AppState, action: Action): AppState {
       }
       return {
         ...state,
-        activeCall: null,
+        activeCall: activeCallFromLive(userId, remaining),
         liveCalls: remaining,
         missedCalls: missed,
         messages,
@@ -414,12 +480,33 @@ export function appReducer(state: AppState, action: Action): AppState {
     case 'CANCEL_APPOINTMENT':
       return {
         ...state,
-        appointments: state.appointments.map((appointment) =>
-          appointment.id === action.appointmentId
-            ? { ...appointment, status: 'cancelled' }
-            : appointment,
-        ),
+        appointments: state.appointments
+          .map((appointment) =>
+            appointment.id === action.appointmentId
+              ? { ...appointment, status: (action.status || 'deleted') as typeof appointment.status }
+              : appointment,
+          )
+          .filter((appointment) => appointment.status !== 'deleted'),
       }
+    case 'DELETE_APPOINTMENT':
+      return {
+        ...state,
+        appointments: state.appointments
+          .map((appointment) =>
+            appointment.id === action.appointmentId
+              ? { ...appointment, status: 'deleted' as const }
+              : appointment,
+          )
+          .filter((appointment) => appointment.status !== 'deleted'),
+      }
+    case 'DELETE_CONVERSATION': {
+      if (!state.conversations.some((item) => item.id === action.conversationId)) return state
+      return {
+        ...state,
+        conversations: state.conversations.filter((item) => item.id !== action.conversationId),
+        messages: state.messages.filter((item) => item.conversationId !== action.conversationId),
+      }
+    }
     case 'ADD_APPOINTMENT':
       return {
         ...state,
@@ -644,7 +731,8 @@ export function appReducer(state: AppState, action: Action): AppState {
         dietitians = [
           ...dietitians,
           {
-            id: `dt-${action.userId.replace(/^user-/, '')}`,
+            // UUID so API persist + catalog refresh keep the cover/avatar.
+            id: uid('dt'),
             userId: action.userId,
             name: action.name ?? accountUser.name,
             title: action.title ?? accountUser.title ?? '',

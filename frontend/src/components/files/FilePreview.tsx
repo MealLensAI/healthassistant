@@ -1,13 +1,17 @@
+import { useAttachmentUrl } from '@/lib/care/useAttachmentUrl'
 import { FileText } from 'lucide-react'
 import type { PatientFile } from '@/lib/care/types'
 import { isImageFile } from '@/lib/care/patients'
 import { formatDate } from '@/lib/care/utils'
 
 export function FilePreview({ file, patientName }: { file: PatientFile; patientName?: string }) {
-  if (isImageFile(file) && file.url) {
+  const attachmentUrl = useAttachmentUrl(file)
+  const canOpen = Boolean(attachmentUrl)
+
+  if (isImageFile(file) && canOpen) {
     return (
       <figure className="overflow-hidden rounded-2xl border border-line bg-panel">
-        <img src={file.url} alt={file.name} className="max-h-[28rem] w-full object-contain bg-card" />
+        <img src={attachmentUrl} alt={file.name} className="max-h-[28rem] w-full object-contain bg-card" />
         <figcaption className="px-4 py-3 text-sm">
           <p className="font-semibold text-ink">{file.name}</p>
           <p className="text-xs text-muted">
@@ -35,11 +39,13 @@ export function FilePreview({ file, patientName }: { file: PatientFile; patientN
         </div>
       </div>
       <div className="mt-5 space-y-2 rounded-xl bg-card/80 p-4 text-sm leading-relaxed text-muted">
-        {file.url ? (
-          <a href={file.url} target="_blank" rel="noreferrer" className="font-semibold text-navy hover:underline">
-            Open file
+        {canOpen ? (
+          <a href={attachmentUrl} target="_blank" rel="noreferrer" download={file.name} className="font-semibold text-navy hover:underline">
+            Open / download file
           </a>
-        ) : null}
+        ) : (
+          <p>Preparing secure download link…</p>
+        )}
         {file.category === 'labs' && (
           <p>
             Lab report on file for this consult. Values and clinician notes are available to the care team inside MealLensAI.

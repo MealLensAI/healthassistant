@@ -2,7 +2,6 @@ import { X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { IncomingCall } from '@/components/calls/IncomingCall'
-import { VideoStage } from '@/components/calls/VideoStage'
 import { useApp } from '@/lib/care/context'
 import { CallMediaProvider } from '@/lib/care/callMedia'
 import { cn } from '@/lib/care/utils'
@@ -10,6 +9,7 @@ import { cn } from '@/lib/care/utils'
 /**
  * Care overlays (toasts, calls) inside the main MealLensAI chrome.
  * `bare` skips nested marketplace-root when the parent shell already provides it.
+ * Active call UI lives in CallMediaProvider → CallWindow (expand / minimize).
  */
 export function MarketplaceChrome({
   children,
@@ -18,12 +18,9 @@ export function MarketplaceChrome({
   children: ReactNode
   bare?: boolean
 }) {
-  const { toasts, dispatch, activeCall, answerCall, endCall, currentUser } = useApp()
+  const { toasts, dispatch, activeCall, answerCall, endCall } = useApp()
   const location = useLocation()
   const incoming = Boolean(activeCall?.incoming)
-  const onCallSurface =
-    location.pathname.startsWith('/care/') || location.pathname.includes('/messages')
-  const dockCall = Boolean(activeCall) && !incoming && !onCallSurface
 
   return (
     <CallMediaProvider>
@@ -59,17 +56,6 @@ export function MarketplaceChrome({
             onAnswer={answerCall}
             onDecline={endCall}
           />
-        ) : null}
-        {dockCall && activeCall ? (
-          <div className="fixed bottom-4 right-4 z-40 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-line bg-ink shadow-elevated sm:bottom-6 sm:right-6">
-            <VideoStage
-              call={activeCall}
-              selfAvatar={currentUser?.avatar}
-              selfName={currentUser?.name}
-              compact
-              onEnd={endCall}
-            />
-          </div>
         ) : null}
       </div>
     </CallMediaProvider>

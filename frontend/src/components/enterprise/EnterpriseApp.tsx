@@ -4,7 +4,6 @@ import { AppProvider, useApp } from '@/lib/care/context'
 import { MarketplaceBootGate } from '@/components/MarketplaceProvider'
 import { ThemeProvider } from '@/lib/care/theme'
 import { IncomingCall } from '@/components/calls/IncomingCall'
-import { VideoStage } from '@/components/calls/VideoStage'
 import { TopBar } from '@/components/care-layout/TopBar'
 import { CallMediaProvider } from '@/lib/care/callMedia'
 import { cn } from '@/lib/care/utils'
@@ -30,12 +29,10 @@ export default function EnterpriseApp() {
 
 function EnterpriseShell() {
   const { signOut } = useAuth()
-  const { toasts, dispatch, activeCall, answerCall, endCall, currentUser } = useApp()
+  const { toasts, dispatch, activeCall, answerCall, endCall } = useApp()
   const location = useLocation()
   const [navOpen, setNavOpen] = useState(false)
   const incoming = Boolean(activeCall?.incoming)
-  const onCallSurface = location.pathname.includes('/messages')
-  const dockCall = Boolean(activeCall) && !incoming && !onCallSurface
 
   useEffect(() => {
     setNavOpen(false)
@@ -119,17 +116,6 @@ function EnterpriseShell() {
             onAnswer={answerCall}
             onDecline={endCall}
           />
-        ) : null}
-        {dockCall && activeCall ? (
-          <div className="fixed bottom-4 right-4 z-40 w-[min(20rem,calc(100vw-3rem))] overflow-hidden rounded-lg border border-line bg-ink shadow-elevated sm:bottom-6 sm:right-6">
-            <VideoStage
-              call={activeCall}
-              selfAvatar={currentUser?.avatar}
-              selfName={currentUser?.name}
-              compact
-              onEnd={endCall}
-            />
-          </div>
         ) : null}
       </div>
     </CallMediaProvider>

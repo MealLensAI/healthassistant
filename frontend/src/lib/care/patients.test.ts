@@ -18,9 +18,9 @@ describe('filesVisibleToViewer', () => {
     const visible = filesVisibleToViewer({
       files,
       patientId: 'user-sarah',
-      viewerId: 'user-emily',
+      viewerId: 'viewer-dietitian',
       viewerRole: 'dietitian',
-      blockedIds: ['user-emily'],
+      blockedIds: ['viewer-dietitian'],
     })
     expect(visible).toEqual([])
   })
@@ -38,7 +38,7 @@ describe('filesVisibleToViewer', () => {
       filesVisibleToViewer({
         files,
         patientId: 'user-sarah',
-        viewerId: 'user-emily',
+        viewerId: 'viewer-dietitian',
         viewerRole: 'dietitian',
         blockedIds: [],
       }),
