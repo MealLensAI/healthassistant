@@ -61,7 +61,7 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
     [conversations, currentUser],
   )
 
-  const active = mine.find((conversation) => conversation.id === id) ?? mine[0]
+  const active = id ? mine.find((conversation) => conversation.id === id) ?? null : mine[0] ?? null
   const inboxTo = role === 'dietitian' ? practicePath('messages') : '/messages'
 
   const activeId = active?.id

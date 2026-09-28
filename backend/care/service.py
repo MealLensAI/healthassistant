@@ -369,6 +369,19 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                 )
                 if conversation:
                     action = {**action, "conversationId": conversation["id"]}
+                else:
+                    # Auto-open the thread when ENSURE_CONVERSATION never landed
+                    # (common after a flaky snapshot) so send does not 400.
+                    conv_id = conversation_id_for(actor_id, peer_id)
+                    conversation = {
+                        "id": conv_id,
+                        "participantIds": [actor_id, peer_id],
+                        "lastMessage": "",
+                        "lastAt": now_iso(),
+                        "lastReadAt": {},
+                    }
+                    next_state["conversations"].append(conversation)
+                    action = {**action, "conversationId": conv_id}
         if not conversation or actor_id not in conversation['participantIds']:
             raise ValueError('Conversation not found')
         attachments = action.get('attachments') or []

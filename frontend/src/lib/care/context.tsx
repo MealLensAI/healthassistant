@@ -697,6 +697,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return
       }
       try {
+        const { ensureCareAccount, readHealthAppUser } = await import('@/lib/care/embeddedAuth')
+        if (readHealthAppUser()) await ensureCareAccount()
         const server = await postAction('SEND_MESSAGE', {
           conversationId,
           senderId: state.currentUser.id,
@@ -752,6 +754,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Match meallensaidieticnafrontend: persist via dedicated appointments API, then hydrate.
       if (apiEnabled()) {
         try {
+          const { ensureCareAccount, readHealthAppUser } = await import('@/lib/care/embeddedAuth')
+          if (readHealthAppUser()) await ensureCareAccount()
           const server = await bookAppointmentOnServer({ dietitianId, date, time, topic, kind })
           applyServerPatch(server)
           toast('success', `Appointment booked for ${date} at ${time}.`)

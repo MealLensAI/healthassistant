@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import json
 import re
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -153,7 +152,9 @@ class SupabaseStore:
             now = self._time.monotonic()
             if self._cache is not None and (now - self._cache_at) < self._cache_ttl:
                 return _copy(self._cache)
-            state = load_from_supabase(self.client)
+            from .call_signals import supabase_retry
+
+            state = supabase_retry(lambda: load_from_supabase(self.client), attempts=4)
             self._cache = state
             self._cache_at = now
             return _copy(state)
@@ -1051,22 +1052,25 @@ def state_from_tables(tables: Json) -> Json:
 
 
 def load_from_supabase(client) -> Json:
-    # Concurrent table reads — never re-inject the legacy base64 catalog.
+    # Sequential reads on the shared client — spawning one create_client() per
+    # table (old path) flooded HTTP/2 and caused SSLV3_ALERT_BAD_RECORD_MAC /
+    # 503s on SEND_MESSAGE and booking.
+    from .call_signals import supabase_retry
+
     source_tables = {key: table for key, table in MP_TABLES.items() if key != "live_calls"}
-
-    def read_table(item: tuple[str, str]) -> tuple[str, list[Json]]:
-        key, table = item
-        from supabase import create_client
-
-        worker = create_client(settings.supabase_url, settings.supabase_service_role_key)
-        return key, worker.table(table).select("*").execute().data or []
-
-    with ThreadPoolExecutor(max_workers=min(8, len(source_tables))) as pool:
-        tables = dict(pool.map(read_table, source_tables.items()))
+    tables: dict[str, list[Json]] = {}
+    for key, table in source_tables.items():
+        tables[key] = supabase_retry(
+            lambda table=table: client.table(table).select("*").execute().data or [],
+            attempts=3,
+        )
     # Billing remains exclusively in the existing subscription/Paystack tables.
     tables.update({"payment_methods": [], "payment_quotes": [], "payments": []})
     try:
-        tables["live_calls"] = client.table(MP_TABLES["live_calls"]).select("*").execute().data or []
+        tables["live_calls"] = supabase_retry(
+            lambda: client.table(MP_TABLES["live_calls"]).select("*").execute().data or [],
+            attempts=2,
+        )
     except Exception:
         tables["live_calls"] = []
     return state_from_tables(tables)
@@ -1268,7 +1272,7 @@ _UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]
 
 # Tables touched by latency-sensitive actions. Full snapshot rewrite is too slow.
 _HOT_ACTION_TABLES: dict[str, tuple[str, ...]] = {
-    "SEND_MESSAGE": ("messages", "conversations", "patient_files"),
+    "SEND_MESSAGE": ("messages", "conversations", "conversation_participants", "patient_files"),
     "ENSURE_CONVERSATION": ("conversations", "conversation_participants"),
     "START_CALL": ("conversations", "conversation_participants", "live_calls", "notifications"),
     "ANSWER_CALL": ("live_calls", "notifications"),

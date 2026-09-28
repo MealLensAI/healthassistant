@@ -109,6 +109,19 @@ def supabase_retry(fn: Callable[[], Any], *, attempts: int = 3) -> Any:
                     "server disconnected",
                 )
             )
+            # Also treat TLS / bad-mac alerts as retryable — concurrent PostgREST
+            # clients against the same pool occasionally trip these on Railway/macOS.
+            if not transient:
+                transient = any(
+                    token in message
+                    for token in (
+                        "ssl",
+                        "bad record mac",
+                        "bad_record_mac",
+                        "connection aborted",
+                        "remoteprotocolerror",
+                    )
+                )
             if not transient or attempt >= attempts - 1:
                 raise
             time.sleep(0.12 * (attempt + 1))
