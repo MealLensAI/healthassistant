@@ -16,6 +16,12 @@ CREATE POLICY "Users can view their own food_for_you" ON public.food_for_you
     TO authenticated
     USING (auth.uid() = user_id);
 
+
+
+
+
+
+
 DROP POLICY IF EXISTS "Users can insert their own food_for_you" ON public.food_for_you;
 CREATE POLICY "Users can insert their own food_for_you" ON public.food_for_you
     FOR INSERT
