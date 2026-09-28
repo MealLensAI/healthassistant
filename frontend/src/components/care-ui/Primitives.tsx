@@ -107,6 +107,7 @@ export function Avatar({
           src={resolved}
           alt={name}
           className="h-full w-full object-cover"
+          referrerPolicy="no-referrer"
           onError={() => setBroken(true)}
         />
       ) : (

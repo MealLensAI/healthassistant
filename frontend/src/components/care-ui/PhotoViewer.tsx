@@ -55,6 +55,7 @@ export function PhotoViewer({
           src={src}
           alt={`${name} full photo`}
           className="max-h-[min(82vh,720px)] w-full rounded-2xl bg-black/20 object-contain shadow-elevated"
+          referrerPolicy="no-referrer"
         />
         <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-white">
           <p className="text-sm font-semibold">{name}</p>
@@ -115,6 +116,7 @@ export function ProfilePhoto({
           src={resolved}
           alt={name}
           className={className}
+          referrerPolicy="no-referrer"
           onError={() => setBroken(true)}
         />
       </button>

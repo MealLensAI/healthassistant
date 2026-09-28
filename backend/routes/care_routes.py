@@ -675,20 +675,25 @@ def resolve_asset():
                 allowed = True
                 break
     if not allowed:
-        # Approved public listings: any authenticated user may resolve credential docs.
+        from care.media import storage_key_for_asset
+
+        # Approved public listings: avatars, covers, and credential docs.
         for dietitian in scoped.get("dietitians", []) + (state.get("dietitians") or []):
-            if dietitian.get("status") == "approved" and any(
-                doc.get("objectKey") == key for doc in (dietitian.get("documents") or [])
-            ):
+            status_ok = dietitian.get("status") == "approved" and bool(dietitian.get("verified"))
+            own_listing = dietitian.get("userId") == user.get("id")
+            if not status_ok and not own_listing and user.get("role") != "admin":
+                continue
+            avatar_key = storage_key_for_asset(dietitian.get("avatar") or "")
+            cover_key = storage_key_for_asset(dietitian.get("coverImage") or "")
+            if key in {avatar_key, cover_key} - {""}:
+                allowed = True
+                break
+            if any(doc.get("objectKey") == key for doc in (dietitian.get("documents") or [])):
                 allowed = True
                 break
     if not allowed and user.get("role") == "admin":
         for application in scoped.get("applications", []):
             if any(doc.get("objectKey") == key for doc in application.get("documents") or []):
-                allowed = True
-                break
-        for dietitian in scoped.get("dietitians", []):
-            if any(doc.get("objectKey") == key for doc in dietitian.get("documents") or []):
                 allowed = True
                 break
     if not allowed:

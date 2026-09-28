@@ -32,6 +32,7 @@ export function DietitianHero({
             src={coverSrc}
             alt=""
             className="h-full w-full object-cover object-center"
+            referrerPolicy="no-referrer"
           />
         ) : (
           <div className="grid h-full w-full place-items-center bg-gradient-to-br from-navy-soft via-panel to-cream px-4 text-center">
