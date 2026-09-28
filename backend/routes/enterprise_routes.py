@@ -308,6 +308,116 @@ def check_user_exists_by_email(supabase: Client, email: str) -> tuple[bool, Opti
     return False, None
 
 
+def _auth_email_is_tombstone(email: str | None) -> bool:
+    value = (email or "").strip().lower()
+    if not value:
+        return True
+    return value.endswith("@deleted.local") or value.startswith("deleted_")
+
+
+def _auth_user_record(admin_client: Client, user_id: str):
+    """Return (email, metadata, deleted_at) for an Auth user, or None if missing."""
+    try:
+        response = admin_client.auth.admin.get_user_by_id(str(user_id))
+    except Exception:
+        return None
+    user = getattr(response, "user", None)
+    if user is None and isinstance(response, dict):
+        user = response.get("user") or response
+    if not user:
+        return None
+    if isinstance(user, dict):
+        return (
+            user.get("email"),
+            user.get("user_metadata") or {},
+            user.get("deleted_at"),
+        )
+    return (
+        getattr(user, "email", None),
+        getattr(user, "user_metadata", None) or {},
+        getattr(user, "deleted_at", None),
+    )
+
+
+def find_live_auth_user_id_by_email(admin_client: Client, email: str) -> Optional[str]:
+    """Find a non-tombstone Auth user for this email (safe for re-registered invitees)."""
+    normalized = (email or "").strip().lower()
+    if not normalized or _auth_email_is_tombstone(normalized):
+        return None
+
+    # Prefer Auth email lookup — profiles can still point at soft-deleted IDs.
+    try:
+        getter = getattr(admin_client.auth.admin, "get_user_by_email", None)
+        if callable(getter):
+            res = getter(normalized)
+            maybe = getattr(res, "user", None)
+            if maybe is None and isinstance(res, dict):
+                maybe = res.get("user") or res.get("data")
+            if maybe is not None:
+                user_id = getattr(maybe, "id", None) or (maybe.get("id") if isinstance(maybe, dict) else None)
+                auth_email = getattr(maybe, "email", None) or (maybe.get("email") if isinstance(maybe, dict) else None)
+                deleted_at = getattr(maybe, "deleted_at", None) or (maybe.get("deleted_at") if isinstance(maybe, dict) else None)
+                if user_id and not deleted_at and not _auth_email_is_tombstone(auth_email):
+                    return str(user_id)
+    except Exception as err:
+        current_app.logger.info(f"[USER_CHECK] get_user_by_email live lookup failed: {err}")
+
+    # Paginated scan for a live Auth account with this email.
+    try:
+        per_page = 200
+        for page in range(1, 6):
+            try:
+                try:
+                    admin_res = admin_client.auth.admin.list_users(page=page, per_page=per_page)
+                except TypeError:
+                    admin_res = admin_client.auth.admin.list_users(page, per_page)
+            except Exception:
+                break
+            data_obj = getattr(admin_res, "data", None)
+            if isinstance(data_obj, dict) and isinstance(data_obj.get("users"), list):
+                users_list = data_obj.get("users")
+            else:
+                users_list = getattr(admin_res, "users", None) or (data_obj if isinstance(data_obj, list) else [])
+            if not users_list:
+                break
+            for user in users_list:
+                user_email = getattr(user, "email", None) or (user.get("email") if isinstance(user, dict) else None)
+                if not user_email or user_email.lower() != normalized:
+                    continue
+                user_id = getattr(user, "id", None) or (user.get("id") if isinstance(user, dict) else None)
+                deleted_at = getattr(user, "deleted_at", None) or (user.get("deleted_at") if isinstance(user, dict) else None)
+                if user_id and not deleted_at and not _auth_email_is_tombstone(user_email):
+                    return str(user_id)
+            if len(users_list) < per_page:
+                break
+    except Exception as err:
+        current_app.logger.warning(f"[USER_CHECK] live list_users failed: {err}")
+
+    # profiles fallback — only if Auth for that id is still live.
+    try:
+        profile_check = (
+            admin_client.table("profiles")
+            .select("id, email")
+            .ilike("email", normalized)
+            .limit(5)
+            .execute()
+        )
+        for row in profile_check.data or []:
+            candidate = str(row.get("id") or "")
+            if not candidate:
+                continue
+            record = _auth_user_record(admin_client, candidate)
+            if not record:
+                continue
+            auth_email, _meta, deleted_at = record
+            if not deleted_at and not _auth_email_is_tombstone(auth_email):
+                return candidate
+    except Exception as err:
+        current_app.logger.warning(f"[USER_CHECK] live profiles fallback failed: {err}")
+
+    return None
+
+
 def check_user_can_create_organizations(user_id: str, supabase: Client, user_metadata: dict | None = None) -> tuple[bool, str]:
     """
     Check if a user can create organizations.
@@ -658,50 +768,142 @@ def get_enterprise_users(enterprise_id):
             if inv.get('accepted_by'):
                 accepted_invitations_by_user_id[inv['accepted_by']] = inv
         
-        # Format response with user details from auth
+        # Format response with user details from auth. Soft-deleted Auth
+        # identities (deleted_*@deleted.local) are repaired to the live account
+        # that re-accepted the invite, or omitted so health/meal tools work.
         users = []
         for org_user in result.data:
-            # Get user details from auth
-            try:
-                user_details = supabase.auth.admin.get_user_by_id(org_user['user_id'])
-                if user_details and user_details.user:
-                    user_metadata = user_details.user.user_metadata or {}
-                    first_name = user_metadata.get('first_name', '')
-                    last_name = user_metadata.get('last_name', '')
-                    email = user_details.user.email
-                else:
-                    first_name = last_name = email = 'Unknown'
-            except:
-                first_name = last_name = email = 'Unknown'
-            
-            # Find the invitation this user accepted (check by user_id first, then email)
+            membership_id = org_user['id']
+            user_id = str(org_user['user_id'])
+            first_name = last_name = ''
+            email = ''
+            auth_deleted = False
+
+            auth_record = _auth_user_record(supabase, user_id)
+            if auth_record:
+                email, user_metadata, deleted_at = auth_record
+                user_metadata = user_metadata or {}
+                first_name = user_metadata.get('first_name', '') or ''
+                last_name = user_metadata.get('last_name', '') or ''
+                auth_deleted = bool(deleted_at) or _auth_email_is_tombstone(email)
+            else:
+                auth_deleted = True
+
             accepted_invitation = None
-            if org_user['user_id'] in accepted_invitations_by_user_id:
-                accepted_invitation = accepted_invitations_by_user_id[org_user['user_id']]
-            elif email in accepted_invitations_by_email:
+            if user_id in accepted_invitations_by_user_id:
+                accepted_invitation = accepted_invitations_by_user_id[user_id]
+            elif email and email in accepted_invitations_by_email:
                 accepted_invitation = accepted_invitations_by_email[email]
-            
+            else:
+                # Soft-deleted Auth emails no longer match invitation.email —
+                # find any accepted invite for this membership via accepted_by.
+                for inv in invitations_result.data or []:
+                    if str(inv.get('accepted_by') or '') == user_id:
+                        accepted_invitation = inv
+                        break
+
+            invite_email = (accepted_invitation or {}).get('email') or ''
+
+            if auth_deleted:
+                lookup_email = (invite_email or '').strip().lower()
+                if not lookup_email or _auth_email_is_tombstone(lookup_email):
+                    # Last resort: profiles row may still hold the real email.
+                    try:
+                        profile = (
+                            supabase.table('profiles')
+                            .select('email, name')
+                            .eq('id', user_id)
+                            .limit(1)
+                            .execute()
+                        )
+                        if profile.data:
+                            lookup_email = (profile.data[0].get('email') or '').strip().lower()
+                            if not first_name and profile.data[0].get('name'):
+                                parts = str(profile.data[0].get('name')).split(' ', 1)
+                                first_name = parts[0]
+                                last_name = parts[1] if len(parts) > 1 else ''
+                    except Exception:
+                        pass
+
+                live_id = find_live_auth_user_id_by_email(supabase, lookup_email) if lookup_email else None
+                if live_id and live_id != user_id:
+                    try:
+                        already = (
+                            supabase.table('organization_users')
+                            .select('id')
+                            .eq('enterprise_id', enterprise_id)
+                            .eq('user_id', live_id)
+                            .limit(1)
+                            .execute()
+                        )
+                        if already.data:
+                            # Live account already has a membership — drop the zombie row.
+                            supabase.table('organization_users').delete().eq('id', membership_id).execute()
+                            current_app.logger.info(
+                                "[ORG_USERS] Removed zombie membership %s; live %s already a member",
+                                membership_id,
+                                live_id,
+                            )
+                            continue
+                        supabase.table('organization_users').update({'user_id': live_id}).eq('id', membership_id).execute()
+                        if accepted_invitation and accepted_invitation.get('id'):
+                            supabase.table('invitations').update({'accepted_by': live_id}).eq(
+                                'id', accepted_invitation['id']
+                            ).execute()
+                        current_app.logger.info(
+                            "[ORG_USERS] Repaired membership %s: %s → live %s (%s)",
+                            membership_id,
+                            user_id,
+                            live_id,
+                            lookup_email,
+                        )
+                        user_id = live_id
+                        auth_record = _auth_user_record(supabase, user_id)
+                        if auth_record:
+                            email, user_metadata, deleted_at = auth_record
+                            user_metadata = user_metadata or {}
+                            first_name = user_metadata.get('first_name', '') or first_name
+                            last_name = user_metadata.get('last_name', '') or last_name
+                            auth_deleted = bool(deleted_at) or _auth_email_is_tombstone(email)
+                        else:
+                            auth_deleted = True
+                    except Exception as repair_err:
+                        current_app.logger.warning(
+                            "[ORG_USERS] Failed to repair membership %s: %s", membership_id, repair_err
+                        )
+
+                if auth_deleted:
+                    # Still a tombstone — do not expose to health/meal/food UIs.
+                    current_app.logger.info(
+                        "[ORG_USERS] Skipping deleted Auth membership %s (user_id=%s email=%s)",
+                        membership_id,
+                        org_user.get('user_id'),
+                        email,
+                    )
+                    continue
+
+            display_email = email if email and not _auth_email_is_tombstone(email) else (invite_email or email or 'Unknown')
+
             user_data = {
-                'id': org_user['id'],
-                'user_id': org_user['user_id'],
+                'id': membership_id,
+                'user_id': user_id,
                 'first_name': first_name,
                 'last_name': last_name,
-                'email': email,
+                'email': display_email,
                 'role': org_user['role'],
                 'status': org_user.get('status', 'active'),
                 'joined_at': org_user['joined_at'],
                 'notes': org_user.get('notes'),
                 'metadata': org_user.get('metadata', {}),
-                # Add invitation information
                 'accepted_invitation': {
                     'id': accepted_invitation['id'] if accepted_invitation else None,
                     'accepted_at': accepted_invitation['accepted_at'] if accepted_invitation else None,
                     'invited_by': accepted_invitation.get('invited_by') if accepted_invitation else None,
                 } if accepted_invitation else None,
-                'has_accepted_invitation': accepted_invitation is not None
+                'has_accepted_invitation': accepted_invitation is not None,
             }
             users.append(user_data)
-        
+
         return jsonify({
             'success': True,
             'users': users,
@@ -1925,30 +2127,77 @@ def delete_organization_user(user_relation_id):
                 current_app.logger.warning(f"Hard auth delete failed: {str(e2)}")
                 deletion_log.append(f"Hard auth delete failed: {str(e2)}")
                 
-                # Method 3: Try updating user to disabled state if deletion fails
+                # Method 3: last resort — never leave a tombstone Auth email while
+                # organization_users still points at this id (breaks re-invites).
                 try:
-                    update_result = admin_supabase.auth.admin.update_user_by_id(user_id, {
-                        "email": f"deleted_{user_id}@deleted.local",
-                        "banned_until": "2099-12-31T23:59:59Z"
-                    })
-                    deletion_log.append(f"Could not delete auth user, but disabled account instead")
-                    auth_deleted = True  # Consider this successful for our purposes
+                    remaining = (
+                        admin_supabase.table('organization_users')
+                        .select('id')
+                        .eq('user_id', user_id)
+                        .limit(1)
+                        .execute()
+                    )
+                    if remaining.data:
+                        deletion_log.append(
+                            'Skipped Auth email rename: membership row still exists'
+                        )
+                    else:
+                        admin_supabase.auth.admin.update_user_by_id(user_id, {
+                            "email": f"deleted_{user_id}@deleted.local",
+                            "banned_until": "2099-12-31T23:59:59Z"
+                        })
+                        deletion_log.append(
+                            "Could not delete auth user, but disabled account instead"
+                        )
+                        auth_deleted = True
                 except Exception as e3:
                     current_app.logger.error(f"All auth deletion methods failed: {str(e3)}")
                     deletion_log.append(f"All auth deletion methods failed: {str(e3)}")
-        
+
+        # Verify membership is gone even if Auth delete was only a soft disable.
+        try:
+            left = (
+                admin_supabase.table('organization_users')
+                .select('id')
+                .eq('id', user_relation_id)
+                .limit(1)
+                .execute()
+            )
+            if left.data:
+                admin_supabase.table('organization_users').delete().eq('id', user_relation_id).execute()
+                deletion_log.append('Re-deleted organization_users membership after Auth step')
+        except Exception as verify_err:
+            deletion_log.append(f'Membership verify failed: {verify_err}')
+
         if not auth_deleted:
-            # If we can't delete from auth, return partial success
-            current_app.logger.warning(f"User data deleted but authentication account could not be removed for user {user_id}")
+            # Membership removed is enough for org tooling; Auth may linger.
+            current_app.logger.warning(
+                "User removed from org but authentication account could not be fully deleted for user %s",
+                user_id,
+            )
             return jsonify({
-                'success': False,
-                'error': 'User data deleted but authentication account could not be removed',
+                'success': True,
+                'message': (
+                    f'User {user_name} ({user_email}) was removed from the organization. '
+                    'Their login account could not be fully deleted and may need a fresh invite.'
+                ),
+                'deleted_user': {
+                    'id': user_relation_id,
+                    'user_id': user_id,
+                    'name': user_name,
+                    'email': user_email
+                },
                 'deletion_log': deletion_log,
-                'details': 'User data has been removed from all application tables, but the authentication account may still exist. This could be due to Supabase RLS policies.'
-            }), 500
-        
-        current_app.logger.info(f"✅ Completely deleted user {user_id} ({user_email}) from organization. Deletion log: {deletion_log}")
-        
+                'auth_deleted': False,
+            }), 200
+
+        current_app.logger.info(
+            "✅ Completely deleted user %s (%s) from organization. Deletion log: %s",
+            user_id,
+            user_email,
+            deletion_log,
+        )
+
         return jsonify({
             'success': True,
             'message': f'User {user_name} ({user_email}) has been completely deleted from the system. They can now be re-invited or register again.',
@@ -1958,7 +2207,8 @@ def delete_organization_user(user_relation_id):
                 'name': user_name,
                 'email': user_email
             },
-            'deletion_log': deletion_log
+            'deletion_log': deletion_log,
+            'auth_deleted': True,
         }), 200
         
     except Exception as e:

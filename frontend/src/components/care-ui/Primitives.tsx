@@ -2,6 +2,7 @@ import { Star } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/care/utils'
+import { useAttachmentUrl } from '@/lib/care/useAttachmentUrl'
 
 export function Stars({
   value,
@@ -76,20 +77,38 @@ export function Avatar({
   size?: number
   to?: string
 }) {
+  const [broken, setBroken] = useState(false)
+  const resolved = useAttachmentUrl(
+    src
+      ? /^(https?:|blob:|data:)/i.test(src)
+        ? { url: src }
+        : { objectKey: src, bucket: 'avatars' }
+      : undefined,
+  )
   const initials = name
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0])
     .join('')
+  const showImage = Boolean(resolved) && !broken
+
+  useEffect(() => {
+    setBroken(false)
+  }, [resolved])
 
   const body = (
     <span
       className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-navy-soft text-xs font-bold text-navy ring-2 ring-white"
       style={{ width: size, height: size }}
     >
-      {src ? (
-        <img src={src} alt={name} className="h-full w-full object-cover" />
+      {showImage ? (
+        <img
+          src={resolved}
+          alt={name}
+          className="h-full w-full object-cover"
+          onError={() => setBroken(true)}
+        />
       ) : (
         initials
       )}

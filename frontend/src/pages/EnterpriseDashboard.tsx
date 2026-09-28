@@ -314,7 +314,13 @@ export default function EnterpriseDashboard() {
       // Handle users response
       if (uRes.status === "fulfilled") {
         const r: any = uRes.value;
-        const newUsers = r.success ? r.users || [] : [];
+        const rawUsers = r.success ? r.users || [] : [];
+        // Soft-deleted Auth tombstones break health/meal/food tools — never show them.
+        const isTombstoneEmail = (email?: string) => {
+          const value = (email || '').trim().toLowerCase()
+          return !value || value.startsWith('deleted_') || value.endsWith('@deleted.local')
+        }
+        const newUsers = rawUsers.filter((u: any) => !isTombstoneEmail(u?.email))
         
         // Check if new users were added (invitation accepted)
         const previousUserIds = new Set(users.map(u => u.user_id));

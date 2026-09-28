@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAttachmentUrl } from '@/lib/care/useAttachmentUrl'
 
 export function PhotoViewer({
   open,
@@ -84,9 +85,21 @@ export function ProfilePhoto({
   fallbackClassName?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [broken, setBroken] = useState(false)
+  const resolved = useAttachmentUrl(
+    src
+      ? /^(https?:|blob:|data:)/i.test(src)
+        ? { url: src }
+        : { objectKey: src, bucket: 'avatars' }
+      : undefined,
+  )
   const initial = name.trim().slice(0, 1) || '?'
 
-  if (!src) {
+  useEffect(() => {
+    setBroken(false)
+  }, [resolved])
+
+  if (!resolved || broken) {
     return <div className={fallbackClassName ?? className}>{initial}</div>
   }
 
@@ -98,9 +111,14 @@ export function ProfilePhoto({
         aria-label={`View ${name} photo`}
         className="cursor-zoom-in rounded-[inherit] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
       >
-        <img src={src} alt={name} className={className} />
+        <img
+          src={resolved}
+          alt={name}
+          className={className}
+          onError={() => setBroken(true)}
+        />
       </button>
-      <PhotoViewer open={open} src={src} name={name} onClose={() => setOpen(false)} />
+      <PhotoViewer open={open} src={resolved} name={name} onClose={() => setOpen(false)} />
     </>
   )
 }

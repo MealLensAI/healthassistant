@@ -112,15 +112,15 @@ export default function Profile() {
     try {
       if (currentUser && apiEnabled()) {
         const stored = await uploadCareAsset(file, 'avatar')
-        // Optimistic local preview so the UI doesn't wait on a signed URL refresh.
+        // Optimistic local preview; persist the durable object key (not a blob URL).
         const preview = URL.createObjectURL(file)
         setPhotoUrl(preview)
-        writeStoredProfilePhoto(preview, user?.uid)
+        writeStoredProfilePhoto(stored.objectKey, user?.uid)
         try {
           const raw = window.localStorage.getItem('user_data')
           if (raw) {
             const parsed = JSON.parse(raw) as Record<string, unknown>
-            parsed.photoURL = preview
+            parsed.photoURL = stored.objectKey
             parsed.avatar = stored.objectKey
             window.localStorage.setItem('user_data', JSON.stringify(parsed))
           }

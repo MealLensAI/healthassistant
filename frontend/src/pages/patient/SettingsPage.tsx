@@ -3,16 +3,12 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/care-ui/Button'
 import { useApp } from '@/lib/care/context'
-import { DEMO_ACCOUNTS } from '@/lib/care/data/mock'
 import { useTheme } from '@/lib/care/theme'
 import type { PatientAccountSettings } from '@/lib/care/types'
 
 export function SettingsPage() {
   const {
     currentUser,
-    users,
-    login,
-    logout,
     toast,
     patientSettings,
     savePatientSettings,
@@ -35,7 +31,7 @@ export function SettingsPage() {
         <p className="text-sm text-muted">
           {isPatient
             ? 'Account, privacy, scheduling, and billing for your care workspace.'
-            : 'Password, security, and demo role switching.'}
+            : 'Password, security, and appearance for your care workspace.'}
         </p>
       </div>
 
@@ -121,30 +117,6 @@ export function SettingsPage() {
           onDelete={() => toast('info', 'Deletion request submitted. A clinician will confirm by email.')}
         />
       )}
-
-      <section className="hy-card p-5">
-        <h2 className="font-bold text-ink">Switch demo workspace</h2>
-        <p className="mt-1 text-sm text-muted">Use this to review patient, dietitian, applicant, and admin flows.</p>
-        <div className="mt-4 space-y-2">
-          {DEMO_ACCOUNTS.map((account) => {
-            const user = users.find((item) => item.id === account.userId)
-            if (!user) return null
-            return (
-              <Button
-                key={account.userId}
-                variant={currentUser.id === user.id ? 'primary' : 'outline'}
-                className="w-full justify-start"
-                onClick={() => login(user.id)}
-              >
-                {account.label}: {user.name}
-              </Button>
-            )
-          })}
-        </div>
-        <Button className="mt-4" variant="danger" onClick={logout}>
-          Sign out
-        </Button>
-      </section>
     </div>
   )
 }
