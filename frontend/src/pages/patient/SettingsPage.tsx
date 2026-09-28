@@ -106,7 +106,6 @@ export function SettingsPage() {
         <PatientSettingsSections
           settings={stored}
           onSave={savePatientSettings}
-          onResetPassword={() => toast('success', 'Password reset link sent to your email.')}
           sessions={deviceSessions.filter((item) => item.userId === currentUser.id)}
           onEndSession={endSession}
           sharedDietitians={dietitians.filter((dietitian) =>
@@ -125,7 +124,6 @@ export function SettingsPage() {
 function PatientSettingsSections({
   settings,
   onSave,
-  onResetPassword,
   sessions,
   onEndSession,
   sharedDietitians,
@@ -135,7 +133,6 @@ function PatientSettingsSections({
 }: {
   settings: PatientAccountSettings
   onSave: (settings: PatientAccountSettings) => void
-  onResetPassword: () => void
   sessions: { id: string; device: string; location: string; lastActive: string; current: boolean }[]
   onEndSession: (id: string) => void
   sharedDietitians: { userId: string; name: string }[]
@@ -167,9 +164,6 @@ function PatientSettingsSections({
           <Toggle label="Two-factor authentication via SMS" checked={draft.twoFactorSms} onChange={(twoFactorSms) => patch({ twoFactorSms })} />
           <Toggle label="Authenticator app" checked={draft.twoFactorApp} onChange={(twoFactorApp) => patch({ twoFactorApp })} />
         </div>
-        <Button className="mt-4" variant="outline" onClick={onResetPassword}>
-          Send password reset
-        </Button>
         <div className="mt-5">
           <h3 className="text-sm font-bold text-ink">Active sessions</h3>
           <ul className="mt-2 space-y-2">
