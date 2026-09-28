@@ -158,7 +158,13 @@ def create_app():
           r"/api/*": {
               "origins": allowed_origins,
               "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-              "allow_headers": ["Content-Type", "Authorization"],
+              # Care marketplace sends X-User-Id on cross-origin calls to Railway.
+              "allow_headers": [
+                  "Content-Type",
+                  "Authorization",
+                  "X-User-Id",
+                  "X-User-ID",
+              ],
               "supports_credentials": True,
               "expose_headers": ["Content-Type", "Authorization"],
               "max_age": 600  # Cache preflight request for 10 minutes
@@ -186,7 +192,10 @@ def create_app():
               # Check both with and without trailing slash
               if origin in allowed_origins or normalized_origin in allowed_origins:
                   response.headers.add('Access-Control-Allow-Origin', origin)
-                  response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                  response.headers.add(
+                      'Access-Control-Allow-Headers',
+                      'Content-Type, Authorization, X-User-Id, X-User-ID',
+                  )
                   response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
                   response.headers.add('Access-Control-Allow-Credentials', 'true')
       return response
