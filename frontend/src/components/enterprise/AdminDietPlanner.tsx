@@ -15,6 +15,11 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Swal from 'sweetalert2';
+import {
+  mapActivityLevelToBackend,
+  mapGoalToBackendFormat,
+  normalizeCondition,
+} from '@/lib/aiHealthPayload';
 
 
 
@@ -90,25 +95,6 @@ interface AdminDietPlannerProps {
   users: UserInfo[];
   onRefresh?: () => void;
 }
-
-// Map new goal values to backend API format
-const mapGoalToBackendFormat = (goal: string | undefined): string => {
-  if (!goal) return 'heal';
-  const normalizedGoal = goal.trim();
-  const goalMap: Record<string, string> = {
-    'Heal': 'heal', 'Improve': 'heal', 'Manage': 'heal', 'Restore': 'heal', 'Maintain': 'maintain',
-    'heal': 'heal', 'improve': 'heal', 'manage': 'heal', 'restore': 'heal', 'maintain': 'maintain',
-    'Heal Health Condition': 'heal', 'Improve Health Condition': 'heal', 'Manage Health Condition': 'heal',
-    'Restore Health Condition': 'heal', 'Maintain Health Condition': 'maintain', 'Heal & Manage Condition': 'heal',
-    'Maintain Health': 'maintain', 'lose_weight': 'lose_weight', 'gain_weight': 'gain_weight', 'improve_fitness': 'improve_fitness'
-  };
-  if (goalMap[normalizedGoal]) return goalMap[normalizedGoal];
-  const lowerGoal = normalizedGoal.toLowerCase();
-  for (const [key, value] of Object.entries(goalMap)) {
-    if (key.toLowerCase() === lowerGoal) return value;
-    }
-  return lowerGoal.includes('maintain') ? 'maintain' : 'heal';
-};
 
 const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users, onRefresh }) => {
   const { toast } = useToast();
@@ -455,8 +441,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
           formData.append('height', (healthProfile.height || 170).toString());
           formData.append('waist', (healthProfile.waist || 80).toString());
           formData.append('gender', healthProfile.gender || 'male');
-          formData.append('activity_level', healthProfile.activity_level || 'moderate');
-          formData.append('condition', sicknessType || 'general');
+          formData.append('activity_level', mapActivityLevelToBackend(healthProfile.activity_level));
+          formData.append('condition', normalizeCondition(sicknessType));
           formData.append('goal', mapGoalToBackendFormat(healthProfile.goal));
           formData.append('budget_state', 'true');
 
@@ -531,8 +517,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
           height: healthProfile.height || 170,
           waist: healthProfile.waist || 80,
           gender: healthProfile.gender || 'male',
-          activity_level: healthProfile.activity_level || 'moderate',
-          condition: sicknessType || 'general',
+          activity_level: mapActivityLevelToBackend(healthProfile.activity_level),
+          condition: normalizeCondition(sicknessType),
           goal: mapGoalToBackendFormat(healthProfile.goal),
           location: healthProfile.location || 'USA'
         };
@@ -545,8 +531,10 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
           body: JSON.stringify(healthPayload),
           });
 
-        if (!response.ok) throw new Error('Failed to generate medical nutrition plan');
-
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => null)
+          throw new Error(errBody?.error || 'Failed to generate medical nutrition plan')
+        }
           const data = await response.json();
           if (data.success && data.meal_plan) {
           mealPlanData = data.meal_plan.map((dayPlan: any) => ({
@@ -605,8 +593,8 @@ const AdminDietPlanner: React.FC<AdminDietPlannerProps> = ({ enterpriseId, users
           formData.append('height', (healthProfile.height || 170).toString());
           formData.append('waist', (healthProfile.waist || 80).toString());
           formData.append('gender', healthProfile.gender || 'male');
-          formData.append('activity_level', healthProfile.activity_level || 'moderate');
-          formData.append('condition', sicknessType || 'general');
+          formData.append('activity_level', mapActivityLevelToBackend(healthProfile.activity_level));
+          formData.append('condition', normalizeCondition(sicknessType));
           formData.append('goal', mapGoalToBackendFormat(healthProfile.goal));
           formData.append('location', healthProfile.location || 'USA');
         formData.append('budget_state', 'false');

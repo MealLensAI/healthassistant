@@ -7,6 +7,7 @@ import { Upload, X, Check, ChevronDown } from "lucide-react"
 import "@/styles/ai-response.css"
 import { useAuth } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/config"
+import { mapActivityLevelToBackend, mapGoalToBackendFormat } from "@/lib/aiHealthPayload"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { useSicknessSettings } from "@/hooks/useSicknessSettings"
 import { useTrial } from "@/hooks/useTrial"
@@ -17,60 +18,6 @@ import MealDetailsModal from "@/components/MealDetailsModal"
 import EngagementBanners from "@/components/EngagementBanners"
 import { imageCache } from "@/lib/imageCache"
 import { usePageHeader } from "@/components/PageHeaderContext"
-
-// Map new goal values to backend API format
-const mapGoalToBackendFormat = (goal: string | undefined): string => {
-  if (!goal) return 'heal'; // default
-  
-  // Normalize: trim whitespace and handle case-insensitive matching
-  const normalizedGoal = goal.trim();
-  
-  const goalMap: Record<string, string> = {
-    // New goal values (exact match) - send as lowercase for backend compatibility
-    'Heal': 'heal',
-    'Improve': 'heal',
-    'Manage': 'heal',
-    'Restore': 'heal',
-    'Maintain': 'maintain',
-    // Lowercase versions
-    'heal': 'heal',
-    'improve': 'heal',
-    'manage': 'heal',
-    'restore': 'heal',
-    'maintain': 'maintain',
-    // Legacy values for backward compatibility
-    'Heal Health Condition': 'heal',
-    'Improve Health Condition': 'heal',
-    'Manage Health Condition': 'heal',
-    'Restore Health Condition': 'heal',
-    'Maintain Health Condition': 'maintain',
-    'Heal & Manage Condition': 'heal',
-    'Maintain Health': 'maintain',
-    'lose_weight': 'lose_weight',
-    'gain_weight': 'gain_weight',
-    'improve_fitness': 'improve_fitness'
-  };
-  
-  // Try exact match first
-  if (goalMap[normalizedGoal]) {
-    return goalMap[normalizedGoal];
-  }
-  
-  // Try case-insensitive match
-  const lowerGoal = normalizedGoal.toLowerCase();
-  for (const [key, value] of Object.entries(goalMap)) {
-    if (key.toLowerCase() === lowerGoal) {
-      return value;
-    }
-  }
-  
-  // Default: if it contains 'maintain', return 'maintain', otherwise 'heal'
-  if (lowerGoal.includes('maintain')) {
-    return 'maintain';
-  }
-  
-  return 'heal'; // Default fallback
-};
 
 interface HealthMeal {
   calories: number
@@ -335,7 +282,7 @@ const AIResponsePage: FC = () => {
     formData.append("height", sicknessSettings.height?.toString() || "")
     formData.append("waist", sicknessSettings.waist?.toString() || "")
     formData.append("gender", sicknessSettings.gender || "")
-    formData.append("activity_level", sicknessSettings.activityLevel || "")
+    formData.append("activity_level", mapActivityLevelToBackend(sicknessSettings.activityLevel))
     formData.append("condition", sicknessSettings.sicknessType || "")
     formData.append("goal", mapGoalToBackendFormat(sicknessSettings.goal))
     

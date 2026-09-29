@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 import { useAuth, safeGetItem, safeRemoveItem, safeSetItem } from '@/lib/utils';
+import {
+  mapActivityLevelToBackend,
+  mapGoalToBackendFormat,
+  normalizeCondition,
+} from '@/lib/aiHealthPayload';
 
 export interface SicknessSettings {
   hasSickness: boolean;
@@ -447,9 +452,9 @@ export const useSicknessSettings = () => {
       height: settings.height,
       waist: settings.waist,
       gender: settings.gender,
-      activity_level: settings.activityLevel,
-      condition: settings.sicknessType,
-      goal: settings.goal,
+      activity_level: mapActivityLevelToBackend(settings.activityLevel),
+      condition: normalizeCondition(settings.sicknessType),
+      goal: mapGoalToBackendFormat(settings.goal),
       location: settings.location
     };
   };
