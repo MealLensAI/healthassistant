@@ -1272,7 +1272,7 @@ _UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]
 
 # Tables touched by latency-sensitive actions. Full snapshot rewrite is too slow.
 _HOT_ACTION_TABLES: dict[str, tuple[str, ...]] = {
-    "SEND_MESSAGE": ("messages", "conversations", "conversation_participants", "patient_files"),
+    "SEND_MESSAGE": ("messages", "conversations", "conversation_participants"),
     "ENSURE_CONVERSATION": ("conversations", "conversation_participants"),
     "START_CALL": ("conversations", "conversation_participants", "live_calls", "notifications"),
     "ANSWER_CALL": ("live_calls", "notifications"),

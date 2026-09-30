@@ -397,15 +397,7 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                 raise ValueError('Attachment content is missing')
             clean = sanitize_attachment(file)
             clean_attachments.append(clean)
-            next_state['files'].insert(0, {
-                'id': uid('file'), 'ownerId': actor_id,
-                'sharedWithId': next((pid for pid in conversation['participantIds'] if pid != actor_id), None),
-                'name': clean['name'], 'size': clean.get('size', ''), 'url': None,
-                'objectKey': clean.get('objectKey'), 'bucket': clean.get('bucket'),
-                'mimeType': clean.get('type') or None, 'sizeBytes': clean.get('sizeBytes') or 0,
-                'category': 'photo' if (clean.get('type') or '').startswith('image/') else 'other',
-                'uploadedAt': now_iso(),
-            })
+            # Message attachments stay on the message only — not patient health files.
         timestamp = now_iso()
         client_id = action.get("messageId") or action.get("id")
         message_id = str(client_id) if client_id and _looks_uuid(str(client_id)) else uid("msg")

@@ -365,11 +365,8 @@ def test_attachment_and_health_file_persist_together(client):
     saved = state["messages"][-1]["attachments"][0]
     assert saved["objectKey"] == attachment["objectKey"]
     assert "data:" not in (saved.get("url") or "")
-    record = next(file for file in state["files"] if file["name"] == "report.pdf")
-    assert record.get("url") in (None, "")
-    assert record["objectKey"] == attachment["objectKey"]
-    assert record["ownerId"] == patient["id"]
-    assert record["sharedWithId"] == doctor["id"]
+    # Chat attachments must not appear in patient health files.
+    assert not any(file.get("name") == "report.pdf" for file in state["files"])
 
 
 def test_attachment_rejects_missing_content_without_saving_message(client):
@@ -584,7 +581,7 @@ def test_chat_attachment_survives_json_database_round_trip(client, tmp_path):
     att = reloaded["messages"][-1]["attachments"][0]
     assert att.get("objectKey") == f"{patient['id']}/persisted.pdf"
     assert "data:" not in (att.get("url") or "")
-    assert any(file["name"] == "persisted.pdf" and file.get("objectKey") for file in reloaded["files"])
+    assert not any(file.get("name") == "persisted.pdf" for file in reloaded["files"])
 
 
 def test_pulse_is_small_and_scoped(client):

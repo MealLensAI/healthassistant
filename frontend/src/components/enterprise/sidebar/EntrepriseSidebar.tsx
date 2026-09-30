@@ -1,6 +1,6 @@
-import { accountAvatar } from '@/lib/care/accountAvatar'
 'use client'
 
+import { accountAvatar } from '@/lib/care/accountAvatar'
 import {
   Activity,
   Building2,
@@ -32,17 +32,22 @@ type NavItem = {
   badgeKey?: 'messages'
 }
 
-const navItems: NavItem[] = [
+/** Marketplace care tools (listing, bookings, registration). */
+const marketplaceNav: NavItem[] = [
   { to: '/enterprise', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/enterprise/appointments', label: 'Appointments', icon: CalendarDays },
   { to: '/enterprise/messages', label: 'Messages', icon: MessageSquare, badgeKey: 'messages' },
   { to: '/enterprise/availability', label: 'Availability', icon: Clock3 },
+  { to: '/enterprise/apply', label: 'Your Registration', icon: FileText },
+]
+
+/** Tools for invited / org patients (meal plans, health info). */
+const invitedPatientsNav: NavItem[] = [
   { to: '/enterprise/activity', label: 'Activity', icon: Activity },
   { to: '/enterprise/meal-plans', label: 'Meal Plans', icon: Calendar },
   { to: '/enterprise/food-for-you', label: 'Food for you', icon: Heart },
   { to: '/enterprise/food-history', label: 'Food History', icon: Utensils },
   { to: '/enterprise/health-info', label: 'Health Information', icon: Building2 },
-  { to: '/enterprise/apply', label: 'Your Registration', icon: FileText },
   { to: '/enterprise/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -64,6 +69,35 @@ export default function EnterpriseSidebar({
       isActive ? 'bg-navy-soft text-navy' : 'text-muted hover:bg-panel hover:text-ink',
     )
 
+  function renderNav(items: NavItem[]) {
+    return items.map((item) => {
+      const Icon = item.icon
+      const badge =
+        item.badgeKey === 'messages'
+          ? unread
+          : item.to.endsWith('/appointments') && currentUser
+            ? pendingAppointmentCount(currentUser.id, appointments, dietitians)
+            : 0
+      return (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.end ?? false}
+          onClick={onNavigate}
+          className={linkClass}
+        >
+          <Icon size={20} strokeWidth={1.75} className="shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {badge > 0 ? (
+            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-navy px-1.5 text-[10px] font-bold leading-none text-white">
+              {badge > 9 ? '9+' : badge}
+            </span>
+          ) : null}
+        </NavLink>
+      )
+    })
+  }
+
   return (
     <aside
       className="flex h-full w-[240px] shrink-0 flex-col overflow-hidden border-r border-line bg-white text-left [overscroll-behavior:none]"
@@ -81,27 +115,16 @@ export default function EnterpriseSidebar({
       </div>
 
       <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-2">
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const badge = item.badgeKey === 'messages' ? unread : item.to.endsWith('/appointments') && currentUser ? pendingAppointmentCount(currentUser.id, appointments, dietitians) : 0
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end ?? false}
-              onClick={onNavigate}
-              className={linkClass}
-            >
-              <Icon size={20} strokeWidth={1.75} className="shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
-              {badge > 0 ? (
-                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-navy px-1.5 text-[10px] font-bold leading-none text-white">
-                  {badge > 9 ? '9+' : badge}
-                </span>
-              ) : null}
-            </NavLink>
-          )
-        })}
+        <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          Marketplace
+        </p>
+        {renderNav(marketplaceNav)}
+
+        <div className="my-2 border-t border-line" role="separator" aria-hidden />
+        <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          Invited patients
+        </p>
+        {renderNav(invitedPatientsNav)}
       </nav>
 
       <div className="shrink-0 border-t border-line p-4">

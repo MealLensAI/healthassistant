@@ -715,6 +715,13 @@ function Field({
   )
 }
 
+function parseCommaList(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
 function ChipField({
   label,
   values,
@@ -724,20 +731,34 @@ function ChipField({
   values: string[]
   onChange: (values: string[]) => void
 }) {
+  // Local draft keeps commas while typing (binding to values.join would eat ",").
+  const [draft, setDraft] = useState(() => values.join(', '))
+  const focused = useRef(false)
+
+  useEffect(() => {
+    if (!focused.current) setDraft(values.join(', '))
+  }, [values])
+
   return (
     <label className="mb-3 block">
       <span className="hy-label">{label}</span>
       <input
         className="hy-input"
-        value={values.join(', ')}
-        onChange={(event) =>
-          onChange(
-            event.target.value
-              .split(',')
-              .map((item) => item.trim())
-              .filter(Boolean),
-          )
-        }
+        value={draft}
+        onFocus={() => {
+          focused.current = true
+        }}
+        onChange={(event) => {
+          const next = event.target.value
+          setDraft(next)
+          onChange(parseCommaList(next))
+        }}
+        onBlur={() => {
+          focused.current = false
+          const cleaned = parseCommaList(draft)
+          onChange(cleaned)
+          setDraft(cleaned.join(', '))
+        }}
       />
       <span className="mt-1 block text-xs text-muted">Comma-separated</span>
     </label>
