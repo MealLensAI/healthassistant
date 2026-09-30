@@ -3,7 +3,6 @@ import { Maximize2, Minimize2 } from 'lucide-react'
 import { VideoStage } from './VideoStage'
 import { useApp } from '@/lib/care/context'
 import { useCallMedia } from '@/lib/care/callMediaContext'
-import { useTheme } from '@/lib/care/theme'
 import { cn } from '@/lib/care/utils'
 import { accountAvatar } from '@/lib/care/accountAvatar'
 import { withCallPeerAvatar } from '@/lib/care/calls'
@@ -38,8 +37,6 @@ function clampPipPos(pos: PipPos, el: HTMLElement | null): PipPos {
 export function CallWindow() {
   const { activeCall, currentUser, users, dietitians, applications, endCall } = useApp()
   const { playbackBlocked, playRemoteAudio, callChrome, setCallChrome } = useCallMedia()
-  const { theme } = useTheme()
-  const lightUi = theme === 'light'
   const shellRef = useRef<HTMLDivElement>(null)
   const [pipPos, setPipPos] = useState<PipPos>(() => defaultPipPos())
   const dragRef = useRef<{
@@ -105,7 +102,8 @@ export function CallWindow() {
     <div
       ref={shellRef}
       className={cn(
-        'marketplace-root fixed z-[90] overflow-visible bg-[#0c121c] text-white shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
+        // Do not use marketplace-root here — it forces cream/ink and washes out call controls.
+        'fixed z-[90] overflow-visible bg-[#0c121c] text-white shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
         minimized
           ? 'w-[min(13.75rem,calc(100vw-1rem))] rounded-2xl border border-white/20'
           : 'inset-0 overflow-hidden rounded-none',
@@ -119,8 +117,10 @@ export function CallWindow() {
               right: 'auto',
               bottom: 'auto',
               touchAction: 'none',
+              backgroundColor: '#0c121c',
+              color: '#ffffff',
             }
-          : undefined
+          : { backgroundColor: '#0c121c', color: '#ffffff' }
       }
       role="dialog"
       aria-modal={!minimized}
@@ -131,18 +131,18 @@ export function CallWindow() {
       onPointerCancel={minimized ? onDragPointerUp : undefined}
     >
       {minimized ? (
-        <div className="flex cursor-grab items-center gap-1 border-b border-white/10 px-2 py-1.5 active:cursor-grabbing select-none">
-          <p className="min-w-0 flex-1 truncate text-[11px] font-semibold">
+        <div className="flex cursor-grab items-center gap-1 border-b border-white/10 bg-[#0c121c] px-2 py-1.5 active:cursor-grabbing select-none">
+          <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-white">
             {activeCall.status === 'ringing' ? 'Calling…' : activeCall.peerName || 'In call'}
           </p>
           <button
             type="button"
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white/10 text-white hover:bg-white/20"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white text-[#0c121c] hover:bg-white/90"
             onClick={() => setCallChrome('expanded')}
             aria-label="Expand call"
             title="Expand call"
           >
-            <Maximize2 size={13} />
+            <Maximize2 size={13} strokeWidth={2.5} />
           </button>
         </div>
       ) : (
@@ -166,18 +166,12 @@ export function CallWindow() {
             minimized ? null : (
               <button
                 type="button"
-                className={cn(
-                  'grid h-10 w-10 place-items-center rounded-full ring-1 shadow-md',
-                  // Light site theme: black icon on white chip (white-on-video disappears).
-                  lightUi
-                    ? 'bg-white text-black ring-black/20 hover:bg-neutral-100'
-                    : 'bg-black/55 text-white ring-white/25 hover:bg-black/75',
-                )}
+                className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#0c121c] shadow-md ring-1 ring-black/15 hover:bg-white/90"
                 onClick={() => setCallChrome('minimized')}
                 aria-label="Minimize call"
                 title="Minimize call"
               >
-                <Minimize2 size={16} className={lightUi ? 'text-black' : 'text-white'} />
+                <Minimize2 size={16} strokeWidth={2.5} />
               </button>
             )
           }

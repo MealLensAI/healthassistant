@@ -312,6 +312,16 @@ export function CallMediaProvider({ children }: { children: ReactNode }) {
       await applyRemoteIce(pc, queued)
     }
 
+    /** Always attach audio then video so offer/answer m-line order stays stable. */
+    function attachLocalTracks(pc: RTCPeerConnection, stream: MediaStream) {
+      const audio = stream.getAudioTracks()[0]
+      const video = stream.getVideoTracks()[0]
+      if (audio) pc.addTrack(audio, stream)
+      else pc.addTransceiver('audio', { direction: 'recvonly' })
+      if (video) pc.addTrack(video, stream)
+      else pc.addTransceiver('video', { direction: 'recvonly' })
+    }
+
     async function ingest(signal: Partial<CallSignal>) {
       const pc = peerRef.current
       if (!pc || cancelled || ended) return
@@ -325,8 +335,14 @@ export function CallMediaProvider({ children }: { children: ReactNode }) {
       ) {
         makingAnswer.current = true
         try {
+          // Answerer must apply the remote offer BEFORE adding send tracks, otherwise
+          // local transceiver order can disagree with the offer m-lines.
           await pc.setRemoteDescription(new RTCSessionDescription(signal.offer as RTCSessionDescriptionInit))
           await flushIce(pc)
+          const stream = localRef.current
+          if (stream && pc.getSenders().every((sender) => !sender.track)) {
+            attachLocalTracks(pc, stream)
+          }
           const answer = await pc.createAnswer()
           await pc.setLocalDescription(answer)
           await publish({ answer: { type: answer.type, sdp: answer.sdp ?? '' } }, { critical: true })
@@ -411,12 +427,6 @@ export function CallMediaProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Prefer addTrack so both sides negotiate sendrecv A/V.
-        const kinds = new Set(stream.getTracks().map((track) => track.kind))
-        stream.getTracks().forEach((track) => pc.addTrack(track, stream))
-        if (!kinds.has('audio')) pc.addTransceiver('audio', { direction: 'recvonly' })
-        if (!kinds.has('video')) pc.addTransceiver('video', { direction: 'recvonly' })
-
         const inbound = new MediaStream()
         pc.ontrack = (event) => {
           const track = event.track
@@ -443,10 +453,9 @@ export function CallMediaProvider({ children }: { children: ReactNode }) {
         if (isCaller && !makingOffer.current) {
           makingOffer.current = true
           try {
-            const offer = await pc.createOffer({
-              offerToReceiveAudio: true,
-              offerToReceiveVideo: true,
-            })
+            // Fixed audio→video order; no legacy offerToReceive* (avoids extra m-lines).
+            attachLocalTracks(pc, stream)
+            const offer = await pc.createOffer()
             await pc.setLocalDescription(offer)
             await publish({ offer: { type: offer.type, sdp: offer.sdp ?? '' } }, { critical: true })
           } catch (error) {
@@ -455,6 +464,7 @@ export function CallMediaProvider({ children }: { children: ReactNode }) {
             }
           }
         } else if (apiEnabled()) {
+          // Callee waits for the offer, then attaches tracks inside ingest().
           void fetchCallSignal(callId)
             .then((signal) => ingest(signal))
             .catch(() => undefined)
