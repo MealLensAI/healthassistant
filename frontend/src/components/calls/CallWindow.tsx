@@ -3,6 +3,7 @@ import { Maximize2, Minimize2 } from 'lucide-react'
 import { VideoStage } from './VideoStage'
 import { useApp } from '@/lib/care/context'
 import { useCallMedia } from '@/lib/care/callMediaContext'
+import { useTheme } from '@/lib/care/theme'
 import { cn } from '@/lib/care/utils'
 import { accountAvatar } from '@/lib/care/accountAvatar'
 import { withCallPeerAvatar } from '@/lib/care/calls'
@@ -37,6 +38,8 @@ function clampPipPos(pos: PipPos, el: HTMLElement | null): PipPos {
 export function CallWindow() {
   const { activeCall, currentUser, users, dietitians, applications, endCall } = useApp()
   const { playbackBlocked, playRemoteAudio, callChrome, setCallChrome } = useCallMedia()
+  const { theme } = useTheme()
+  const lightSite = theme === 'light'
   const shellRef = useRef<HTMLDivElement>(null)
   const [pipPos, setPipPos] = useState<PipPos>(() => defaultPipPos())
   const dragRef = useRef<{
@@ -98,11 +101,20 @@ export function CallWindow() {
     if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null
   }
 
+  // Keep call chrome always dark for video contrast, but don't use marketplace-root
+  // (that class forces cream bg / ink text in light mode and washes out controls).
+  const expandBtnClass = lightSite
+    ? 'bg-black/10 text-black hover:bg-black/20'
+    : 'bg-white/15 text-white hover:bg-white/25'
+  const minimizeBtnClass = lightSite
+    ? 'bg-white text-black ring-1 ring-black/20 hover:bg-white/90'
+    : 'bg-black/55 text-white ring-1 ring-white/25 hover:bg-black/75'
+
   return (
     <div
       ref={shellRef}
       className={cn(
-        'marketplace-root fixed z-[90] overflow-visible bg-[#0c121c] text-white shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
+        'fixed z-[90] overflow-visible bg-[#0c121c] text-white shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
         minimized
           ? 'w-[min(13.75rem,calc(100vw-1rem))] rounded-2xl border border-white/20'
           : 'inset-0 overflow-hidden rounded-none',
@@ -116,8 +128,14 @@ export function CallWindow() {
               right: 'auto',
               bottom: 'auto',
               touchAction: 'none',
+              // Explicit so light-mode theme CSS cannot override to cream.
+              backgroundColor: '#0c121c',
+              color: '#ffffff',
             }
-          : undefined
+          : {
+              backgroundColor: '#0c121c',
+              color: '#ffffff',
+            }
       }
       role="dialog"
       aria-modal={!minimized}
@@ -129,12 +147,12 @@ export function CallWindow() {
     >
       {minimized ? (
         <div className="flex cursor-grab items-center gap-1 border-b border-white/10 px-2 py-1.5 active:cursor-grabbing select-none">
-          <p className="min-w-0 flex-1 truncate text-[11px] font-semibold">
+          <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-white">
             {activeCall.status === 'ringing' ? 'Calling…' : activeCall.peerName || 'In call'}
           </p>
           <button
             type="button"
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white/10 text-white hover:bg-white/20"
+            className={cn('grid h-7 w-7 shrink-0 place-items-center rounded-md', expandBtnClass)}
             onClick={() => setCallChrome('expanded')}
             aria-label="Expand call"
             title="Expand call"
@@ -145,7 +163,7 @@ export function CallWindow() {
       ) : (
         <div className="border-b border-white/10 px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold">{activeCall.peerName || 'Care team'}</p>
+            <p className="truncate text-base font-semibold text-white">{activeCall.peerName || 'Care team'}</p>
             <p className="truncate text-[11px] text-white/65">
               {activeCall.status === 'ringing' ? 'Calling…' : 'In call'}
             </p>
@@ -163,7 +181,7 @@ export function CallWindow() {
             minimized ? null : (
               <button
                 type="button"
-                className="grid h-10 w-10 place-items-center rounded-full bg-black/55 text-white ring-1 ring-white/25 hover:bg-black/75"
+                className={cn('grid h-10 w-10 place-items-center rounded-full', minimizeBtnClass)}
                 onClick={() => setCallChrome('minimized')}
                 aria-label="Minimize call"
                 title="Minimize call"
