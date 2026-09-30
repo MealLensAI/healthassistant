@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Mic, MicOff, PhoneOff, Settings2, Video, VideoOff } from 'lucide-react'
+import { MoreVertical, Mic, MicOff, PhoneOff, Video, VideoOff, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '@/components/care-ui/Button'
 import { useCallMedia } from '@/lib/care/callMediaContext'
@@ -59,35 +59,73 @@ function ParticipantFallback({ avatar, name, small = false, compact = false, res
   )
 }
 
-function DevicePickers({
-  compact = false,
+function DeviceMenu({
+  open,
+  onClose,
+  compact,
 }: {
-  compact?: boolean
+  open: boolean
+  onClose: () => void
+  compact: boolean
 }) {
   const { localStream, devices, selectDevice } = useCallMedia()
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDoc(event: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  // Overlay inside the PiP so it never goes off-screen on small/mobile viewports.
   return (
-    <div className={cn('grid gap-2', compact ? 'pb-2 pt-1' : 'pb-2 pt-1')}>
-      {(['audioinput', 'videoinput'] as const).map((kind) => (
-        <label key={kind} className={cn(compact ? 'text-[10px]' : 'text-xs')}>
-          {kind === 'audioinput' ? 'Microphone' : 'Camera'}
-          <select
-            aria-label={kind === 'audioinput' ? 'Microphone' : 'Camera'}
-            className={cn(
-              'mt-1 w-full rounded border border-white/30 bg-[#082A54] text-white',
-              compact ? 'p-1.5 text-[10px]' : 'p-2',
-            )}
-            value={(kind === 'audioinput' ? localStream?.getAudioTracks()[0] : localStream?.getVideoTracks()[0])?.getSettings().deviceId ?? ''}
-            onChange={(event) => void selectDevice(kind, event.target.value)}
-          >
-            <option value="" disabled>Select a device</option>
-            {devices.filter((device) => device.kind === kind).map((device, index) => (
-              <option key={device.deviceId} value={device.deviceId}>
-                {device.label || `${kind === 'audioinput' ? 'Microphone' : 'Camera'} ${index + 1}`}
-              </option>
-            ))}
-          </select>
-        </label>
-      ))}
+    <div
+      ref={panelRef}
+      className={cn(
+        'absolute z-40 border border-white/20 bg-[#1a2332] p-3 text-white shadow-elevated',
+        compact
+          ? 'inset-x-0 bottom-0 top-auto rounded-t-xl'
+          : 'bottom-[calc(100%+0.75rem)] right-3 w-72 rounded-xl',
+      )}
+      role="dialog"
+      aria-label="Microphone and camera"
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Devices</p>
+        <button
+          type="button"
+          className="grid h-7 w-7 place-items-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+          onClick={onClose}
+          aria-label="Close device menu"
+        >
+          <X size={14} />
+        </button>
+      </div>
+      <div className="grid gap-2 text-xs">
+        {(['audioinput', 'videoinput'] as const).map((kind) => (
+          <label key={kind} className="block">
+            <span className="font-medium text-white/85">{kind === 'audioinput' ? 'Microphone' : 'Camera'}</span>
+            <select
+              aria-label={kind === 'audioinput' ? 'Microphone' : 'Camera'}
+              className="mt-1 w-full rounded-lg border border-white/25 bg-[#0c121c] px-2 py-2 text-white"
+              value={(kind === 'audioinput' ? localStream?.getAudioTracks()[0] : localStream?.getVideoTracks()[0])?.getSettings().deviceId ?? ''}
+              onChange={(event) => void selectDevice(kind, event.target.value)}
+            >
+              <option value="" disabled>Select a device</option>
+              {devices.filter((device) => device.kind === kind).map((device, index) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || `${kind === 'audioinput' ? 'Microphone' : 'Camera'} ${index + 1}`}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </div>
     </div>
   )
 }
@@ -101,7 +139,6 @@ export function VideoStage({
   onEnd,
   onStart,
   onAnswer,
-  onDevicesLayout,
 }: {
   call: VideoCallState | null
   selfAvatar?: string
@@ -112,8 +149,6 @@ export function VideoStage({
   onEnd: () => void | Promise<unknown>
   onStart?: () => void | Promise<unknown>
   onAnswer?: () => void | Promise<unknown>
-  /** Fired when the mic/camera panel opens/closes so the floating window can reclamp. */
-  onDevicesLayout?: () => void
 }) {
   const { localStream, remoteStream, mediaError, muted, cameraOff, remoteCameraOff, setMuted, setCameraOff, runWithLocalMedia, preparingCall } = useCallMedia()
   const remoteRef = useRef<HTMLVideoElement>(null)
@@ -138,14 +173,9 @@ export function VideoStage({
     attachStream(localRef.current, cameraOff ? null : localStream)
   }, [localStream, cameraOff])
 
-  // Close device panel when the call ends; keep state when toggling compact so users can reopen.
   useEffect(() => {
     if (!inSession) setDevicesOpen(false)
   }, [inSession])
-
-  useEffect(() => {
-    onDevicesLayout?.()
-  }, [devicesOpen, compact, onDevicesLayout])
 
   const statusLabel = incoming
     ? 'Incoming call'
@@ -155,24 +185,12 @@ export function VideoStage({
         ? 'Connecting video…'
         : 'Video call'
 
-  function toggleDevices() {
-    setDevicesOpen((open) => !open)
-  }
+  const btn = compact ? 'h-8 w-8' : 'h-11 w-11'
+  const icon = compact ? 14 : 18
 
   return (
-    <section
-      className={cn(
-        'flex flex-col overflow-hidden bg-[#0c121c]',
-        compact ? 'rounded-none' : 'min-h-0 rounded-lg sm:min-h-[480px]',
-      )}
-      aria-label="Video call"
-    >
-      <div
-        className={cn(
-          'relative bg-[#0c121c]',
-          compact ? 'h-36 min-h-36 flex-none' : 'min-h-[220px] flex-1 sm:min-h-[360px]',
-        )}
-      >
+    <section className={cn('relative flex flex-col overflow-visible bg-[#0c121c]', compact ? 'rounded-none' : 'min-h-[520px] rounded-lg')} aria-label="Video call">
+      <div className={cn('relative overflow-hidden bg-[#0c121c]', compact ? 'h-40 min-h-40 flex-none' : 'min-h-[360px] flex-1')}>
         <video
           ref={remoteRef}
           muted
@@ -201,12 +219,16 @@ export function VideoStage({
           {!localOn && <ParticipantFallback avatar={selfAvatar} name={localName} small={inSession} compact={compact} />}
         </div>
         {!compact ? (
-          <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent p-3 text-white sm:p-4">
+          <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent p-4 text-white">
             <p className="text-sm font-bold">{statusLabel}</p>
             <p className="text-xs text-white/80">{call?.peerName}</p>
             {mediaError ? <p className="mt-1 text-xs text-red-200">{mediaError}</p> : null}
           </div>
-        ) : null}
+        ) : (
+          <div className="pointer-events-none absolute bottom-2 left-2 z-10 max-w-[70%] truncate rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white">
+            {peerName}
+          </div>
+        )}
         {chromeControl ? (
           <div className="absolute bottom-3 left-3 z-20">{chromeControl}</div>
         ) : null}
@@ -222,52 +244,48 @@ export function VideoStage({
         ) : null}
       </div>
 
-      {/* Always toggleable — including PiP / small screens — so devices can be brought back. */}
-      {inSession ? (
-        <div className={cn('bg-[#082A54] text-white', compact ? 'px-1.5 pt-1' : 'px-3 pt-2')}>
-          <button
-            type="button"
-            className={cn(
-              'flex w-full items-center justify-between rounded-lg text-left font-medium text-white/90 hover:bg-white/10',
-              compact ? 'gap-1 px-1.5 py-1 text-[10px]' : 'px-2 py-1.5 text-xs',
-            )}
-            onClick={toggleDevices}
-            aria-expanded={devicesOpen}
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <Settings2 size={compact ? 11 : 14} />
-              {compact ? 'Devices' : 'Mic & camera devices'}
-            </span>
-            {devicesOpen ? <ChevronUp size={compact ? 12 : 14} /> : <ChevronDown size={compact ? 12 : 14} />}
-          </button>
-          {devicesOpen ? <DevicePickers compact={compact} /> : null}
-        </div>
-      ) : null}
-
-      <div className={cn('flex items-center justify-center bg-[#082A54]', compact ? 'gap-1.5 px-1.5 py-1.5' : 'gap-3 px-3 py-3 sm:px-4 sm:py-4')}>
+      <div className={cn('relative flex flex-wrap items-center justify-center bg-[#202124]', compact ? 'gap-1.5 px-1.5 py-2' : 'gap-3 px-4 py-4')}>
         {inSession ? (
           <>
             <button
-              className={cn('grid place-items-center rounded-full bg-white/10 text-white', compact ? 'h-7 w-7' : 'h-11 w-11')}
+              type="button"
+              className={cn('grid place-items-center rounded-full bg-white/10 text-white hover:bg-white/20', btn)}
               onClick={() => setMuted(!muted)}
               aria-label={muted ? 'Unmute' : 'Mute'}
             >
-              {muted ? <MicOff size={compact ? 12 : 18} /> : <Mic size={compact ? 12 : 18} />}
+              {muted ? <MicOff size={icon} /> : <Mic size={icon} />}
             </button>
             <button
-              className={cn('grid place-items-center rounded-full bg-destructive text-white', compact ? 'h-8 w-8' : 'h-12 w-12')}
-              onClick={onEnd}
-              aria-label="End call"
-            >
-              <PhoneOff size={compact ? 12 : 18} />
-            </button>
-            <button
-              className={cn('grid place-items-center rounded-full bg-white/10 text-white', compact ? 'h-7 w-7' : 'h-11 w-11')}
+              type="button"
+              className={cn('grid place-items-center rounded-full bg-white/10 text-white hover:bg-white/20', btn)}
               onClick={() => setCameraOff(!cameraOff)}
               aria-label={cameraOff ? 'Camera on' : 'Camera off'}
             >
-              {cameraOff ? <VideoOff size={compact ? 12 : 18} /> : <Video size={compact ? 12 : 18} />}
+              {cameraOff ? <VideoOff size={icon} /> : <Video size={icon} />}
             </button>
+            <button
+              type="button"
+              className={cn(
+                'grid place-items-center rounded-full text-white hover:bg-white/20',
+                btn,
+                devicesOpen ? 'bg-white/25 ring-1 ring-white/40' : 'bg-white/10',
+              )}
+              onClick={() => setDevicesOpen((open) => !open)}
+              aria-label="More options — choose microphone and camera"
+              aria-expanded={devicesOpen}
+              title="Mic & camera"
+            >
+              <MoreVertical size={icon} />
+            </button>
+            <button
+              type="button"
+              className={cn('grid place-items-center rounded-full bg-[#ea4335] text-white hover:bg-[#d93025]', compact ? 'h-8 w-8' : 'h-12 w-12')}
+              onClick={onEnd}
+              aria-label="End call"
+            >
+              <PhoneOff size={icon} />
+            </button>
+            <DeviceMenu open={devicesOpen} onClose={() => setDevicesOpen(false)} compact={compact} />
           </>
         ) : incoming ? (
           <>
