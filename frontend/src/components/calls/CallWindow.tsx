@@ -137,12 +137,12 @@ export function CallWindow() {
           </p>
           <button
             type="button"
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white text-[#0c121c] hover:bg-white/90"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white text-black shadow-sm ring-1 ring-black/20 hover:bg-neutral-100 dark:bg-white dark:text-black"
             onClick={() => setCallChrome('expanded')}
             aria-label="Expand call"
             title="Expand call"
           >
-            <Maximize2 size={13} strokeWidth={2.5} />
+            <Maximize2 size={13} strokeWidth={2.5} className="text-black" />
           </button>
         </div>
       ) : (
@@ -166,12 +166,13 @@ export function CallWindow() {
             minimized ? null : (
               <button
                 type="button"
-                className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#0c121c] shadow-md ring-1 ring-black/15 hover:bg-white/90"
+                className="grid h-10 w-10 place-items-center rounded-full bg-white text-black shadow-md ring-2 ring-white/80 hover:bg-neutral-100 dark:bg-white dark:text-black dark:ring-white"
                 onClick={() => setCallChrome('minimized')}
                 aria-label="Minimize call"
                 title="Minimize call"
+                style={{ backgroundColor: '#ffffff', color: '#000000' }}
               >
-                <Minimize2 size={16} strokeWidth={2.5} />
+                <Minimize2 size={16} strokeWidth={2.5} color="#000000" />
               </button>
             )
           }
