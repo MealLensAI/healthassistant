@@ -312,14 +312,14 @@ export function CallMediaProvider({ children }: { children: ReactNode }) {
       await applyRemoteIce(pc, queued)
     }
 
-    /** Attach local A/V in a stable audio→video order (both peers, before SDP). */
+    /** Attach local A/V in a stable audio→video order on both peers. */
     function attachLocalTracks(pc: RTCPeerConnection, stream: MediaStream) {
       const audio = stream.getAudioTracks()[0]
       const video = stream.getVideoTracks()[0]
       if (audio) pc.addTrack(audio, stream)
-      else pc.addTransceiver('audio', { direction: 'recvonly' })
       if (video) pc.addTrack(video, stream)
-      else pc.addTransceiver('video', { direction: 'recvonly' })
+      if (!audio) pc.addTransceiver('audio', { direction: 'recvonly' })
+      if (!video) pc.addTransceiver('video', { direction: 'recvonly' })
     }
 
     async function ingest(signal: Partial<CallSignal>) {
@@ -421,8 +421,7 @@ export function CallMediaProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Both sides attach before SDP (restores two-way video). Audio then video
-        // keeps m-line order aligned across browsers.
+        // Both sides attach before offer/answer (restores working two-way video).
         attachLocalTracks(pc, stream)
 
         const inbound = new MediaStream()
