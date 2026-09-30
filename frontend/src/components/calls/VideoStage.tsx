@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Mic, MicOff, PhoneOff, Video, VideoOff } from 'lucide-react'
+import { ChevronDown, ChevronUp, Mic, MicOff, PhoneOff, Settings2, Video, VideoOff } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '@/components/care-ui/Button'
 import { useCallMedia } from '@/lib/care/callMediaContext'
@@ -59,6 +59,39 @@ function ParticipantFallback({ avatar, name, small = false, compact = false, res
   )
 }
 
+function DevicePickers({
+  compact = false,
+}: {
+  compact?: boolean
+}) {
+  const { localStream, devices, selectDevice } = useCallMedia()
+  return (
+    <div className={cn('grid gap-2', compact ? 'pb-2 pt-1' : 'pb-2 pt-1')}>
+      {(['audioinput', 'videoinput'] as const).map((kind) => (
+        <label key={kind} className={cn(compact ? 'text-[10px]' : 'text-xs')}>
+          {kind === 'audioinput' ? 'Microphone' : 'Camera'}
+          <select
+            aria-label={kind === 'audioinput' ? 'Microphone' : 'Camera'}
+            className={cn(
+              'mt-1 w-full rounded border border-white/30 bg-[#082A54] text-white',
+              compact ? 'p-1.5 text-[10px]' : 'p-2',
+            )}
+            value={(kind === 'audioinput' ? localStream?.getAudioTracks()[0] : localStream?.getVideoTracks()[0])?.getSettings().deviceId ?? ''}
+            onChange={(event) => void selectDevice(kind, event.target.value)}
+          >
+            <option value="" disabled>Select a device</option>
+            {devices.filter((device) => device.kind === kind).map((device, index) => (
+              <option key={device.deviceId} value={device.deviceId}>
+                {device.label || `${kind === 'audioinput' ? 'Microphone' : 'Camera'} ${index + 1}`}
+              </option>
+            ))}
+          </select>
+        </label>
+      ))}
+    </div>
+  )
+}
+
 export function VideoStage({
   call,
   selfAvatar,
@@ -68,6 +101,7 @@ export function VideoStage({
   onEnd,
   onStart,
   onAnswer,
+  onDevicesLayout,
 }: {
   call: VideoCallState | null
   selfAvatar?: string
@@ -78,8 +112,10 @@ export function VideoStage({
   onEnd: () => void | Promise<unknown>
   onStart?: () => void | Promise<unknown>
   onAnswer?: () => void | Promise<unknown>
+  /** Fired when the mic/camera panel opens/closes so the floating window can reclamp. */
+  onDevicesLayout?: () => void
 }) {
-  const { localStream, remoteStream, mediaError, muted, cameraOff, remoteCameraOff, setMuted, setCameraOff, runWithLocalMedia, preparingCall, devices, selectDevice } = useCallMedia()
+  const { localStream, remoteStream, mediaError, muted, cameraOff, remoteCameraOff, setMuted, setCameraOff, runWithLocalMedia, preparingCall } = useCallMedia()
   const remoteRef = useRef<HTMLVideoElement>(null)
   const localRef = useRef<HTMLVideoElement>(null)
   const [devicesOpen, setDevicesOpen] = useState(false)
@@ -102,10 +138,14 @@ export function VideoStage({
     attachStream(localRef.current, cameraOff ? null : localStream)
   }, [localStream, cameraOff])
 
-  // Reset device panel when leaving compact / ending session.
+  // Close device panel when the call ends; keep state when toggling compact so users can reopen.
   useEffect(() => {
-    if (compact || !inSession) setDevicesOpen(false)
-  }, [compact, inSession])
+    if (!inSession) setDevicesOpen(false)
+  }, [inSession])
+
+  useEffect(() => {
+    onDevicesLayout?.()
+  }, [devicesOpen, compact, onDevicesLayout])
 
   const statusLabel = incoming
     ? 'Incoming call'
@@ -115,9 +155,24 @@ export function VideoStage({
         ? 'Connecting video…'
         : 'Video call'
 
+  function toggleDevices() {
+    setDevicesOpen((open) => !open)
+  }
+
   return (
-    <section className={cn('flex flex-col overflow-hidden bg-[#0c121c]', compact ? 'rounded-none' : 'min-h-[520px] rounded-lg')} aria-label="Video call">
-      <div className={cn('relative bg-[#0c121c]', compact ? 'h-36 min-h-36 flex-none' : 'min-h-[360px] flex-1')}>
+    <section
+      className={cn(
+        'flex flex-col overflow-hidden bg-[#0c121c]',
+        compact ? 'rounded-none' : 'min-h-0 rounded-lg sm:min-h-[480px]',
+      )}
+      aria-label="Video call"
+    >
+      <div
+        className={cn(
+          'relative bg-[#0c121c]',
+          compact ? 'h-36 min-h-36 flex-none' : 'min-h-[220px] flex-1 sm:min-h-[360px]',
+        )}
+      >
         <video
           ref={remoteRef}
           muted
@@ -146,7 +201,7 @@ export function VideoStage({
           {!localOn && <ParticipantFallback avatar={selfAvatar} name={localName} small={inSession} compact={compact} />}
         </div>
         {!compact ? (
-          <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent p-4 text-white">
+          <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent p-3 text-white sm:p-4">
             <p className="text-sm font-bold">{statusLabel}</p>
             <p className="text-xs text-white/80">{call?.peerName}</p>
             {mediaError ? <p className="mt-1 text-xs text-red-200">{mediaError}</p> : null}
@@ -167,44 +222,29 @@ export function VideoStage({
         ) : null}
       </div>
 
-      {/* Device pickers stay collapsed by default; hidden entirely in Meet-style PiP. */}
-      {inSession && !compact ? (
-        <div className="bg-[#082A54] px-3 pt-2 text-xs text-white">
+      {/* Always toggleable — including PiP / small screens — so devices can be brought back. */}
+      {inSession ? (
+        <div className={cn('bg-[#082A54] text-white', compact ? 'px-1.5 pt-1' : 'px-3 pt-2')}>
           <button
             type="button"
-            className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left font-medium text-white/90 hover:bg-white/10"
-            onClick={() => setDevicesOpen((open) => !open)}
+            className={cn(
+              'flex w-full items-center justify-between rounded-lg text-left font-medium text-white/90 hover:bg-white/10',
+              compact ? 'gap-1 px-1.5 py-1 text-[10px]' : 'px-2 py-1.5 text-xs',
+            )}
+            onClick={toggleDevices}
             aria-expanded={devicesOpen}
           >
-            <span>Mic & camera devices</span>
-            {devicesOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            <span className="inline-flex items-center gap-1.5">
+              <Settings2 size={compact ? 11 : 14} />
+              {compact ? 'Devices' : 'Mic & camera devices'}
+            </span>
+            {devicesOpen ? <ChevronUp size={compact ? 12 : 14} /> : <ChevronDown size={compact ? 12 : 14} />}
           </button>
-          {devicesOpen ? (
-            <div className="grid gap-2 pb-2 pt-1">
-              {(['audioinput', 'videoinput'] as const).map((kind) => (
-                <label key={kind}>
-                  {kind === 'audioinput' ? 'Microphone' : 'Camera'}
-                  <select
-                    aria-label={kind === 'audioinput' ? 'Microphone' : 'Camera'}
-                    className="mt-1 w-full rounded border border-white/30 bg-[#082A54] p-2 text-white"
-                    value={(kind === 'audioinput' ? localStream?.getAudioTracks()[0] : localStream?.getVideoTracks()[0])?.getSettings().deviceId ?? ''}
-                    onChange={(event) => void selectDevice(kind, event.target.value)}
-                  >
-                    <option value="" disabled>Select a device</option>
-                    {devices.filter((device) => device.kind === kind).map((device, index) => (
-                      <option key={device.deviceId} value={device.deviceId}>
-                        {device.label || `${kind === 'audioinput' ? 'Microphone' : 'Camera'} ${index + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-            </div>
-          ) : null}
+          {devicesOpen ? <DevicePickers compact={compact} /> : null}
         </div>
       ) : null}
 
-      <div className={cn('flex items-center justify-center bg-[#082A54]', compact ? 'gap-1.5 px-1.5 py-1.5' : 'gap-3 px-4 py-4')}>
+      <div className={cn('flex items-center justify-center bg-[#082A54]', compact ? 'gap-1.5 px-1.5 py-1.5' : 'gap-3 px-3 py-3 sm:px-4 sm:py-4')}>
         {inSession ? (
           <>
             <button
