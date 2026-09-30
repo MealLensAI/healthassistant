@@ -3,67 +3,56 @@ import { test } from 'node:test'
 import { CallRingtone } from './ringtone'
 
 function audioStub() {
-  const tones: { stops: number; type?: string; frequency: { value: number } }[] = []
-  const context = {
-    state: 'suspended',
+  let playing = false
+  const plays: number[] = []
+  const audio = {
+    loop: false,
     currentTime: 0,
-    destination: {},
-    async resume() {
-      this.state = 'running'
+    get paused() {
+      return !playing
     },
-    async close() {
-      this.state = 'closed'
+    async play() {
+      plays.push(1)
+      playing = true
     },
-    createOscillator() {
-      const tone = {
-        stops: 0,
-        type: 'sine',
-        frequency: { value: 0 },
-        onended: null as (() => void) | null,
-        connect: () => ({ connect() {} }),
-        disconnect() {},
-        start() {},
-        stop() {
-          this.stops++
-        },
-      }
-      tones.push(tone)
-      return tone
+    pause() {
+      playing = false
     },
-    createGain: () => ({
-      gain: { setValueAtTime() {}, linearRampToValueAtTime() {} },
-      disconnect() {},
-    }),
   }
-  return { tones, context, create: () => context as unknown as AudioContext }
+  return {
+    audio,
+    plays,
+    create: () => audio,
+  }
 }
 
 test('audio unlocked before the call rings immediately and stops on answer', async () => {
   const stub = audioStub()
-  const ringtone = new CallRingtone(stub.create)
+  const ringtone = new CallRingtone('/sounds/test.mp3', stub.create)
   await ringtone.unlock()
-  assert.equal(stub.tones.length, 0)
+  assert.equal(stub.plays.length, 1)
+  assert.equal(stub.audio.paused, true)
   assert.equal(ringtone.start(), true)
-  // 8 melody notes × fundamental + octave body
-  assert.equal(stub.tones.length, 16)
+  assert.equal(stub.audio.loop, true)
+  assert.equal(stub.audio.paused, false)
   ringtone.stop()
-  assert.ok(stub.tones.every((tone) => tone.stops >= 1))
+  assert.equal(stub.audio.paused, true)
+  assert.equal(stub.audio.currentTime, 0)
   ringtone.dispose()
 })
 
-test('blocked incoming sound can be enabled and reuses the same audio context', async () => {
+test('blocked incoming sound can be enabled and reuses the same audio element', async () => {
   const stub = audioStub()
   let created = 0
-  const ringtone = new CallRingtone(() => {
+  const ringtone = new CallRingtone('/sounds/test.mp3', () => {
     created++
     return stub.create()
   })
+  // start() before unlock — play may reject in real browsers; stub succeeds so unlocked becomes true after promise.
   assert.equal(ringtone.start(), false)
-  assert.equal(stub.tones.length, 0)
   await ringtone.unlock()
-  assert.equal(stub.tones.length, 16)
+  assert.equal(created, 1)
   await ringtone.unlock()
   assert.equal(created, 1)
   ringtone.dispose()
-  assert.equal(stub.context.state, 'closed')
 })
