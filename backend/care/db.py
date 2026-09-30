@@ -533,8 +533,8 @@ class SupabaseStore:
                 if before_by_id.get(row[row_key]) != row
             ]
             _upsert(client, table, changed)
-            # Drop removed rows (e.g. admin DELETE_APPLICATION) so ghosts never linger.
-            if key in ("applications", "dietitians", "notifications", "missed_calls"):
+            # Drop removed rows (e.g. admin DELETE_APPLICATION, patient DELETE_FILE) so ghosts never linger.
+            if key in ("applications", "dietitians", "notifications", "missed_calls", "patient_files"):
                 gone = list(set(before_by_id) - set(after_by_id))
                 if gone:
                     client.table(table).delete().in_("id", gone).execute()
@@ -1295,6 +1295,7 @@ _HOT_ACTION_TABLES: dict[str, tuple[str, ...]] = {
     "UPDATE_PATIENT_PROFILE": ("patient_profiles",),
     "UPDATE_PATIENT_SETTINGS": ("patient_settings",),
     "UPLOAD_FILE": ("patient_files",),
+    "DELETE_FILE": ("patient_files",),
     "REQUEST_CONSULTATION": ("consultation_requests", "notifications"),
     "RESPOND_CONSULTATION": ("consultation_requests", "appointments", "notifications", "conversations", "conversation_participants"),
     "MARK_MISSED_CALLS_SEEN": ("missed_calls",),

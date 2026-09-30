@@ -195,6 +195,7 @@ export interface AppContextValue extends AppState {
   requestConsultation: (dietitianId: string, note: string) => void
   respondConsultation: (id: string, status: 'accepted' | 'declined') => Promise<boolean>
   uploadFile: (file: { name: string; category: 'labs' | 'diary' | 'photo' | 'other'; size: string; sharedWithId?: string; url?: string; objectKey?: string; bucket?: string; mimeType?: string; sizeBytes?: number }) => void
+  deleteFile: (fileId: string) => Promise<void>
   submitApplication: (application: Omit<DietitianApplication, 'id' | 'submittedAt' | 'adminNotes' | 'status'> & { status?: DietitianApplication['status'] }) => Promise<boolean>
   updateAvailability: (dietitianId: string, availability: AvailabilitySlot[]) => void
   approveApplication: (applicationId: string) => void
@@ -942,6 +943,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [state.currentUser, state.appointments, state.dietitians, state.conversations, toast],
   )
 
+  const deleteFile = useCallback(
+    async (fileId: string) => {
+      if (!state.currentUser) return
+      const target = state.files.find((file) => file.id === fileId)
+      const saved = await dispatch({ type: 'DELETE_FILE', fileId })
+      if (saved) toast('success', target ? `${target.name} deleted.` : 'File deleted.')
+    },
+    [state.currentUser, state.files, toast],
+  )
+
   const submitApplication = useCallback(
     async (application: Omit<DietitianApplication, 'id' | 'submittedAt' | 'adminNotes' | 'status'> & { status?: DietitianApplication['status'] }) => {
       if (!state.currentUser) return false
@@ -1313,6 +1324,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       requestConsultation,
       respondConsultation,
       uploadFile,
+      deleteFile,
       submitApplication,
       updateAvailability,
       approveApplication,
@@ -1356,6 +1368,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       requestConsultation,
       respondConsultation,
       uploadFile,
+      deleteFile,
       submitApplication,
       updateAvailability,
       approveApplication,

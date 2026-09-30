@@ -40,6 +40,7 @@ export type Action =
   | { type: 'REQUEST_CONSULTATION'; request: Omit<ConsultationRequest, 'id'> }
   | { type: 'RESPOND_CONSULTATION'; id: string; status: 'accepted' | 'declined' }
   | { type: 'UPLOAD_FILE'; file: Omit<PatientFile, 'id'> }
+  | { type: 'DELETE_FILE'; fileId: string }
     | { type: 'SUBMIT_APPLICATION'; application: DietitianApplication }
     | { type: 'REGISTER_DOCTOR'; user: User }
     | { type: 'REGISTER_USER'; user: User; profile?: PatientProfile }
@@ -276,6 +277,11 @@ export function appReducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         files: [{ ...action.file, id: uid('file') }, ...state.files],
+      }
+    case 'DELETE_FILE':
+      return {
+        ...state,
+        files: state.files.filter((file) => file.id !== action.fileId),
       }
     case 'REGISTER_DOCTOR':
     case 'REGISTER_USER': {

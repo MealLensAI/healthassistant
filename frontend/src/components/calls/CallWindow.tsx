@@ -9,7 +9,7 @@ import { withCallPeerAvatar } from '@/lib/care/calls'
 
 type DragOffset = { x: number; y: number }
 
-/** In-app call chrome: full-screen or floating PiP on the same page. */
+/** In-app call chrome: full-screen or floating Meet-style PiP on the same page. */
 export function CallWindow() {
   const { activeCall, currentUser, users, dietitians, applications, endCall } = useApp()
   const { playbackBlocked, playRemoteAudio, callChrome, setCallChrome } = useCallMedia()
@@ -35,7 +35,6 @@ export function CallWindow() {
     const el = shellRef.current
     if (!el || typeof window === 'undefined') return next
     const rect = el.getBoundingClientRect()
-    // Position is bottom-right based; offsets move left (−x) / up (−y) when positive drag goes right/down.
     const maxX = Math.max(0, window.innerWidth - rect.width - 8)
     const maxY = Math.max(0, window.innerHeight - rect.height - 8)
     return {
@@ -69,15 +68,13 @@ export function CallWindow() {
     if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null
   }
 
-  // Override the shared marketplace root's min-height: 100% for the floating
-  // view so its header and controls stay together within the viewport.
   return (
     <div
       ref={shellRef}
       className={cn(
         'marketplace-root fixed z-[90] overflow-hidden bg-[#0c121c] text-white shadow-elevated',
         minimized
-          ? 'bottom-4 right-4 w-[min(18rem,calc(100vw-2rem))] rounded-2xl border border-white/15 sm:bottom-6 sm:right-6'
+          ? 'bottom-3 right-3 w-[min(11.5rem,calc(100vw-1.5rem))] rounded-xl border border-white/20 sm:bottom-4 sm:right-4'
           : 'inset-0',
       )}
       style={
@@ -93,26 +90,37 @@ export function CallWindow() {
       aria-modal={!minimized}
       aria-label="Call window"
     >
-      <div
-        className={cn(
-          'border-b border-white/10 px-3',
-          minimized ? 'cursor-grab py-2 active:cursor-grabbing select-none' : 'px-4 py-3',
-        )}
-        onPointerDown={onDragPointerDown}
-        onPointerMove={onDragPointerMove}
-        onPointerUp={onDragPointerUp}
-        onPointerCancel={onDragPointerUp}
-      >
-        <div className="min-w-0">
-          <p className={cn('truncate font-semibold', minimized ? 'text-sm' : 'text-base')}>
-            {activeCall.peerName || 'Care team'}
+      {minimized ? (
+        <div
+          className="flex cursor-grab items-center gap-1 border-b border-white/10 px-2 py-1 active:cursor-grabbing select-none"
+          onPointerDown={onDragPointerDown}
+          onPointerMove={onDragPointerMove}
+          onPointerUp={onDragPointerUp}
+          onPointerCancel={onDragPointerUp}
+        >
+          <p className="min-w-0 flex-1 truncate text-[11px] font-semibold">
+            {activeCall.status === 'ringing' ? 'Calling…' : activeCall.peerName || 'In call'}
           </p>
-          <p className="truncate text-[11px] text-white/65">
-            {activeCall.status === 'ringing' ? 'Calling…' : 'In call'}
-            {minimized ? ' · Drag to move' : ''}
-          </p>
+          <button
+            type="button"
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white/10 text-white hover:bg-white/20"
+            onClick={() => setCallChrome('expanded')}
+            aria-label="Expand call"
+            title="Expand call"
+          >
+            <Maximize2 size={12} />
+          </button>
         </div>
-      </div>
+      ) : (
+        <div className="border-b border-white/10 px-4 py-3">
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold">{activeCall.peerName || 'Care team'}</p>
+            <p className="truncate text-[11px] text-white/65">
+              {activeCall.status === 'ringing' ? 'Calling…' : 'In call'}
+            </p>
+          </div>
+        </div>
+      )}
       <div className={cn(minimized ? 'p-0' : 'mx-auto max-w-5xl space-y-3 p-4')}>
         <VideoStage
           call={withCallPeerAvatar(activeCall, users, dietitians, applications)}
@@ -121,24 +129,35 @@ export function CallWindow() {
           compact={minimized}
           onEnd={endCall}
           chromeControl={
-            <button
-              type="button"
-              className="grid h-10 w-10 place-items-center rounded-full bg-black/55 text-white ring-1 ring-white/25 hover:bg-black/75"
-              onClick={() => setCallChrome(minimized ? 'expanded' : 'minimized')}
-              aria-label={minimized ? 'Expand call' : 'Minimize call'}
-              title={minimized ? 'Expand call' : 'Minimize call'}
-            >
-              {minimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
-            </button>
+            minimized ? null : (
+              <button
+                type="button"
+                className="grid h-10 w-10 place-items-center rounded-full bg-black/55 text-white ring-1 ring-white/25 hover:bg-black/75"
+                onClick={() => setCallChrome('minimized')}
+                aria-label="Minimize call"
+                title="Minimize call"
+              >
+                <Minimize2 size={16} />
+              </button>
+            )
           }
         />
-        {playbackBlocked ? (
+        {playbackBlocked && !minimized ? (
           <button
             type="button"
             className="m-3 w-[calc(100%-1.5rem)] rounded-xl bg-[#0E3E77] px-3 py-2 text-sm font-semibold text-white"
             onClick={playRemoteAudio}
           >
             Enable call audio
+          </button>
+        ) : null}
+        {playbackBlocked && minimized ? (
+          <button
+            type="button"
+            className="w-full bg-[#0E3E77] px-2 py-1 text-[10px] font-semibold text-white"
+            onClick={playRemoteAudio}
+          >
+            Enable audio
           </button>
         ) : null}
       </div>

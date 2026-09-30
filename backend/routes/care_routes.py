@@ -854,6 +854,14 @@ def upload_file():
     )
 
 
+@care_bp.delete("/files/<file_id>")
+def delete_file(file_id: str):
+    user, err = _require_user()
+    if err:
+        return err
+    return _run_action("DELETE_FILE", {"fileId": file_id}, user)
+
+
 @care_bp.post("/uploads")
 def upload_to_r2():
     """Upload a marketplace asset to private R2 storage.

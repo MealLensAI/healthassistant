@@ -502,6 +502,21 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         next_state["files"].insert(0, {**action["file"], "id": uid("file")})
         return next_state
 
+    if kind == "DELETE_FILE":
+        if not actor:
+            raise ValueError("Sign in first")
+        file_id = str(action.get("fileId") or "").strip()
+        if not file_id:
+            raise ValueError("File not found")
+        target = next((item for item in next_state.get("files") or [] if item.get("id") == file_id), None)
+        if not target:
+            raise ValueError("File not found")
+        # Only the owning patient (or admin) may delete health files.
+        if actor.get("role") != "admin" and target.get("ownerId") != actor_id:
+            raise ValueError("You can only delete your own health files.")
+        next_state["files"] = [item for item in next_state.get("files") or [] if item.get("id") != file_id]
+        return next_state
+
     if kind == "SUBMIT_APPLICATION":
         if not actor:
             raise ValueError("Sign in first")

@@ -35,7 +35,7 @@ type NavItem = {
   match?: (path: string) => boolean
 }
 
-const mealNav: NavItem[] = [
+const marketplaceNav: NavItem[] = [
   {
     to: "/dietitians",
     label: "Find a dietitian",
@@ -44,11 +44,17 @@ const mealNav: NavItem[] = [
   },
   { to: "/appointments", label: "Appointments", icon: CalendarDays },
   { to: "/messages", label: "Messages", icon: MessageSquare },
+  { to: "/files", label: "My Health Files", icon: FolderOpen },
+]
+
+const mealToolsNav: NavItem[] = [
   { to: "/food-for-you", label: "Food for you", icon: Salad, end: true },
   { to: "/health-meals", label: "Scan ingredients", icon: ScanLine },
   { to: "/planner", label: "Meal plans", icon: ClipboardList },
   { to: "/location-budget", label: "Location & budget", icon: MapPin },
-  { to: "/files", label: "My Health Files", icon: FolderOpen },
+]
+
+const accountNav: NavItem[] = [
   { to: "/profile", label: "Profile", icon: UserRound },
   { to: "/history", label: "History", icon: History },
   { to: "/payment", label: "Payment", icon: CreditCard },
@@ -100,6 +106,36 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Member"
   const avatar = currentUser?.avatar || user?.photoURL || (photoBump >= 0 ? readStoredProfilePhoto(user?.uid) : "") || ""
 
+  const linkClass = (active: boolean) =>
+    cn(
+      "flex h-10 shrink-0 items-center gap-3 rounded-[16px] px-3 text-[14px] font-medium leading-5 transition",
+      active ? "bg-navy-soft text-navy" : "text-muted hover:bg-panel hover:text-ink",
+    )
+
+  function renderNav(items: NavItem[]) {
+    return items.map((item) => {
+      const badge = item.to === "/appointments" ? pending : item.to === "/messages" ? unread : 0
+      const active = item.match
+        ? item.match(location.pathname)
+        : item.end
+          ? location.pathname === item.to
+          : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
+      return (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.end}
+          onClick={onClose}
+          className={linkClass(active)}
+        >
+          <item.icon size={20} strokeWidth={1.75} className="shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {badge > 0 && <span className="rounded-full bg-navy px-1.5 text-xs font-bold text-white">{badge}</span>}
+        </NavLink>
+      )
+    })
+  }
+
   return (
     <>
       {open ? (
@@ -131,31 +167,23 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
-          {mealNav.map((item) => {
-            const badge = item.to === "/appointments" ? pending : item.to === "/messages" ? unread : 0
-            const active = item.match
-              ? item.match(location.pathname)
-              : item.end
-                ? location.pathname === item.to
-                : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={onClose}
-                className={cn(
-                  "flex h-10 shrink-0 items-center gap-3 rounded-[16px] px-3 text-[14px] font-medium leading-5 transition",
-                  active ? "bg-navy-soft text-navy" : "text-muted hover:bg-panel hover:text-ink",
-                )}
-              >
-                <item.icon size={20} strokeWidth={1.75} className="shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                {badge > 0 && <span className="rounded-full bg-navy px-1.5 text-xs font-bold text-white">{badge}</span>}
-              </NavLink>
-            )
-          })}
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pb-2">
+          <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+            Marketplace
+          </p>
+          {renderNav(marketplaceNav)}
+
+          <div className="my-2 border-t border-line" role="separator" aria-hidden />
+          <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+            Meal tools
+          </p>
+          {renderNav(mealToolsNav)}
+
+          <div className="my-2 border-t border-line" role="separator" aria-hidden />
+          <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+            Account
+          </p>
+          {renderNav(accountNav)}
         </nav>
 
         <div className="border-t border-line p-4">

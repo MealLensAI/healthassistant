@@ -369,6 +369,35 @@ def test_attachment_and_health_file_persist_together(client):
     assert not any(file.get("name") == "report.pdf" for file in state["files"])
 
 
+def test_patient_can_delete_own_health_file(client):
+    patient = _register_patient(client)
+    other = _register_patient(client, email="other@care.test", name="Other Patient")
+    uploaded = client.post(
+        "/api/care/files",
+        headers={"X-User-Id": patient["id"]},
+        json={
+            "name": "labs.pdf",
+            "category": "labs",
+            "size": "4 KB",
+            "objectKey": f"{patient['id']}/labs.pdf",
+            "bucket": "meallens-care-private",
+            "mimeType": "application/pdf",
+            "sizeBytes": 4096,
+        },
+    )
+    assert uploaded.status_code == 200
+    patch = uploaded.get_json().get("patch") or uploaded.get_json()
+    file_id = next(item["id"] for item in patch["files"] if item["name"] == "labs.pdf")
+
+    denied = client.delete(f"/api/care/files/{file_id}", headers={"X-User-Id": other["id"]})
+    assert denied.status_code == 400
+
+    deleted = client.delete(f"/api/care/files/{file_id}", headers={"X-User-Id": patient["id"]})
+    assert deleted.status_code == 200
+    state = client.get("/api/care/state", headers={"X-User-Id": patient["id"]}).get_json()
+    assert not any(item.get("id") == file_id for item in state["files"])
+
+
 def test_attachment_rejects_missing_content_without_saving_message(client):
     patient = _register_patient(client)
     doctor, listing = _register_and_approve_dietitian(client)

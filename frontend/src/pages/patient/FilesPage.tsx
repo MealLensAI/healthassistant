@@ -1,4 +1,4 @@
-import { Upload } from 'lucide-react'
+import { Trash2, Upload } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FilePreview } from '@/components/files/FilePreview'
@@ -21,10 +21,12 @@ export function FilesPage({ role = 'patient' }: { role?: 'patient' | 'dietitian'
     consultationRequests,
     patientSettings,
     uploadFile,
+    deleteFile,
     toast,
   } = useApp()
   const [viewing, setViewing] = useState<PatientFile | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const visible = useMemo(() => {
     if (!currentUser) return []
@@ -58,6 +60,20 @@ export function FilesPage({ role = 'patient' }: { role?: 'patient' | 'dietitian'
   if (!currentUser) return null
 
   const viewingOwner = viewing ? users.find((item) => item.id === viewing.ownerId) : undefined
+
+  async function handleDelete(file: PatientFile) {
+    if (role !== 'patient' || file.ownerId !== currentUser.id) return
+    if (!window.confirm(`Delete “${file.name}”? This cannot be undone.`)) return
+    setDeletingId(file.id)
+    try {
+      await deleteFile(file.id)
+      if (viewing?.id === file.id) setViewing(null)
+    } catch (error) {
+      toast('error', error instanceof Error ? error.message : 'Could not delete file.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -134,13 +150,26 @@ export function FilesPage({ role = 'patient' }: { role?: 'patient' | 'dietitian'
                   <td className="px-4 py-3 text-muted">{file.size}</td>
                   <td className="px-4 py-3 text-muted">{formatDate(file.uploadedAt)}</td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-navy hover:underline"
-                      onClick={() => setViewing(file)}
-                    >
-                      View
-                    </button>
+                    <div className="inline-flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-navy hover:underline"
+                        onClick={() => setViewing(file)}
+                      >
+                        View
+                      </button>
+                      {role === 'patient' && file.ownerId === currentUser.id ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-destructive hover:underline disabled:opacity-60"
+                          disabled={deletingId === file.id}
+                          onClick={() => void handleDelete(file)}
+                        >
+                          <Trash2 size={12} />
+                          {deletingId === file.id ? 'Deleting…' : 'Delete'}
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               )
@@ -150,7 +179,22 @@ export function FilesPage({ role = 'patient' }: { role?: 'patient' | 'dietitian'
         {visible.length === 0 && <p className="p-8 text-center text-sm text-muted">No files uploaded yet.</p>}
       </div>
       <Modal open={Boolean(viewing)} title={viewing?.name ?? 'File'} onClose={() => setViewing(null)} wide>
-        {viewing ? <FilePreview file={viewing} patientName={viewingOwner?.name} /> : null}
+        {viewing ? (
+          <div className="space-y-4">
+            <FilePreview file={viewing} patientName={viewingOwner?.name} />
+            {role === 'patient' && viewing.ownerId === currentUser.id ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-xl border border-destructive/30 px-3 py-2 text-sm font-semibold text-destructive hover:bg-red-50 disabled:opacity-60"
+                disabled={deletingId === viewing.id}
+                onClick={() => void handleDelete(viewing)}
+              >
+                <Trash2 size={14} />
+                {deletingId === viewing.id ? 'Deleting…' : 'Delete file'}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </Modal>
     </div>
   )
