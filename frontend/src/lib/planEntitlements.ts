@@ -97,10 +97,10 @@ export function marketplaceUpgradeCopy(
   const resolved = getPlanEntitlements(planName, entitlements)
   const bronzeOnly = hasActiveSubscription && !resolved.marketplace_access
   return {
-    title: 'Upgrade to have access to this',
+    title: 'Upgrade to use the marketplace',
     message: bronzeOnly
-      ? 'Bronze includes AI tools only. Upgrade to Silver or Gold to book a verified dietitian.'
-      : 'Marketplace access requires a Silver or Gold plan.',
+      ? 'Bronze is AI meal tools only. Silver or Gold is needed to book a dietitian.'
+      : 'Silver and Gold include a verified dietitian, appointments, and messages.',
   }
 }
 

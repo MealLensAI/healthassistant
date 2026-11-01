@@ -140,6 +140,7 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
             type="button"
             onClick={() => {
               onClose?.()
+              if (location.pathname === "/payment") return
               setUpgradeFrom(item.to)
               setUpgradeOpen(true)
             }}

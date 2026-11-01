@@ -1,7 +1,5 @@
-import { CreditCard, Lock, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 
 type MarketplaceUpgradeModalProps = {
   open: boolean
@@ -14,8 +12,8 @@ type MarketplaceUpgradeModalProps = {
 export default function MarketplaceUpgradeModal({
   open,
   onOpenChange,
-  title = 'Upgrade to have access to this',
-  message = 'Marketplace access requires a Silver or Gold plan.',
+  title = 'Upgrade to use the marketplace',
+  message = 'Silver and Gold include a verified dietitian, appointments, and messages.',
   fromPath = '/dietitians',
 }: MarketplaceUpgradeModalProps) {
   const navigate = useNavigate()
@@ -33,37 +31,33 @@ export default function MarketplaceUpgradeModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl font-bold text-ink">
-            <Lock className="h-5 w-5 text-navy" />
-            {title}
-          </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed text-muted">
-            {message}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="rounded-2xl border border-line bg-navy-soft/40 p-4">
-          <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
-            <Sparkles className="h-4 w-4 text-navy" />
-            Silver and Gold unlock
-          </p>
-          <ul className="space-y-1 text-sm text-muted">
-            <li>A verified marketplace dietitian</li>
-            <li>Consultation and follow-up bookings</li>
-            <li>Appointments, messages, and health files</li>
-          </ul>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Button type="button" className="w-full bg-navy text-white hover:bg-navy/90" onClick={goUpgrade}>
-            <CreditCard className="mr-2 h-4 w-4" />
-            Upgrade to have access
-          </Button>
-          <Button type="button" variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
-            Maybe later
-          </Button>
+      <DialogContent
+        className="w-[min(24rem,calc(100vw-2rem))] gap-0 border-[#d7d2c8] bg-[#fcfaf8] p-6 text-[#092649] shadow-xl sm:rounded-2xl dark:border-[#3a465c] dark:bg-[#1b2433] dark:text-[#eef3f8]"
+      >
+        <DialogTitle className="pr-6 text-left text-[1.25rem] font-semibold leading-7 tracking-normal text-[#092649] dark:text-[#eef3f8]">
+          {title}
+        </DialogTitle>
+        <DialogDescription className="mt-2 text-left text-[15px] leading-6 tracking-normal text-[#546478] dark:text-[#c5d0de]">
+          {message}
+        </DialogDescription>
+        <p className="mt-4 text-left text-sm leading-6 text-[#092649] dark:text-[#eef3f8]">
+          Silver is $20 / month. Gold is $50 for 3 months.
+        </p>
+        <div className="mt-6 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={goUpgrade}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#0e3e77] px-4 text-[15px] font-semibold text-white hover:bg-[#082a54] dark:bg-[#d7e6f8] dark:text-[#0a1a30] dark:hover:bg-white"
+          >
+            See plans
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-[#cfc8bb] bg-transparent px-4 text-[15px] font-medium text-[#092649] hover:bg-[#f3eee6] dark:border-[#4b5870] dark:text-[#eef3f8] dark:hover:bg-[#243044]"
+          >
+            Not now
+          </button>
         </div>
       </DialogContent>
     </Dialog>
