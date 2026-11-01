@@ -1,18 +1,28 @@
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Lock } from 'lucide-react'
 import { useTrial } from '@/hooks/useTrial'
-import { getPlanEntitlements } from '@/lib/planEntitlements'
+import { hasMarketplaceAccess, marketplaceUpgradeCopy } from '@/lib/planEntitlements'
+import MarketplaceUpgradeModal from '@/components/MarketplaceUpgradeModal'
+import { Button } from '@/components/ui/button'
 
 /**
- * Blocks Bronze / free users from marketplace care routes.
- * Silver, Gold, and legacy paid plans pass through.
+ * Marketplace care routes stay clickable for Bronze / free users.
+ * They see an upgrade modal instead of a silent bounce to /payment.
  * Dietitian-invite / enterprise routes are not wrapped by this gate.
  */
 export default function MarketplaceAccessGate({ children }: { children: ReactNode }) {
   const location = useLocation()
-  const { hasActiveSubscription, subscriptionInfo, isLoading } = useTrial()
+  const navigate = useNavigate()
+  const { hasActiveSubscription, subscriptionInfo, isLoading, planResolved } = useTrial()
+  const [modalOpen, setModalOpen] = useState(true)
 
-  if (isLoading) {
+  useEffect(() => {
+    setModalOpen(true)
+  }, [location.pathname])
+
+  if (isLoading || !planResolved) {
     return (
       <div className="hy-card p-10 text-center text-sm text-muted">
         Checking your plan…
@@ -20,29 +30,49 @@ export default function MarketplaceAccessGate({ children }: { children: ReactNod
     )
   }
 
-  const entitlements = getPlanEntitlements(subscriptionInfo?.planName, subscriptionInfo?.entitlements)
-  const allowed =
-    Boolean(subscriptionInfo?.marketplaceAccess) ||
-    (hasActiveSubscription && entitlements.marketplace_access)
-
-  if (!allowed) {
-    const bronzeOnly = hasActiveSubscription && !entitlements.marketplace_access
-    return (
-      <Navigate
-        to="/payment"
-        replace
-        state={{
-          from: location.pathname,
-          reason: 'marketplace_plan_required',
-          message: bronzeOnly
-            ? 'Bronze includes AI tools only. Upgrade to Silver or Gold to book a dietitian.'
-            : 'Marketplace access requires a Silver or Gold plan.',
-        }}
-      />
-    )
+  if (hasMarketplaceAccess(subscriptionInfo, hasActiveSubscription)) {
+    return <>{children}</>
   }
 
-  return <>{children}</>
+  const copy = marketplaceUpgradeCopy(
+    subscriptionInfo?.planName,
+    subscriptionInfo?.entitlements,
+    hasActiveSubscription,
+  )
+
+  return (
+    <>
+      <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-4 py-16 text-center">
+        <div className="mb-4 grid h-16 w-16 place-items-center rounded-full bg-navy-soft text-navy">
+          <Lock className="h-7 w-7" />
+        </div>
+        <h1 className="text-2xl font-extrabold text-ink">{copy.title}</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted">{copy.message}</p>
+        <Button
+          type="button"
+          className="mt-6 bg-navy text-white hover:bg-navy/90"
+          onClick={() =>
+            navigate('/payment', {
+              state: {
+                from: location.pathname,
+                reason: 'marketplace_plan_required',
+                message: copy.message,
+              },
+            })
+          }
+        >
+          Upgrade to Silver or Gold
+        </Button>
+      </div>
+      <MarketplaceUpgradeModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title={copy.title}
+        message={copy.message}
+        fromPath={location.pathname}
+      />
+    </>
+  )
 }
 
 export function MarketplaceLayout() {

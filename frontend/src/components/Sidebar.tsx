@@ -26,6 +26,9 @@ import { Avatar } from "@/components/care-ui/Primitives"
 import { useAuth, cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { readStoredProfilePhoto } from "@/components/AppTopBar"
+import { useTrial } from "@/hooks/useTrial"
+import { hasMarketplaceAccess, marketplaceUpgradeCopy } from "@/lib/planEntitlements"
+import MarketplaceUpgradeModal from "@/components/MarketplaceUpgradeModal"
 
 type NavItem = {
   to: string
@@ -74,6 +77,16 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
   const location = useLocation()
   const { toast } = useToast()
   const { signOut, isAuthenticated, user } = useAuth()
+  const { hasActiveSubscription, subscriptionInfo, isLoading: planLoading, planResolved } = useTrial()
+  const marketplaceAllowed =
+    !planResolved || planLoading || hasMarketplaceAccess(subscriptionInfo, hasActiveSubscription)
+  const upgradeCopy = marketplaceUpgradeCopy(
+    subscriptionInfo?.planName,
+    subscriptionInfo?.entitlements,
+    hasActiveSubscription,
+  )
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const [upgradeFrom, setUpgradeFrom] = useState("/dietitians")
   const [photoBump, setPhotoBump] = useState(0)
 
   useEffect(() => {
@@ -112,7 +125,7 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
       active ? "bg-navy-soft text-navy" : "text-muted hover:bg-panel hover:text-ink",
     )
 
-  function renderNav(items: NavItem[]) {
+  function renderNav(items: NavItem[], gated = false) {
     return items.map((item) => {
       const badge = item.to === "/appointments" ? pending : item.to === "/messages" ? unread : 0
       const active = item.match
@@ -120,6 +133,24 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
         : item.end
           ? location.pathname === item.to
           : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
+      if (gated && !marketplaceAllowed) {
+        return (
+          <button
+            key={item.to}
+            type="button"
+            onClick={() => {
+              onClose?.()
+              setUpgradeFrom(item.to)
+              setUpgradeOpen(true)
+            }}
+            className={linkClass(false)}
+          >
+            <item.icon size={20} strokeWidth={1.75} className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            {badge > 0 && <span className="rounded-full bg-navy px-1.5 text-xs font-bold text-white">{badge}</span>}
+          </button>
+        )
+      }
       return (
         <NavLink
           key={item.to}
@@ -171,7 +202,7 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
           <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
             Marketplace
           </p>
-          {renderNav(marketplaceNav)}
+          {renderNav(marketplaceNav, true)}
 
           <div className="my-2 border-t border-line" role="separator" aria-hidden />
           <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
@@ -211,6 +242,13 @@ const Sidebar = ({ open = false, onClose }: SidebarProps) => {
           </button>
         </div>
       </aside>
+      <MarketplaceUpgradeModal
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        title={upgradeCopy.title}
+        message={upgradeCopy.message}
+        fromPath={upgradeFrom}
+      />
     </>
   )
 }

@@ -76,6 +76,34 @@ export function getPlanEntitlements(planName?: string | null, fromStatus?: Parti
   return { ...BY_TIER[normalizePlanName(planName)] }
 }
 
+export function hasMarketplaceAccess(
+  subscriptionInfo?: {
+    marketplaceAccess?: boolean
+    planName?: string
+    entitlements?: Partial<PlanEntitlements> | null
+  } | null,
+  hasActiveSubscription = false,
+): boolean {
+  if (subscriptionInfo?.marketplaceAccess) return true
+  const entitlements = getPlanEntitlements(subscriptionInfo?.planName, subscriptionInfo?.entitlements)
+  return Boolean(hasActiveSubscription && entitlements.marketplace_access)
+}
+
+export function marketplaceUpgradeCopy(
+  planName?: string | null,
+  entitlements?: Partial<PlanEntitlements> | null,
+  hasActiveSubscription = false,
+): { title: string; message: string } {
+  const resolved = getPlanEntitlements(planName, entitlements)
+  const bronzeOnly = hasActiveSubscription && !resolved.marketplace_access
+  return {
+    title: 'Upgrade to have access to this',
+    message: bronzeOnly
+      ? 'Bronze includes AI tools only. Upgrade to Silver or Gold to book a verified dietitian.'
+      : 'Marketplace access requires a Silver or Gold plan.',
+  }
+}
+
 export function inferVisitKind(topic?: string | null, stored?: string | null): 'consultation' | 'follow_up' {
   if (stored === 'consultation' || stored === 'follow_up') return stored
   const text = (topic || '').trim().toLowerCase()

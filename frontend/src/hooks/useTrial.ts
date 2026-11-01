@@ -61,6 +61,7 @@ export const useTrial = () => {
   const [hasEverHadSubscription, setHasEverHadSubscription] = useState<boolean>(cachedData?.hasEverHadSubscription || false);
   const [canAccess, setCanAccess] = useState(cachedData?.canAccess ?? true); // Optimistic default
   const [isLoading, setIsLoading] = useState(false); // Start as false - don't block rendering
+  const [planResolved, setPlanResolved] = useState(Boolean(cachedData));
 
   const updateTrialInfo = useCallback(async () => {
     try {
@@ -118,6 +119,7 @@ export const useTrial = () => {
       setHasEverHadSubscription(hasEverPaid);
       setCanAccess(hasAccess);
       setIsLoading(false);
+      setPlanResolved(true);
       
       // Cache the data for instant access next time (include calculated time)
       setCachedTrialData({
@@ -138,6 +140,7 @@ export const useTrial = () => {
       setSubscriptionInfo(null);
       setCanAccess(false);
       setIsLoading(false);
+      setPlanResolved(true);
     }
   }, []);
 
@@ -249,6 +252,7 @@ export const useTrial = () => {
     hasEverHadSubscription,
     canAccess,
     isLoading,
+    planResolved,
     isTrialExpired: trialInfo?.isExpired ?? false,
     hasActiveSubscription,
     isSubscriptionExpired,
