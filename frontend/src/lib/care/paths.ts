@@ -67,6 +67,7 @@ export const careRoutes = {
   dietitianProfile: '/dietitian/profile',
   admin: '/admin',
   adminDietitians: '/admin/dietitians',
+  adminBookings: '/admin/bookings',
   adminSettings: '/admin/settings',
   onboardingPatient: '/onboarding/patient',
   onboardingDoctor: '/onboarding/doctor',

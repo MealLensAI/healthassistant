@@ -94,6 +94,25 @@ describe('appReducer', () => {
     expect(next.dietitians.find((item) => item.id === 'dt-pending')?.verified).toBe(true)
   })
 
+  it('notifies admins when a patient books an appointment', () => {
+    const live = { ...pendingListing, status: 'approved' as const, verified: true }
+    const next = appReducer({ ...base, dietitians: [live] }, {
+      type: 'ADD_APPOINTMENT',
+      patientId: patient.id,
+      dietitianId: live.id,
+      date: '2026-11-04',
+      time: '10:00',
+      topic: 'First consult',
+      kind: 'video',
+    })
+    expect(next.appointments[0]?.patientId).toBe(patient.id)
+    expect(next.notifications[0]?.userId).toBe('user-admin')
+    expect(next.notifications[0]?.title).toBe('New appointment booked')
+    expect(next.notifications[0]?.href).toBe('/admin/bookings')
+    expect(next.notifications[0]?.body).toContain(patient.name)
+    expect(next.notifications[0]?.body).toContain(live.name)
+  })
+
   it('notifies admins when someone registers as a dietitian', () => {
     const next = appReducer(base, {
       type: 'SUBMIT_APPLICATION',

@@ -6,6 +6,7 @@ import { AppProvider } from '@/lib/care/context'
 import { MarketplaceBootGate } from '@/components/MarketplaceProvider'
 import { ThemeProvider } from '@/lib/care/theme'
 import { AdminApplicationPage } from '@/pages/admin/AdminApplicationPage'
+import { AdminBookingsPage } from '@/pages/admin/AdminBookingsPage'
 import { AdminDietitianDetailPage } from '@/pages/admin/AdminDietitianDetailPage'
 import { AdminDietitiansPage } from '@/pages/admin/AdminDietitiansPage'
 import { AdminQueuePage } from '@/pages/admin/AdminQueuePage'
@@ -117,6 +118,7 @@ export default function DietitianAdminApp() {
               >
                 <Route path="/admin" element={<AdminQueuePage />} />
                 <Route path="/admin/applications/:id" element={<AdminApplicationPage />} />
+                <Route path="/admin/bookings" element={<AdminBookingsPage />} />
                 <Route path="/admin/dietitians" element={<AdminDietitiansPage />} />
                 <Route path="/admin/dietitians/:id" element={<AdminDietitianDetailPage />} />
                 <Route path="/admin/settings" element={<SettingsPage />} />

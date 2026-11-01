@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useLocation } from 'react-router-dom';
 import { useTrial } from '@/hooks/useTrial';
 import { ChevronDown, Clock } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
@@ -45,50 +46,69 @@ declare global {
   }
 }
 
-const FEATURES = [
-  'Ingredient recognition',
-  'Recipe Suggestions & Cooking Instructions',
-  'Ingredient scanning',
-  'Meal planning',
-  'Meal plans for chronic conditions',
-  'Budget & Location Based Meal Plans',
-  'Full History Access',
-  'Priority Support'
-
-];
-
-// Pricing plans (USD) — aligned with landing page (PricingSection).
-// Free: one 7-day meal plan trial (handled separately via trial status).
 const PLANS = [
   {
-    label: '$20 Monthly',
+    name: 'bronze',
+    label: 'Bronze',
+    price: 10,
+    duration: 'per month',
+    durationMinutes: 43200,
+    paystackAmount: 10,
+    highlight: false,
+    badge: 'AI only',
+    description: 'Unlimited AI meal tools. No marketplace dietitian.',
+    features: [
+      'Ingredient scanning and food detection',
+      'AI meal planning',
+      'Location and budget plans',
+      'Health information and history',
+      'Cannot book a marketplace dietitian',
+    ],
+  },
+  {
+    name: 'silver',
+    label: 'Silver',
     price: 20,
     duration: 'per month',
     durationMinutes: 43200,
     paystackAmount: 20,
     highlight: false,
+    badge: '',
+    description: 'AI tools plus 1 dietitian and 3 appointments.',
+    features: [
+      'Everything in Bronze',
+      'Marketplace dietitian access',
+      '1 dietitian at a time',
+      '1 consultation + 2 follow-ups',
+      'Calendar to pick date and time',
+    ],
   },
   {
-    label: '$120 Six Months',
-    price: 120,
-    duration: 'per 6 months',
-    durationMinutes: 259200,
-    paystackAmount: 120,
+    name: 'gold',
+    label: 'Gold',
+    price: 50,
+    originalPrice: 60,
+    duration: 'per 3 months',
+    durationMinutes: 129600,
+    paystackAmount: 50,
     highlight: true,
-  },
-  {
-    label: '$240 Yearly',
-    price: 240,
-    duration: 'per year',
-    durationMinutes: 525600,
-    paystackAmount: 240,
-    highlight: false,
+    badge: '20% off',
+    description: '3 months, 7 appointments, 20% off vs Silver.',
+    features: [
+      'Everything in Silver',
+      '1 consultation + 6 follow-ups',
+      'Calendar for consultation and follow-ups',
+      '3 months of marketplace access',
+      'Save $10 vs 3 months of Silver',
+    ],
   },
 ];
 
 const Payment: React.FC = () => {
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, hasEverHadSubscription, subscriptionInfo, updateTrialInfo, isLoading } = useTrial();
   const { user } = useAuth();
+  const location = useLocation();
+  const upgradeMessage = (location.state as { message?: string; reason?: string } | null)?.message;
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [name, setName] = useState('');
@@ -582,13 +602,13 @@ const Payment: React.FC = () => {
               // Build backend payload; omit user_id if anonymous so backend derives from cookie
               const backendPayload: any = {
                 email: resolvedEmail,
-                plan_name: plan.label,
+                plan_name: plan.name || plan.label,
                 plan_duration_minutes: plan.durationMinutes || 30,
                 paystack_data: {
                   reference: response.reference,
                   transaction_id: response.transaction_id,
                   amount: plan.paystackAmount,
-                  plan: plan.label,
+                  plan: plan.name || plan.label,
                   status: response.status,
                   custom_fields: [
                     { display_name: 'Name', variable_name: 'name', value: resolvedName }
@@ -726,33 +746,47 @@ return (
         )}
 
 
+        {upgradeMessage ? (
+          <div className="mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 bg-orange-50 border-orange-200 text-orange-800">
+            {upgradeMessage}
+          </div>
+        ) : null}
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-foreground">Plans & Pricing</h2>
-        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Choose the plan that fits your needs. Start with three free 7-day meal plans, then subscribe from $20/month. Change anytime.</p>
+        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Bronze is AI tools only. Silver and Gold add a marketplace dietitian, with a calendar for consultation and follow-up dates.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-center items-stretch w-full max-w-5xl mx-auto">
         {PLANS.map((plan) => (
           <Card
-            key={plan.label}
+            key={plan.name}
             className={`flex flex-col justify-between items-center p-6 sm:p-8 bg-card shadow-soft rounded-2xl border border-border relative transition-all duration-300 hover:shadow-card ${plan.highlight ? 'ring-2 ring-primary/30' : ''}`}
           >
             {plan.highlight && (
               <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg">
-                Most Popular
+                {plan.badge || 'Best value'}
               </div>
             )}
+            {!plan.highlight && plan.badge ? (
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-secondary text-foreground text-xs font-bold px-6 py-2 rounded-full shadow-lg">
+                {plan.badge}
+              </div>
+            ) : null}
 
             <div className="mb-6 text-center">
               <div className="text-2xl sm:text-3xl font-bold text-foreground mb-2">{plan.label}</div>
               <div className="text-muted-foreground text-sm mb-4">Billed {plan.duration}</div>
               <div className="text-4xl font-bold text-primary mb-2">
+                {'originalPrice' in plan && plan.originalPrice ? (
+                  <span className="mr-2 text-lg font-semibold text-muted-foreground line-through">${plan.originalPrice}</span>
+                ) : null}
                 ${plan.price.toLocaleString()}
               </div>
+              <p className="text-sm text-muted-foreground">{plan.description}</p>
             </div>
 
             <ul className="mb-8 w-full text-foreground text-left space-y-3">
-              {FEATURES.map((feature, i) => (
-                <li key={i} className="flex items-center gap-3">
+              {plan.features.map((feature) => (
+                <li key={feature} className="flex items-center gap-3">
                   <span className="inline-block w-5 h-5 rounded-full bg-leaf mr-3 flex-shrink-0 flex items-center justify-center">
                     <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />

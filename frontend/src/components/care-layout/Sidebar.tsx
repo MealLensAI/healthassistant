@@ -42,6 +42,7 @@ const patientNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
   { to: '/admin', label: 'Verification Queue', icon: ShieldCheck },
+  { to: '/admin/bookings', label: 'Bookings', icon: CalendarDays },
   { to: '/admin/dietitians', label: 'Approved Dietitians', icon: UserRound },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
 ]
@@ -62,7 +63,18 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
     { to: '/dietitian/settings', label: 'Settings', icon: Settings },
   ]
 
-  const items = (currentUser.role === 'admin' ? adminNav : currentUser.role === 'dietitian' ? dietitianNav : patientNav).map((item) => ({ ...item, badge: item.to.endsWith('/appointments') ? pendingAppointmentCount(currentUser.id, appointments, dietitians) : item.to.endsWith('/messages') ? unread : item.badge }))
+  const upcomingBookings = appointments.filter((item) => item.status === 'upcoming').length
+  const items = (currentUser.role === 'admin' ? adminNav : currentUser.role === 'dietitian' ? dietitianNav : patientNav).map((item) => ({
+    ...item,
+    badge:
+      item.to === '/admin/bookings'
+        ? upcomingBookings
+        : item.to.endsWith('/appointments')
+          ? pendingAppointmentCount(currentUser.id, appointments, dietitians)
+          : item.to.endsWith('/messages')
+            ? unread
+            : item.badge,
+  }))
 
   const profileTo = ownProfilePath(currentUser.role)
   const homeTo = currentUser.role === 'admin' ? '/admin' : currentUser.role === 'dietitian' ? '/dietitian' : '/dietitians'

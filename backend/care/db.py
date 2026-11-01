@@ -1243,6 +1243,14 @@ def load_pulse_from_supabase(client, user_id: str, role: str = "patient") -> Jso
     peer_ids = {pid for conversation in conversations for pid in conversation["participantIds"]}
     peer_ids.update(item["patientId"] for item in appointments)
     peer_ids.update(pid for item in live_calls for pid in (item["callerId"], item["calleeId"]))
+    listing_ids_for_peers = list({item["dietitianId"] for item in appointments if item.get("dietitianId")})
+    if listing_ids_for_peers:
+        for row in (
+            client.table(MP_TABLES["dietitians"]).select("user_id").in_("id", listing_ids_for_peers).execute().data
+            or []
+        ):
+            if row.get("user_id"):
+                peer_ids.add(row["user_id"])
     users = [profile_from_row(row) for row in (client.table(MP_TABLES["profiles"]).select("*").in_("id", list(peer_ids)).execute().data or [])] if peer_ids else []
     # Filter hidden conversations for this viewer.
     conversations = [

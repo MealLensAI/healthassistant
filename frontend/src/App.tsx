@@ -33,6 +33,7 @@ import PatientAppLayout from "./components/PatientAppLayout";
 import DietitianAdminApp from "@/components/DietitianAdminApp";
 import AdminApp from "@/components/AdminApp";
 import EnterpriseApp from "./components/enterprise/EnterpriseApp";
+import { MarketplaceLayout } from "@/components/MarketplaceAccessGate";
 import { HomePage as CareHomePage } from "@/pages/patient/HomePage";
 import { SearchPage as CareSearchPage } from "@/pages/patient/SearchPage";
 import { DietitianProfilePage } from "@/pages/patient/DietitianProfilePage";
@@ -49,6 +50,7 @@ import { DietitianAccountPage } from "@/pages/dietitian/DietitianAccountPage";
 import { SettingsPage as MarketplaceSettingsPage } from "@/pages/patient/SettingsPage";
 import { AdminQueuePage } from "@/pages/admin/AdminQueuePage";
 import { AdminApplicationPage } from "@/pages/admin/AdminApplicationPage";
+import { AdminBookingsPage } from "@/pages/admin/AdminBookingsPage";
 import { AdminDietitiansPage } from "@/pages/admin/AdminDietitiansPage";
 import { AdminDietitianDetailPage } from "@/pages/admin/AdminDietitianDetailPage";
 import { SettingsPage as AdminSettingsPage } from "@/pages/patient/SettingsPage";
@@ -105,15 +107,20 @@ const router = createBrowserRouter([
       { path: "/settings", element: <CareSettingsPage /> },
       { path: "/location-budget", element: <LocationBudgetPage /> },
       { path: "/food-for-you", element: <FoodForYouPage /> },
-      // Care marketplace
-      { path: "/dietitians", element: <CareHomePage /> },
-      { path: "/search", element: <CareSearchPage /> },
-      { path: "/dietitians/:id", element: <DietitianProfilePage /> },
-      { path: "/care/:id", element: <CarePage /> },
-      { path: "/appointments", element: <AppointmentsPage /> },
-      { path: "/messages", element: <MessagesPage /> },
-      { path: "/messages/:id", element: <MessagesPage /> },
-      { path: "/files", element: <FilesPage /> },
+      // Care marketplace — Silver/Gold only. Dietitian-invite / enterprise stays separate.
+      {
+        element: <MarketplaceLayout />,
+        children: [
+          { path: "/dietitians", element: <CareHomePage /> },
+          { path: "/search", element: <CareSearchPage /> },
+          { path: "/dietitians/:id", element: <DietitianProfilePage /> },
+          { path: "/care/:id", element: <CarePage /> },
+          { path: "/appointments", element: <AppointmentsPage /> },
+          { path: "/messages", element: <MessagesPage /> },
+          { path: "/messages/:id", element: <MessagesPage /> },
+          { path: "/files", element: <FilesPage /> },
+        ],
+      },
       { path: "/care-profile", element: <Navigate to="/profile" replace /> },
       { path: "/care-settings", element: <Navigate to="/settings" replace /> },
     ],
@@ -134,6 +141,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <AdminQueuePage /> },
       { path: "applications/:id", element: <AdminApplicationPage /> },
+      { path: "bookings", element: <AdminBookingsPage /> },
       { path: "dietitians", element: <AdminDietitiansPage /> },
       { path: "dietitians/:id", element: <AdminDietitianDetailPage /> },
       { path: "settings", element: <AdminSettingsPage /> },

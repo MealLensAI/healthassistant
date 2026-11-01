@@ -676,6 +676,25 @@ def test_admin_auth_identity_reuses_paginated_user_or_creates(monkeypatch):
     admin.create_user.assert_called_once()
 
 
+def test_booking_notifies_admin_and_includes_contact_details(client):
+    patient = _register_patient(client)
+    doctor, listing = _register_and_approve_dietitian(client)
+    booked = client.post(
+        "/api/care/appointments",
+        headers={"X-User-Id": patient["id"]},
+        json={"dietitianId": listing["id"], "date": "2026-10-12", "time": "10:00", "topic": "Consult", "kind": "video"},
+    )
+    assert booked.status_code == 200
+    admin_state = client.get("/api/care/state", headers={"X-User-Id": "user-admin"}).get_json()
+    note = next(item for item in admin_state["notifications"] if item["title"] == "New appointment booked")
+    assert note["href"] == "/admin/bookings"
+    assert patient["name"] in note["body"]
+    assert listing["name"] in note["body"]
+    assert any(item["patientId"] == patient["id"] and item["dietitianId"] == listing["id"] for item in admin_state["appointments"])
+    assert any(item["id"] == patient["id"] and item.get("phone") for item in admin_state["users"])
+    assert any(item["id"] == doctor["id"] and item.get("phone") for item in admin_state["users"])
+
+
 def test_booking_is_scoped_idempotent_and_status_reaches_all_viewers(client):
     patient = _register_patient(client)
     doctor, listing = _register_and_approve_dietitian(client)

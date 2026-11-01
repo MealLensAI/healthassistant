@@ -48,8 +48,8 @@ export const ROUTE_SEO: Record<string, Partial<MetaConfig>> = {
         description: 'Review your detected ingredients and saved recipes.'
     },
     '/payment': {
-        title: 'Subscribe – MealLensAI | Plans from $20/month',
-        description: 'Get one free 7-day meal plan, then choose 1 Month ($20), 6 Months ($120), or 1 Year ($240). Cancel anytime.'
+        title: 'Subscribe – MealLensAI | Bronze, Silver, Gold',
+        description: 'Bronze $10/month for AI tools. Silver $20/month adds a dietitian with 3 appointments. Gold $50/3 months with 7 appointments and 20% off.'
     },
     '/profile': {
         title: 'Profile - MealLensAI',

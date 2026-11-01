@@ -244,6 +244,8 @@ export function appReducer(state: AppState, action: Action): AppState {
       if (!dietitian) return { ...state, consultationRequests: nextRequests }
       const conversationId = conversationIdFor(request.patientId, dietitian.userId)
       const hasConversation = state.conversations.some((item) => item.id === conversationId)
+      const visitDate = nextWeekday()
+      const patientName = state.users.find((item) => item.id === request.patientId)?.name || 'A patient'
       return {
         ...state,
         consultationRequests: nextRequests,
@@ -263,7 +265,7 @@ export function appReducer(state: AppState, action: Action): AppState {
             id: uid('apt'),
             patientId: request.patientId,
             dietitianId: dietitian.id,
-            date: nextWeekday(),
+            date: visitDate,
             time: '14:00',
             status: 'upcoming',
             type: 'video',
@@ -271,6 +273,13 @@ export function appReducer(state: AppState, action: Action): AppState {
           },
           ...state.appointments,
         ],
+        notifications: pushAdminNotifications(state, {
+          kind: 'info',
+          title: 'New appointment booked',
+          body: `${patientName} booked ${dietitian.name} on ${visitDate} at 14:00.`,
+          href: '/admin/bookings',
+          createdAt: new Date().toISOString(),
+        }),
       }
     }
     case 'UPLOAD_FILE':
@@ -513,7 +522,10 @@ export function appReducer(state: AppState, action: Action): AppState {
         messages: state.messages.filter((item) => item.conversationId !== action.conversationId),
       }
     }
-    case 'ADD_APPOINTMENT':
+    case 'ADD_APPOINTMENT': {
+      const listing = state.dietitians.find((item) => item.id === action.dietitianId)
+      const patientName = state.users.find((item) => item.id === action.patientId)?.name || 'A patient'
+      const dietitianName = listing?.name || 'a dietitian'
       return {
         ...state,
         appointments: [
@@ -529,7 +541,15 @@ export function appReducer(state: AppState, action: Action): AppState {
           },
           ...state.appointments,
         ],
+        notifications: pushAdminNotifications(state, {
+          kind: 'info',
+          title: 'New appointment booked',
+          body: `${patientName} booked ${dietitianName} on ${action.date} at ${action.time}.`,
+          href: '/admin/bookings',
+          createdAt: new Date().toISOString(),
+        }),
       }
+    }
     case 'ADD_PAYMENT': {
       const payment: Payment = {
         ...action.payment,

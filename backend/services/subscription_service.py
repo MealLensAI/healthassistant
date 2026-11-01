@@ -180,6 +180,14 @@ class SubscriptionService:
                 if time_restriction_info and not time_restriction_info.get('can_access_now', True):
                     # User has access but is outside allowed time window
                     can_access_app = False
+
+            from care.plan_entitlements import SILVER, entitlements_for_plan
+
+            plan_name = (subscription or {}).get('plan_name') if has_active_subscription else None
+            entitlements = entitlements_for_plan(plan_name)
+            # Paid but unrecognized SKU (lookup failed / legacy custom name): keep care access.
+            if has_active_subscription and entitlements.get('tier') == 'free':
+                entitlements = SILVER.copy()
             
             return {
                 'success': True,
@@ -193,7 +201,9 @@ class SubscriptionService:
                     'meal_plans_limit': free_plan_limit,
                     'free_meal_plan_used': free_meal_plan_used,
                     'can_generate_meal_plan': has_active_subscription or (not free_meal_plan_used),
-                    'time_restriction': time_restriction_info
+                    'time_restriction': time_restriction_info,
+                    'entitlements': entitlements,
+                    'marketplace_access': bool(entitlements.get('marketplace_access')),
                 }
             }
             

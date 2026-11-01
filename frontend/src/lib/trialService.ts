@@ -22,6 +22,15 @@ export interface SubscriptionInfo {
   endDate: string;
   planId?: string;
   planName?: string;
+  planDisplayName?: string;
+  marketplaceAccess?: boolean;
+  entitlements?: {
+    tier?: string;
+    marketplace_access?: boolean;
+    max_dietitians?: number;
+    consultations?: number;
+    follow_ups?: number;
+  };
   formattedRemainingTime: string;
   progressPercentage: number;
 }
@@ -303,6 +312,9 @@ export class TrialService {
               endDate: sub.end_date,
               planId: sub.plan_id,
               planName: sub.plan_name || 'Plan',
+              planDisplayName: sub.plan_display_name || sub.plan_name || 'Plan',
+              marketplaceAccess: Boolean(data.marketplace_access ?? data.entitlements?.marketplace_access),
+              entitlements: data.entitlements,
               formattedRemainingTime: this.formatRemaining(endTime - now),
               progressPercentage: 0
             };

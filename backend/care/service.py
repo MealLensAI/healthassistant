@@ -67,7 +67,27 @@ def notification_href_for(state: Json, user_id: str | None, *, surface: str, res
         return "/dietitian" if dietitian else "/dietitians"
     if surface == "admin_application":
         return f"/admin/applications/{resource_id}" if resource_id else "/admin"
+    if surface == "admin_bookings":
+        return "/admin/bookings"
     return "/dietitians"
+
+
+def notify_admins_of_booking(state: Json, *, patient_name: str, dietitian_name: str, date: str, time: str) -> None:
+    body = f"{patient_name} booked {dietitian_name} on {date} at {time}."
+    for admin in [user for user in state.get("users") or [] if user.get("role") == "admin"]:
+        state.setdefault("notifications", []).insert(
+            0,
+            {
+                "id": uid("ntf"),
+                "userId": admin["id"],
+                "kind": "info",
+                "title": "New appointment booked",
+                "body": body,
+                "href": notification_href_for(state, admin["id"], surface="admin_bookings"),
+                "createdAt": now_iso(),
+                "read": False,
+            },
+        )
 
 
 def score_reviews(reviews: list[Json]) -> dict[str, Any]:
@@ -483,18 +503,27 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         if action["status"] == "accepted":
             dietitian = next((item for item in next_state["dietitians"] if item["id"] == request["dietitianId"]), None)
             if dietitian:
+                visit_date = next_weekday()
                 next_state["appointments"].insert(
                     0,
                     {
                         "id": uid("apt"),
                         "patientId": request["patientId"],
                         "dietitianId": dietitian["id"],
-                        "date": next_weekday(),
+                        "date": visit_date,
                         "time": "14:00",
                         "status": "upcoming",
                         "type": "video",
                         "topic": "New consultation",
                     },
+                )
+                patient = next((item for item in next_state.get("users") or [] if item.get("id") == request["patientId"]), None)
+                notify_admins_of_booking(
+                    next_state,
+                    patient_name=(patient or {}).get("name") or "A patient",
+                    dietitian_name=dietitian.get("name") or "a dietitian",
+                    date=visit_date,
+                    time="14:00",
                 )
         return next_state
 
@@ -744,6 +773,13 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                 "createdAt": now_iso(),
                 "read": False,
             },
+        )
+        notify_admins_of_booking(
+            next_state,
+            patient_name=actor_name,
+            dietitian_name=listing.get("name") or "a dietitian",
+            date=action["date"],
+            time=action["time"],
         )
         return next_state
 

@@ -10,60 +10,66 @@ const PRICING_CARDS = [
     period: "3 free meal plans",
     description: "Try full 7-day meal plans on us",
     features: [
-      "Free unlimited AI ingredient scanning/recognition",
-      "Free unlimited step-by-step cooking recipe instructions",
       "3 free 7-day meal plans",
-      "3 free budget and location meal plan generations",
+      "Ingredient scanning",
+      "Food detection and recipes",
       "Chronic condition meal planning",
     ],
     cta: "Start free",
     highlight: false,
+    badge: "",
   },
   {
-    id: "monthly",
-    name: "1 Month",
+    id: "bronze",
+    name: "Bronze",
+    price: "$10",
+    period: "per month",
+    description: "AI meal tools only. No marketplace dietitian.",
+    features: [
+      "Unlimited ingredient scanning",
+      "Food detection and recipes",
+      "AI meal planning",
+      "Location and budget plans",
+      "Health information and history",
+    ],
+    cta: "Choose Bronze",
+    highlight: false,
+    badge: "AI only",
+  },
+  {
+    id: "silver",
+    name: "Silver",
     price: "$20",
     period: "per month",
-    description: "Best for building a lasting habit",
+    description: "AI tools plus one dietitian, with 3 appointments.",
     features: [
-      "Everything in Free",
-      "Unlimited meal plans",
-      "Unlimited health meal generations",
-      "Priority support",
-      "Cancel anytime",
+      "Everything in Bronze",
+      "Marketplace dietitian access",
+      "1 dietitian at a time",
+      "1 consultation + 2 follow-ups",
+      "Pick a date and time on the calendar",
     ],
-    cta: "Get started",
+    cta: "Choose Silver",
     highlight: false,
+    badge: "",
   },
   {
-    id: "six_months",
-    name: "6 Months",
-    price: "$120",
-    period: "per 6 months",
-    description: "Commit for half a year. Better value.",
+    id: "gold",
+    name: "Gold",
+    price: "$50",
+    original: "$60",
+    period: "per 3 months",
+    description: "Three months of care. 7 appointments, 20% off.",
     features: [
-      "Everything in Monthly",
-      "Unlimited meal plans",
-      "Priority support",
-      "Advanced health tracking",
+      "Everything in Silver",
+      "1 consultation + 6 follow-ups",
+      "Pick dates and times for every visit",
+      "3 months of marketplace access",
+      "20% off vs 3 months of Silver",
     ],
-    cta: "Get started",
+    cta: "Choose Gold",
     highlight: true,
-  },
-  {
-    id: "yearly",
-    name: "1 Year",
-    price: "$240",
-    period: "per year",
-    description: "Best value. A full year of access.",
-    features: [
-      "Everything in Monthly",
-      "Best long-term value",
-      "Priority support",
-      "Advanced health tracking",
-    ],
-    cta: "Get started",
-    highlight: false,
+    badge: "20% off",
   },
 ];
 
@@ -78,11 +84,11 @@ const PricingSection = () => {
             Pricing
           </p>
           <h2 className="font-display text-3xl lg:text-5xl tracking-tight mb-5">
-            Simple pricing. One subscription.
+            Three packages. Clear differences.
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Get three free 7-day meal plans when you sign up. Then choose a plan
-            that fits, with cooking and health features included.
+            Bronze is AI meal tools. Silver and Gold add a marketplace dietitian,
+            with a calendar so you can set the date and time for each follow-up.
           </p>
         </div>
 
@@ -98,13 +104,28 @@ const PricingSection = () => {
             >
               {card.highlight && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                  Most popular
+                  Best value
                 </div>
               )}
+              {card.badge && !card.highlight ? (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-secondary text-foreground text-xs font-medium">
+                  {card.badge}
+                </div>
+              ) : null}
+              {card.highlight && card.badge ? (
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                  {card.badge}
+                </p>
+              ) : null}
               <h3 className="font-display text-xl tracking-tight mb-3">
                 {card.name}
               </h3>
               <div className="mb-2">
+                {"original" in card && card.original ? (
+                  <span className="mr-2 text-sm text-muted-foreground line-through">
+                    {card.original}
+                  </span>
+                ) : null}
                 <span className="text-3xl font-bold tracking-tight">
                   {card.price}
                 </span>
@@ -135,7 +156,8 @@ const PricingSection = () => {
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-8">
-          No credit card required for your free meal plans. Cancel anytime.
+          No credit card required for your free meal plans. Dietitian invites and
+          organization accounts stay separate from these packages.
         </p>
       </div>
     </section>

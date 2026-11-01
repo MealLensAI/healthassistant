@@ -47,8 +47,9 @@ export function resolveNotificationHref(
     return `/messages/${id}`
   }
 
-  if (/\/appointments(?:\/|$|\?)/.test(href) || href.endsWith('/appointments')) {
+  if (/\/appointments(?:\/|$|\?)/.test(href) || href.endsWith('/appointments') || href === '/admin/bookings') {
     if (role === 'dietitian') return practicePath('appointments', pathname)
+    if (role === 'admin') return '/admin/bookings'
     return '/appointments'
   }
 
