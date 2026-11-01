@@ -763,7 +763,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return true
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Could not book that appointment.'
-          toast('error', message.includes('Sign in') ? 'Sign in again to book an appointment.' : 'Could not book that appointment. Please try again.')
+          toast(
+            'error',
+            message.includes('Sign in')
+              ? 'Sign in again to book an appointment.'
+              : message.includes('plan') || message.includes('follow-up') || message.includes('consultation')
+                ? message
+                : 'Could not book that appointment. Please try again.',
+          )
           return false
         }
       }

@@ -538,6 +538,7 @@ export function appReducer(state: AppState, action: Action): AppState {
             status: 'upcoming',
             type: action.kind,
             topic: action.topic,
+            visitKind: action.topic.toLowerCase().includes('follow') ? 'follow_up' : 'consultation',
           },
           ...state.appointments,
         ],

@@ -29,7 +29,7 @@ export const BRONZE_ENTITLEMENTS: PlanEntitlements = {
 export const SILVER_ENTITLEMENTS: PlanEntitlements = {
   tier: 'silver',
   marketplace_access: true,
-  max_dietitians: 1,
+  max_dietitians: -1,
   consultations: 1,
   follow_ups: 2,
 }
@@ -37,7 +37,7 @@ export const SILVER_ENTITLEMENTS: PlanEntitlements = {
 export const GOLD_ENTITLEMENTS: PlanEntitlements = {
   tier: 'gold',
   marketplace_access: true,
-  max_dietitians: 1,
+  max_dietitians: -1,
   consultations: 1,
   follow_ups: 6,
 }

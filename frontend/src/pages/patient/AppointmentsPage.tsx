@@ -7,12 +7,14 @@ import { Avatar } from '@/components/care-ui/Primitives'
 import { useApp } from '@/lib/care/context'
 import { useCallMedia } from '@/lib/care/callMediaContext'
 import { dietitianProfilePath, patientProfilePath } from '@/lib/care/profilePaths'
+import { usePlanUsage } from '@/hooks/usePlanUsage'
 
 export function AppointmentsPage({ role = 'patient' }: { role?: 'patient' | 'dietitian' }) {
   const { appointments, dietitians, users, currentUser, startCall, dispatch, cancelAppointment, openConversation } = useApp()
   const { ensureLocalMedia } = useCallMedia()
   const navigate = useNavigate()
   const [messagingId, setMessagingId] = useState<string | null>(null)
+  const { entitlements, remaining, usage } = usePlanUsage()
 
   if (!currentUser) {
     return (
@@ -43,9 +45,22 @@ export function AppointmentsPage({ role = 'patient' }: { role?: 'patient' | 'die
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-extrabold text-ink">Appointments</h1>
-        <p className="text-sm text-muted">Video consults and follow-up chats with your care team.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold text-ink">Appointments</h1>
+          <p className="text-sm text-muted">Video consults and follow-up chats with your care team.</p>
+        </div>
+        {role === 'patient' && entitlements.marketplace_access ? (
+          <div className="shrink-0 rounded-full border border-line bg-panel px-3 py-1.5 text-right">
+            <p className="text-xs font-semibold text-ink">
+              Consult {usage.consultations}/{entitlements.consultations}
+            </p>
+            <p className="text-[11px] font-medium text-muted">
+              Follow-ups {usage.followUps}/{entitlements.follow_ups}
+              {remaining.remainingTotal === 0 ? ' · none left' : ` · ${remaining.remainingTotal} left`}
+            </p>
+          </div>
+        ) : null}
       </div>
       <div className="space-y-3">
         {mine.map((appointment) => {

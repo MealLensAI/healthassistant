@@ -8,6 +8,12 @@ from typing import Any, Callable
 from .seed_data import default_availability
 from .config import settings
 from .media import account_avatar
+from .plan_entitlements import (
+    appointment_usage,
+    assert_patient_can_use_marketplace,
+    infer_visit_kind,
+    listing_id_for_user,
+)
 
 Json = dict[str, Any]
 
@@ -248,6 +254,94 @@ def _guard_dietitian_marketplace(state: Json, actor: Json | None, kind: str) -> 
     )
 
 
+def _peer_id_from_action(state: Json, actor: Json | None, action: Json) -> str | None:
+    peer_id = action.get("peerId") or (action.get("call") or {}).get("peerId")
+    if peer_id:
+        return str(peer_id)
+    conversation_id = action.get("conversationId") or (action.get("call") or {}).get("conversationId")
+    actor_id = (actor or {}).get("id")
+    if not conversation_id or not actor_id:
+        return None
+    conversation = next((item for item in (state.get("conversations") or []) if item.get("id") == conversation_id), None)
+    if not conversation:
+        return None
+    return next((item for item in (conversation.get("participantIds") or []) if item != actor_id), None)
+
+
+def _guard_patient_marketplace(state: Json, actor: Json | None, action: Json, kind: str) -> None:
+    if kind == "ADD_APPOINTMENT":
+        assert_patient_can_use_marketplace(state, actor, listing_id=action.get("dietitianId"), kind=kind)
+        return
+    if kind == "SEND_MESSAGE":
+        if actor and actor.get("role") == "patient":
+            peer_id = _peer_id_from_action(state, actor, action)
+            assert_patient_can_use_marketplace(state, actor, listing_id=listing_id_for_user(state, peer_id), kind=kind)
+        return
+    if kind != "START_CALL":
+        return
+    actor_id = (actor or {}).get("id")
+    peer_id = _peer_id_from_action(state, actor, action)
+    if not actor_id or not peer_id:
+        return
+    if actor and actor.get("role") == "patient":
+        patient = actor
+        listing_id = listing_id_for_user(state, peer_id)
+    elif actor and actor.get("role") == "dietitian":
+        patient = next((item for item in (state.get("users") or []) if item.get("id") == peer_id), None)
+        listing_id = listing_id_for_user(state, actor_id)
+        if patient and patient.get("role") != "patient":
+            patient = {**patient, "role": "patient"}
+    else:
+        return
+    if not patient:
+        return
+    assert_patient_can_use_marketplace(state, patient, listing_id=listing_id, kind="START_CALL")
+
+
+def _mark_answered_call_visit(state: Json, caller_id: str, callee_id: str) -> None:
+    users = state.get("users") or []
+    caller = next((item for item in users if item.get("id") == caller_id), None)
+    callee = next((item for item in users if item.get("id") == callee_id), None)
+    patient = next((item for item in (caller, callee) if item and item.get("role") == "patient"), None)
+    dietitian = next((item for item in (caller, callee) if item and item is not patient), None)
+    if not patient or not dietitian:
+        return
+    listing_id = listing_id_for_user(state, dietitian.get("id"))
+    if not listing_id:
+        return
+    upcoming = next(
+        (
+            item
+            for item in (state.get("appointments") or [])
+            if item.get("patientId") == patient["id"]
+            and item.get("dietitianId") == listing_id
+            and item.get("status") == "upcoming"
+        ),
+        None,
+    )
+    if upcoming:
+        upcoming["status"] = "completed"
+        upcoming["visitKind"] = infer_visit_kind(upcoming.get("topic"), upcoming.get("visitKind") or upcoming.get("visit_kind"))
+        return
+    usage = appointment_usage(state, patient["id"])
+    visit_kind = usage["next_kind"]
+    now = datetime.now(timezone.utc)
+    state.setdefault("appointments", []).insert(
+        0,
+        {
+            "id": uid("apt"),
+            "patientId": patient["id"],
+            "dietitianId": listing_id,
+            "date": now.date().isoformat(),
+            "time": now.strftime("%H:%M"),
+            "status": "completed",
+            "type": "video",
+            "topic": "Consultation" if visit_kind == "consultation" else "Follow-up",
+            "visitKind": visit_kind,
+        },
+    )
+
+
 def sync_account(state: Json, payload: Json) -> tuple[Json, Json]:
     from care.config import settings
 
@@ -369,6 +463,7 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
     actor_id = (actor or {}).get("id")
     actor_name = (actor or {}).get("name") or "Admin"
     _guard_dietitian_marketplace(next_state, actor, kind)
+    _guard_patient_marketplace(next_state, actor, action, kind)
 
     if kind == "SEND_MESSAGE":
         from .media import sanitize_attachment
@@ -733,6 +828,10 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
             raise ValueError("Sign in as the patient to book")
         if any(item["patientId"] == actor_id and item["dietitianId"] == listing["id"] and item["date"] == action["date"] and item["time"] == action["time"] and item["status"] == "upcoming" for item in next_state["appointments"]):
             return next_state
+        visit_kind = appointment_usage(next_state, actor_id)["next_kind"]
+        topic = action.get("topic") or ("Consultation" if visit_kind == "consultation" else "Follow-up")
+        if visit_kind == "follow_up" and infer_visit_kind(topic, None) != "follow_up":
+            topic = f"Follow-up with {listing.get('name') or 'your dietitian'}"
         next_state["appointments"].insert(
             0,
             {
@@ -743,7 +842,8 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                 "time": action["time"],
                 "status": "upcoming",
                 "type": action["kind"],
-                "topic": action["topic"],
+                "topic": topic,
+                "visitKind": visit_kind,
             },
         )
         dietitian_user_id = listing.get("userId")
@@ -1061,6 +1161,7 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         for item in next_state.get("liveCalls", []):
             if item["calleeId"] == actor_id and item["status"] == "ringing":
                 item["status"] = "live"
+                _mark_answered_call_visit(next_state, item["callerId"], item["calleeId"])
                 for notification in next_state['notifications']:
                     if notification.get('userId') == actor_id and notification.get('href', '').endswith(item['conversationId']) and notification.get('title') == 'Incoming video call':
                         notification['read'] = True

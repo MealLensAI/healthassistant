@@ -31,7 +31,7 @@ def test_entitlements_split_marketplace_from_ai():
     assert silver["consultations"] == 1
     assert silver["follow_ups"] == 2
     assert gold["follow_ups"] == 6
-    assert gold["max_dietitians"] == 1
+    assert gold["max_dietitians"] == -1
     assert gold["consultations"] + gold["follow_ups"] == 7
 
 
@@ -61,7 +61,7 @@ def test_bronze_cannot_use_marketplace(monkeypatch):
         assert_patient_can_use_marketplace({}, actor, listing_id="doc", kind="ADD_APPOINTMENT")
 
 
-def test_silver_blocks_fourth_appointment_and_second_dietitian(monkeypatch):
+def test_silver_blocks_fourth_visit_but_allows_other_dietitians(monkeypatch):
     monkeypatch.setattr("care.plan_entitlements.patient_plan_entitlements", lambda _uid: SILVER.copy())
     actor = {"id": "pat", "role": "patient"}
     state = {
@@ -73,8 +73,31 @@ def test_silver_blocks_fourth_appointment_and_second_dietitian(monkeypatch):
     }
     with pytest.raises(ValueError, match="follow-up"):
         assert_patient_can_use_marketplace(state, actor, listing_id="doc-a", kind="ADD_APPOINTMENT")
-    with pytest.raises(ValueError, match="one dietitian"):
-        assert_patient_can_use_marketplace(state, actor, listing_id="doc-b", kind="START_CALL")
+    assert_patient_can_use_marketplace(
+        {"appointments": state["appointments"][:1]},
+        actor,
+        listing_id="doc-b",
+        kind="START_CALL",
+    )
+    assert_patient_can_use_marketplace(state, actor, listing_id="doc-b", kind="SEND_MESSAGE")
+
+
+def test_first_call_is_consultation_next_dietitian_is_follow_up():
+    state = {
+        "appointments": [
+            {
+                "patientId": "pat",
+                "dietitianId": "doc-a",
+                "status": "completed",
+                "visitKind": "consultation",
+                "topic": "Consultation",
+            }
+        ]
+    }
+    usage = appointment_usage(state, "pat")
+    assert usage["next_kind"] == "follow_up"
+    assert usage["consultations"] == 1
+    assert usage["follow_ups"] == 0
 
 
 def test_gold_allows_seven_visits(monkeypatch):

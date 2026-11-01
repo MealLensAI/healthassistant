@@ -9,6 +9,7 @@ import { accountAvatar } from '@/lib/care/accountAvatar'
 import { conversationIdFor, withCallPeerAvatar } from '@/lib/care/calls'
 import { timeSlotsFor, upcomingDays } from '@/lib/care/care'
 import { dietitianProfilePath } from '@/lib/care/profilePaths'
+import { usePlanUsage } from '@/hooks/usePlanUsage'
 
 type Panel = 'book' | 'call'
 
@@ -43,6 +44,7 @@ export function CarePage() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [booking, setBooking] = useState(false)
   const [openingChat, setOpeningChat] = useState(false)
+  const { canBook, nextKind } = usePlanUsage()
 
   const conversationId =
     currentUser && dietitian
@@ -227,10 +229,13 @@ export function CarePage() {
                 ? `Selected ${selectedDay} at ${selectedTime}. Confirm to send this to ${dietitian.name}.`
                 : 'Select a time to continue.'}
             </p>
-            <Button disabled={!selectedTime} onClick={() => setConfirmOpen(true)}>
+            <Button disabled={!selectedTime || !canBook} onClick={() => setConfirmOpen(true)}>
               Confirm
             </Button>
           </div>
+          {!canBook ? (
+            <p className="mt-2 text-sm text-muted">No consultation or follow-up calls left on this plan.</p>
+          ) : null}
           {booked.length > 0 && (
             <div className="mt-5 max-w-xl rounded-xl bg-navy-soft p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-navy-deep">Upcoming appointments</p>
@@ -286,7 +291,9 @@ export function CarePage() {
                   dietitian.id,
                   selectedDay,
                   selectedTime,
-                  `Consult with ${dietitian.name}`,
+                  nextKind === 'follow_up'
+                    ? `Follow-up with ${dietitian.name}`
+                    : `Consultation with ${dietitian.name}`,
                   'video',
                 )
                 if (ok) {

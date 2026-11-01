@@ -38,7 +38,7 @@ BRONZE: Json = {
 SILVER: Json = {
     "tier": "silver",
     "marketplace_access": True,
-    "max_dietitians": 1,
+    "max_dietitians": -1,
     "consultations": 1,
     "follow_ups": 2,
 }
@@ -46,7 +46,7 @@ SILVER: Json = {
 GOLD: Json = {
     "tier": "gold",
     "marketplace_access": True,
-    "max_dietitians": 1,
+    "max_dietitians": -1,
     "consultations": 1,
     "follow_ups": 6,
 }
@@ -173,27 +173,29 @@ def assert_patient_can_use_marketplace(
         if tier == "bronze":
             raise ValueError("Bronze includes AI tools only. Upgrade to Silver or Gold to book a dietitian.")
         raise ValueError("Marketplace access requires a Silver or Gold plan.")
-    if kind not in {"ADD_APPOINTMENT", "SEND_MESSAGE", "START_CALL"}:
+    if kind == "SEND_MESSAGE":
+        return entitlements
+    if kind not in {"ADD_APPOINTMENT", "START_CALL"}:
+        return entitlements
+    if kind == "START_CALL" and _has_reserved_visit(state, actor["id"], listing_id):
         return entitlements
     usage = appointment_usage(state, actor["id"])
-    max_dietitians = int(entitlements.get("max_dietitians") or 0)
-    locked_ids = usage["dietitian_ids"]
-    if (
-        listing_id
-        and not _unlimited(max_dietitians)
-        and max_dietitians > 0
-        and locked_ids
-        and listing_id not in locked_ids
-        and len(locked_ids) >= max_dietitians
-    ):
-        raise ValueError("Your plan includes one dietitian at a time. Finish or cancel those appointments before switching.")
-    if kind != "ADD_APPOINTMENT":
-        return entitlements
     consult_cap = int(entitlements.get("consultations") or 0)
     follow_cap = int(entitlements.get("follow_ups") or 0)
     next_kind = usage["next_kind"]
     if next_kind == "consultation" and not _unlimited(consult_cap) and usage["consultations"] >= consult_cap:
         raise ValueError("You have used the consultation included in your plan. Upgrade to continue.")
     if next_kind == "follow_up" and not _unlimited(follow_cap) and usage["follow_ups"] >= follow_cap:
-        raise ValueError("You have used the follow-up appointments included in your plan. Upgrade to Gold for six follow-ups.")
+        raise ValueError("You have used the follow-up calls included in your plan. Upgrade to Gold for six follow-ups.")
     return entitlements
+
+
+def _has_reserved_visit(state: Json, patient_id: str, listing_id: str | None) -> bool:
+    if not listing_id:
+        return False
+    return any(
+        item.get("patientId") == patient_id
+        and item.get("dietitianId") == listing_id
+        and item.get("status") == "upcoming"
+        for item in (state.get("appointments") or [])
+    )

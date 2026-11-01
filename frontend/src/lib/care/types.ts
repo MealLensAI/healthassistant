@@ -161,6 +161,7 @@ export interface Appointment {
   status: AppointmentStatus
   type: AppointmentType
   topic: string
+  visitKind?: 'consultation' | 'follow_up'
 }
 
 export interface PatientFile {

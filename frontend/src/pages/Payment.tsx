@@ -10,6 +10,7 @@ import { safeGetItem, useAuth } from '@/lib/utils';
 import EngagementBanners from '@/components/EngagementBanners';
 
 import { usePageHeader } from '@/components/PageHeaderContext';
+import { usePlanUsage } from '@/hooks/usePlanUsage';
 // Helper to resolve profile (email and name) from backend using cookie auth
 async function resolveProfileFromBackend(): Promise<{ email: string | null; name: string | null }> {
   try {
@@ -74,12 +75,12 @@ const PLANS = [
     paystackAmount: 20,
     highlight: false,
     badge: '',
-    description: 'AI tools plus 1 dietitian and 3 appointments.',
+    description: 'AI tools plus marketplace calls: 1 consultation and 2 follow-ups.',
     features: [
       'Everything in Bronze',
       'Marketplace dietitian access',
-      '1 dietitian at a time',
-      '1 consultation + 2 follow-ups',
+      'Message any dietitian',
+      '1 consultation + 2 follow-up calls',
       'Calendar to pick date and time',
     ],
   },
@@ -106,6 +107,7 @@ const PLANS = [
 
 const Payment: React.FC = () => {
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, hasEverHadSubscription, subscriptionInfo, updateTrialInfo, isLoading } = useTrial();
+  const { planLabel, planResolved } = usePlanUsage();
   const { user } = useAuth();
   const location = useLocation();
   const upgradeMessage = (location.state as { message?: string; reason?: string } | null)?.message;
@@ -725,24 +727,29 @@ return (
             <Clock className={`h-4 w-4 ${isSubscriptionExpired ? 'text-red-600' : 'text-green-600'}`} />
             {isSubscriptionExpired
               ? 'Your subscription has ended. Renew to continue using MealLensAI.'
-              : `Active Subscription: ${subscriptionInfo?.formattedRemainingTime || formattedRemainingTime} remaining`
+              : `Current plan: ${planResolved ? planLabel : (subscriptionInfo?.planDisplayName || 'Active')} · ${subscriptionInfo?.formattedRemainingTime || formattedRemainingTime}`
             }
-          </div>
-        ) : hasEverHadSubscription ? (
-          // User has paid before but subscription is expired - show subscription expired message
-          <div className="mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 bg-red-50 border-red-200 text-red-700">
-            <Clock className="h-4 w-4 text-red-600" />
-            Your subscription has ended. Renew to continue using MealLensAI.
           </div>
         ) : (
-          // User has never paid - show free-plan status
-          <div className={`mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
-            <Clock className={`h-4 w-4 ${isTrialExpired ? 'text-red-600' : 'text-orange-600'}`} />
-            {isTrialExpired
-              ? "You've used your free 7-day meal plan. Subscribe to generate more."
-              : formattedRemainingTime
-            }
-          </div>
+          <>
+            <div className="mb-3 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 bg-secondary border-border text-foreground">
+              Current plan: {planResolved ? planLabel : 'Free'}
+            </div>
+            {hasEverHadSubscription ? (
+              <div className="mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 bg-red-50 border-red-200 text-red-700">
+                <Clock className="h-4 w-4 text-red-600" />
+                Your subscription has ended. Renew to continue using MealLensAI.
+              </div>
+            ) : (
+              <div className={`mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                <Clock className={`h-4 w-4 ${isTrialExpired ? 'text-red-600' : 'text-orange-600'}`} />
+                {isTrialExpired
+                  ? "You've used your free 7-day meal plan. Subscribe to generate more."
+                  : formattedRemainingTime
+                }
+              </div>
+            )}
+          </>
         )}
 
 
@@ -752,14 +759,14 @@ return (
           </div>
         ) : null}
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-foreground">Plans & Pricing</h2>
-        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Bronze is AI tools only. Silver and Gold add a marketplace dietitian, with a calendar for consultation and follow-up dates.</p>
+        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Bronze is AI tools only. Silver and Gold add the marketplace. Message any dietitian; calls use your consultation and follow-up count.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 justify-center items-stretch w-full max-w-5xl mx-auto">
         {PLANS.map((plan) => (
           <Card
             key={plan.name}
-            className={`flex flex-col justify-between items-center p-6 sm:p-8 bg-card shadow-soft rounded-2xl border border-border relative transition-all duration-300 hover:shadow-card ${plan.highlight ? 'ring-2 ring-primary/30' : ''}`}
+            className={`flex flex-col justify-between items-center p-6 sm:p-8 bg-card shadow-soft rounded-2xl border border-border relative transition-all duration-300 hover:shadow-card ${plan.highlight ? 'ring-2 ring-primary/30' : ''} ${hasActiveSubscription && planResolved && planLabel.toLowerCase() === plan.name ? 'ring-2 ring-primary' : ''}`}
           >
             {plan.highlight && (
               <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg">
@@ -774,6 +781,9 @@ return (
 
             <div className="mb-6 text-center">
               <div className="text-2xl sm:text-3xl font-bold text-foreground mb-2">{plan.label}</div>
+              {hasActiveSubscription && planResolved && planLabel.toLowerCase() === plan.name ? (
+                <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-primary">Your current plan</div>
+              ) : null}
               <div className="text-muted-foreground text-sm mb-4">Billed {plan.duration}</div>
               <div className="text-4xl font-bold text-primary mb-2">
                 {'originalPrice' in plan && plan.originalPrice ? (

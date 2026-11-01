@@ -921,6 +921,7 @@ def state_from_tables(tables: Json) -> Json:
                 "status": item["status"],
                 "type": item["type"],
                 "topic": item.get("topic") or "",
+                "visitKind": item.get("visit_kind") or "consultation",
             }
             for item in appointments
         ],
@@ -1237,6 +1238,7 @@ def load_pulse_from_supabase(client, user_id: str, role: str = "patient") -> Jso
             "status": item["status"],
             "type": item["type"],
             "topic": item.get("topic") or "",
+            "visitKind": item.get("visit_kind") or "consultation",
         }
         for item in apt_rows
     ]
@@ -1446,6 +1448,7 @@ def tables_from_state(state: Json) -> Json:
                 "status": item["status"],
                 "type": item["type"],
                 "topic": item.get("topic") or "",
+                "visit_kind": item.get("visitKind") or item.get("visit_kind") or "consultation",
             }
             for item in state.get("appointments", [])
         ],
