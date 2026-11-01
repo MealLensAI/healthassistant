@@ -32,6 +32,19 @@ def _tables():
 @pytest.mark.parametrize("caller_id", ["doctor", "patient"])
 def test_start_call_uses_canonical_participant_photos(caller_id):
     state = state_from_tables({**_tables(), "live_calls": []})
+    state["appointments"] = [
+        {
+            "id": "apt",
+            "patientId": "patient",
+            "dietitianId": "listing",
+            "date": "2026-10-12",
+            "time": "10:00",
+            "status": "upcoming",
+            "type": "video",
+            "topic": "Consult",
+            "visitKind": "consultation",
+        }
+    ]
     peer_id = "patient" if caller_id == "doctor" else "doctor"
     actor = next(user for user in state["users"] if user["id"] == caller_id)
     updated = apply_action(state, {

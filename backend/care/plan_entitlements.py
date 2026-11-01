@@ -51,7 +51,9 @@ GOLD: Json = {
     "follow_ups": 6,
 }
 
-_COUNTABLE_STATUSES = {"upcoming", "completed"}
+_COMPLETED_STATUSES = {"completed"}
+_BOOKING_STATUSES = {"upcoming", "completed"}
+BOOK_TO_CALL_MESSAGE = "Book an appointment first, then join the video call from Appointments."
 
 
 def normalize_plan_name(plan_name: str | None) -> str:
@@ -96,16 +98,22 @@ def infer_visit_kind(topic: str | None, stored: str | None = None) -> str:
     return "consultation"
 
 
-def countable_patient_appointments(state: Json, patient_id: str) -> list[Json]:
+def countable_patient_appointments(
+    state: Json,
+    patient_id: str,
+    *,
+    include_upcoming: bool = False,
+) -> list[Json]:
+    statuses = _BOOKING_STATUSES if include_upcoming else _COMPLETED_STATUSES
     return [
         item
         for item in (state.get("appointments") or [])
-        if item.get("patientId") == patient_id and item.get("status") in _COUNTABLE_STATUSES
+        if item.get("patientId") == patient_id and item.get("status") in statuses
     ]
 
 
-def appointment_usage(state: Json, patient_id: str) -> Json:
-    rows = countable_patient_appointments(state, patient_id)
+def appointment_usage(state: Json, patient_id: str, *, include_upcoming: bool = False) -> Json:
+    rows = countable_patient_appointments(state, patient_id, include_upcoming=include_upcoming)
     consultations = 0
     follow_ups = 0
     dietitian_ids: list[str] = []
@@ -175,11 +183,13 @@ def assert_patient_can_use_marketplace(
         raise ValueError("Marketplace access requires a Silver or Gold plan.")
     if kind == "SEND_MESSAGE":
         return entitlements
-    if kind not in {"ADD_APPOINTMENT", "START_CALL"}:
+    if kind == "START_CALL":
+        if not _has_reserved_visit(state, actor["id"], listing_id):
+            raise ValueError(BOOK_TO_CALL_MESSAGE)
         return entitlements
-    if kind == "START_CALL" and _has_reserved_visit(state, actor["id"], listing_id):
+    if kind != "ADD_APPOINTMENT":
         return entitlements
-    usage = appointment_usage(state, actor["id"])
+    usage = appointment_usage(state, actor["id"], include_upcoming=True)
     consult_cap = int(entitlements.get("consultations") or 0)
     follow_cap = int(entitlements.get("follow_ups") or 0)
     next_kind = usage["next_kind"]

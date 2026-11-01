@@ -15,6 +15,7 @@ import { peerProfilePath } from '@/lib/care/profilePaths'
 import { practicePath } from '@/lib/care/practiceBase'
 import { cn, fileSizeLabel, formatTime } from '@/lib/care/utils'
 import type { Conversation, MessageDeliveryStatus } from '@/lib/care/types'
+import { BOOK_TO_CALL_MESSAGE } from '@/lib/planEntitlements'
 
 export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietitian' }) {
   const { id } = useParams()
@@ -213,12 +214,14 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
                   size="sm"
                   className="shrink-0"
                   loading={preparingCall}
-                  onClick={() => runWithLocalMedia(() => {
+                  onClick={() => {
                     if (activeCall?.incoming && activeCall.peerId === peer.id) {
-                      return answerCall()
+                      void runWithLocalMedia(() => answerCall())
+                      return
                     }
-                    return startCall(active.id, peer.id, peer.name, peer.avatar ?? '')
-                  })}
+                    toast('info', BOOK_TO_CALL_MESSAGE)
+                    navigate(role === 'dietitian' ? practicePath('appointments') : '/appointments')
+                  }}
                 >
                   <Video size={14} /> {activeCall?.incoming && activeCall.peerId === peer.id ? 'Answer' : 'Video call'}
                 </Button>
@@ -349,8 +352,8 @@ export function MessagesPage({ role = 'patient' }: { role?: 'patient' | 'dietiti
                 onEnd={endCall}
                 onAnswer={answerCall}
                 onStart={() => {
-                  if (!active) return
-                  return startCall(active.id, peer.id, peer.name, peer.avatar ?? '')
+                  toast('info', BOOK_TO_CALL_MESSAGE)
+                  navigate(role === 'dietitian' ? practicePath('appointments') : '/appointments')
                 }}
               />
               <Link

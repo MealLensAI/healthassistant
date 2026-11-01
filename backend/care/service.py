@@ -298,7 +298,7 @@ def _guard_patient_marketplace(state: Json, actor: Json | None, action: Json, ki
     assert_patient_can_use_marketplace(state, patient, listing_id=listing_id, kind="START_CALL")
 
 
-def _mark_answered_call_visit(state: Json, caller_id: str, callee_id: str) -> None:
+def _complete_visit_after_live_call(state: Json, caller_id: str, callee_id: str) -> None:
     users = state.get("users") or []
     caller = next((item for item in users if item.get("id") == caller_id), None)
     callee = next((item for item in users if item.get("id") == callee_id), None)
@@ -309,7 +309,7 @@ def _mark_answered_call_visit(state: Json, caller_id: str, callee_id: str) -> No
     listing_id = listing_id_for_user(state, dietitian.get("id"))
     if not listing_id:
         return
-    upcoming = next(
+    upcoming = sorted(
         (
             item
             for item in (state.get("appointments") or [])
@@ -317,29 +317,13 @@ def _mark_answered_call_visit(state: Json, caller_id: str, callee_id: str) -> No
             and item.get("dietitianId") == listing_id
             and item.get("status") == "upcoming"
         ),
-        None,
+        key=lambda item: (str(item.get("date") or ""), str(item.get("time") or "")),
     )
-    if upcoming:
-        upcoming["status"] = "completed"
-        upcoming["visitKind"] = infer_visit_kind(upcoming.get("topic"), upcoming.get("visitKind") or upcoming.get("visit_kind"))
+    if not upcoming:
         return
-    usage = appointment_usage(state, patient["id"])
-    visit_kind = usage["next_kind"]
-    now = datetime.now(timezone.utc)
-    state.setdefault("appointments", []).insert(
-        0,
-        {
-            "id": uid("apt"),
-            "patientId": patient["id"],
-            "dietitianId": listing_id,
-            "date": now.date().isoformat(),
-            "time": now.strftime("%H:%M"),
-            "status": "completed",
-            "type": "video",
-            "topic": "Consultation" if visit_kind == "consultation" else "Follow-up",
-            "visitKind": visit_kind,
-        },
-    )
+    visit = upcoming[0]
+    visit["status"] = "completed"
+    visit["visitKind"] = infer_visit_kind(visit.get("topic"), visit.get("visitKind") or visit.get("visit_kind"))
 
 
 def sync_account(state: Json, payload: Json) -> tuple[Json, Json]:
@@ -828,7 +812,7 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
             raise ValueError("Sign in as the patient to book")
         if any(item["patientId"] == actor_id and item["dietitianId"] == listing["id"] and item["date"] == action["date"] and item["time"] == action["time"] and item["status"] == "upcoming" for item in next_state["appointments"]):
             return next_state
-        visit_kind = appointment_usage(next_state, actor_id)["next_kind"]
+        visit_kind = appointment_usage(next_state, actor_id, include_upcoming=True)["next_kind"]
         topic = action.get("topic") or ("Consultation" if visit_kind == "consultation" else "Follow-up")
         if visit_kind == "follow_up" and infer_visit_kind(topic, None) != "follow_up":
             topic = f"Follow-up with {listing.get('name') or 'your dietitian'}"
@@ -1161,7 +1145,6 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
         for item in next_state.get("liveCalls", []):
             if item["calleeId"] == actor_id and item["status"] == "ringing":
                 item["status"] = "live"
-                _mark_answered_call_visit(next_state, item["callerId"], item["calleeId"])
                 for notification in next_state['notifications']:
                     if notification.get('userId') == actor_id and notification.get('href', '').endswith(item['conversationId']) and notification.get('title') == 'Incoming video call':
                         notification['read'] = True
@@ -1177,6 +1160,8 @@ def apply_action(state: Json, action: Json, actor: Json | None) -> Json:
                 if notification.get('userId') == item['calleeId'] and notification.get('title') == 'Incoming video call' and notification.get('href', '').endswith(item['conversationId']):
                     notification['read'] = True
             missed = item['status'] == 'ringing'
+            if not missed:
+                _complete_visit_after_live_call(next_state, item["callerId"], item["calleeId"])
             call_text = 'Missed video call' if missed else 'Video call completed (answered)'
             if missed:
                 for target, title, body in [

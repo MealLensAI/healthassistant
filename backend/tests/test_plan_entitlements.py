@@ -41,7 +41,7 @@ def test_first_visit_is_consultation_then_follow_ups():
             {
                 "patientId": "pat",
                 "dietitianId": "doc",
-                "status": "upcoming",
+                "status": "completed",
                 "topic": "Initial consultation with Ada",
                 "visitKind": "consultation",
             }
@@ -52,6 +52,27 @@ def test_first_visit_is_consultation_then_follow_ups():
     assert usage["follow_ups"] == 0
     assert usage["next_kind"] == "follow_up"
     assert infer_visit_kind("Follow-up with Ada") == "follow_up"
+
+
+def test_upcoming_booking_does_not_count_until_call_ends():
+    state = {
+        "appointments": [
+            {
+                "patientId": "pat",
+                "dietitianId": "doc",
+                "status": "upcoming",
+                "topic": "Initial consultation with Ada",
+                "visitKind": "consultation",
+            }
+        ]
+    }
+    usage = appointment_usage(state, "pat")
+    assert usage["consultations"] == 0
+    assert usage["follow_ups"] == 0
+    assert usage["next_kind"] == "consultation"
+    reserved = appointment_usage(state, "pat", include_upcoming=True)
+    assert reserved["consultations"] == 1
+    assert reserved["next_kind"] == "follow_up"
 
 
 def test_bronze_cannot_use_marketplace(monkeypatch):
@@ -76,10 +97,24 @@ def test_silver_blocks_fourth_visit_but_allows_other_dietitians(monkeypatch):
     assert_patient_can_use_marketplace(
         {"appointments": state["appointments"][:1]},
         actor,
-        listing_id="doc-b",
+        listing_id="doc-a",
         kind="START_CALL",
     )
+    with pytest.raises(ValueError, match="Book an appointment"):
+        assert_patient_can_use_marketplace(
+            {"appointments": state["appointments"][:1]},
+            actor,
+            listing_id="doc-b",
+            kind="START_CALL",
+        )
     assert_patient_can_use_marketplace(state, actor, listing_id="doc-b", kind="SEND_MESSAGE")
+
+
+def test_start_call_requires_booked_appointment(monkeypatch):
+    monkeypatch.setattr("care.plan_entitlements.patient_plan_entitlements", lambda _uid: SILVER.copy())
+    actor = {"id": "pat", "role": "patient"}
+    with pytest.raises(ValueError, match="Book an appointment"):
+        assert_patient_can_use_marketplace({}, actor, listing_id="doc-a", kind="START_CALL")
 
 
 def test_first_call_is_consultation_next_dietitian_is_follow_up():

@@ -444,6 +444,7 @@ export function appReducer(state: AppState, action: Action): AppState {
       const missed = [...state.missedCalls]
       const messages = [...state.messages]
       const conversations = state.conversations.map((item) => ({ ...item }))
+      let appointments = state.appointments
       for (const item of state.liveCalls) {
         if ((action.callId && item.id !== action.callId) || (userId && userId !== item.callerId && userId !== item.calleeId)) {
           remaining.push(item)
@@ -458,6 +459,21 @@ export function appReducer(state: AppState, action: Action): AppState {
             createdAt: new Date().toISOString(),
             seen: false,
           })
+        } else {
+          const caller = state.users.find((user) => user.id === item.callerId)
+          const callee = state.users.find((user) => user.id === item.calleeId)
+          const patientUser = [caller, callee].find((user) => user?.role === 'patient')
+          const dietitianUser = [caller, callee].find((user) => user && user.id !== patientUser?.id)
+          const listingId = state.dietitians.find((listing) => listing.userId === dietitianUser?.id)?.id
+          const match = patientUser && listingId
+            ? appointments
+                .filter((apt) => apt.patientId === patientUser.id && apt.dietitianId === listingId && apt.status === 'upcoming')
+                .slice()
+                .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))[0]
+            : undefined
+          if (match) {
+            appointments = appointments.map((apt) => (apt.id === match.id ? { ...apt, status: 'completed' } : apt))
+          }
         }
         const timestamp = new Date().toISOString()
         messages.push({
@@ -481,6 +497,7 @@ export function appReducer(state: AppState, action: Action): AppState {
         missedCalls: missed,
         messages,
         conversations,
+        appointments,
       }
     }
     case 'COMPLETE_APPOINTMENT':

@@ -6,10 +6,11 @@ import { Avatar, Modal } from '@/components/care-ui/Primitives'
 import { Button } from '@/components/care-ui/Button'
 import { useApp } from '@/lib/care/context'
 import { accountAvatar } from '@/lib/care/accountAvatar'
-import { conversationIdFor, withCallPeerAvatar } from '@/lib/care/calls'
+import { withCallPeerAvatar } from '@/lib/care/calls'
 import { timeSlotsFor, upcomingDays } from '@/lib/care/care'
 import { dietitianProfilePath } from '@/lib/care/profilePaths'
 import { usePlanUsage } from '@/hooks/usePlanUsage'
+import { BOOK_TO_CALL_MESSAGE } from '@/lib/planEntitlements'
 
 type Panel = 'book' | 'call'
 
@@ -31,11 +32,10 @@ export function CarePage() {
     bookAppointment,
     cancelAppointment,
     appointments,
-    conversations,
-    startCall,
     answerCall,
     endCall,
     activeCall,
+    toast,
   } = useApp()
   const dietitian = dietitians.find((item) => item.id === id && item.status === 'approved')
   const panel = panelFromSearch(params.get('tab') ?? (params.get('call') === '1' ? 'call' : null))
@@ -45,16 +45,6 @@ export function CarePage() {
   const [booking, setBooking] = useState(false)
   const [openingChat, setOpeningChat] = useState(false)
   const { canBook, nextKind } = usePlanUsage()
-
-  const conversationId =
-    currentUser && dietitian
-      ? conversations.find(
-          (item) =>
-            item.participantIds.includes(currentUser.id) &&
-            item.participantIds.includes(dietitian.userId) &&
-            !String(item.id).startsWith('conv-'),
-        )?.id ?? conversationIdFor(currentUser.id, dietitian.userId)
-      : ''
 
   const days = useMemo(() => upcomingDays(), [])
   const slots = dietitian ? timeSlotsFor(dietitian.availability, selectedDay) : []
@@ -75,22 +65,12 @@ export function CarePage() {
     return () => {
       cancelled = true
     }
-  }, [params, currentUser, dietitian, openConversation, navigate, conversationId])
+  }, [params, currentUser, dietitian, openConversation, navigate])
 
   useEffect(() => {
     if (!currentUser || !dietitian) return
     void openConversation(dietitian.userId, dietitian.name)
   }, [currentUser, dietitian, openConversation])
-
-  useEffect(() => {
-    if (panel === 'call' && params.get('call') === '1' && dietitian && conversationId && !activeCall) {
-      const next = new URLSearchParams(params)
-      next.delete('call')
-      next.set('tab', 'call')
-      setParams(next, { replace: true })
-      startCall(conversationId, dietitian.userId, dietitian.name, dietitian.avatar)
-    }
-  }, [panel, params, dietitian, conversationId, startCall, activeCall, setParams])
 
   if (!dietitian || !currentUser) {
     return (
@@ -145,7 +125,7 @@ export function CarePage() {
                 <p className="mt-1 text-sm font-medium text-muted">
                   {dietitian.title} · {dietitian.country}
                 </p>
-                <p className="mt-2 text-sm text-muted">Book an appointment, send a message, or start a video call.</p>
+                <p className="mt-2 text-sm text-muted">Book an appointment, then join the video call from Appointments.</p>
               </div>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col" role="tablist" aria-label="Consultation">
@@ -167,7 +147,15 @@ export function CarePage() {
               <Button
                 className="w-full justify-center sm:w-auto sm:min-w-[168px]"
                 variant={panel === 'call' ? 'primary' : 'secondary'}
-                onClick={() => setPanel('call')}
+                onClick={() => {
+                  if (inCall || activeCall?.incoming) {
+                    setPanel('call')
+                    return
+                  }
+                  toast('info', BOOK_TO_CALL_MESSAGE)
+                  if (booked.length > 0) navigate('/appointments')
+                  else setPanel('book')
+                }}
               >
                 <Video size={16} /> Video call
               </Button>
@@ -262,15 +250,26 @@ export function CarePage() {
         </section>
       )}
 
-      {panel === 'call' && !(activeCall && !activeCall.incoming) ? (
+      {panel === 'call' && (inCall || activeCall?.incoming) ? (
         <VideoStage
           call={inCall ? withCallPeerAvatar(activeCall, users, dietitians, applications) : null}
           selfAvatar={accountAvatar(currentUser, dietitians, applications)}
           selfName={currentUser.name}
           onEnd={endCall}
           onAnswer={answerCall}
-          onStart={() => startCall(conversationId, dietitian.userId, dietitian.name, dietitian.avatar)}
         />
+      ) : panel === 'call' ? (
+        <section className="hy-card p-5 sm:p-6" aria-label="Video call">
+          <h2 className="flex items-center gap-2 font-bold text-ink">
+            <Video size={18} className="text-navy" /> Video call
+          </h2>
+          <p className="mt-2 text-sm text-muted">{BOOK_TO_CALL_MESSAGE}</p>
+          <div className="mt-4">
+            <Button onClick={() => (booked.length > 0 ? navigate('/appointments') : setPanel('book'))}>
+              {booked.length > 0 ? 'Open appointments' : 'Book an appointment'}
+            </Button>
+          </div>
+        </section>
       ) : null}
 
       <Modal open={confirmOpen} title="Confirm appointment" onClose={() => setConfirmOpen(false)}>

@@ -104,6 +104,9 @@ export function marketplaceUpgradeCopy(
   }
 }
 
+export const BOOK_TO_CALL_MESSAGE =
+  'Book an appointment first, then join the video call from Appointments.'
+
 export function inferVisitKind(topic?: string | null, stored?: string | null): 'consultation' | 'follow_up' {
   if (stored === 'consultation' || stored === 'follow_up') return stored
   const text = (topic || '').trim().toLowerCase()
@@ -112,9 +115,7 @@ export function inferVisitKind(topic?: string | null, stored?: string | null): '
 }
 
 export function appointmentUsage(appointments: Appointment[], patientId: string) {
-  const countable = appointments.filter(
-    (item) => item.patientId === patientId && (item.status === 'upcoming' || item.status === 'completed'),
-  )
+  const countable = appointments.filter((item) => item.patientId === patientId && item.status === 'completed')
   let consultations = 0
   let followUps = 0
   const dietitianIds: string[] = []

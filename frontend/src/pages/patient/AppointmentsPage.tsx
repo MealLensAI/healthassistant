@@ -10,7 +10,7 @@ import { dietitianProfilePath, patientProfilePath } from '@/lib/care/profilePath
 import { usePlanUsage } from '@/hooks/usePlanUsage'
 
 export function AppointmentsPage({ role = 'patient' }: { role?: 'patient' | 'dietitian' }) {
-  const { appointments, dietitians, users, currentUser, startCall, dispatch, cancelAppointment, openConversation } = useApp()
+  const { appointments, dietitians, users, currentUser, startCall, cancelAppointment, openConversation } = useApp()
   const { ensureLocalMedia } = useCallMedia()
   const navigate = useNavigate()
   const [messagingId, setMessagingId] = useState<string | null>(null)
@@ -137,15 +137,6 @@ export function AppointmentsPage({ role = 'patient' }: { role?: 'patient' | 'die
                     }}
                   >
                     Message
-                  </Button>
-                ) : null}
-                {appointment.status === 'upcoming' ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => dispatch({ type: 'COMPLETE_APPOINTMENT', appointmentId: appointment.id })}
-                  >
-                    Complete
                   </Button>
                 ) : null}
                 <Button size="sm" variant="danger" onClick={() => cancelAppointment(appointment.id)}>

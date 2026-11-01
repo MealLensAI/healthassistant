@@ -1286,7 +1286,7 @@ _HOT_ACTION_TABLES: dict[str, tuple[str, ...]] = {
     "ENSURE_CONVERSATION": ("conversations", "conversation_participants"),
     "START_CALL": ("conversations", "conversation_participants", "live_calls", "notifications"),
     "ANSWER_CALL": ("live_calls", "notifications"),
-    "END_CALL": ("live_calls", "notifications", "missed_calls", "messages", "conversations"),
+    "END_CALL": ("live_calls", "notifications", "missed_calls", "messages", "conversations", "appointments"),
     "MARK_CONVERSATION_READ": ("conversations", "messages"),
     "MARK_MESSAGE_DELIVERED": ("messages",),
     "MARK_NOTIFICATION_READ": ("notifications",),

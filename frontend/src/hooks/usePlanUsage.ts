@@ -30,7 +30,13 @@ export function usePlanUsage() {
   const usage = currentUser
     ? appointmentUsage(appointments, currentUser.id)
     : { consultations: 0, followUps: 0, dietitianIds: [], nextKind: 'consultation' as const }
+  const reservedUpcoming = currentUser
+    ? appointments.filter((item) => item.patientId === currentUser.id && item.status === 'upcoming').length
+    : 0
   const remaining = remainingAppointments(entitlements, usage)
+  const remainingToBook = Math.max(0, remaining.remainingTotal - reservedUpcoming)
+  const nextKind: 'consultation' | 'follow_up' =
+    usage.consultations === 0 && reservedUpcoming === 0 ? 'consultation' : 'follow_up'
   const tier = hasActiveSubscription ? entitlements.tier : entitlements.tier === 'bronze' ? 'bronze' : 'free'
   const planLabel = planDisplayName(tier === 'open' ? 'gold' : tier)
   const visitsIncluded = Math.max(0, entitlements.consultations) + Math.max(0, entitlements.follow_ups)
@@ -47,7 +53,7 @@ export function usePlanUsage() {
     formattedRemainingTime,
     visitsIncluded,
     visitsUsed,
-    nextKind: usage.nextKind,
-    canBook: entitlements.marketplace_access && remaining.remainingTotal > 0,
+    nextKind,
+    canBook: entitlements.marketplace_access && remainingToBook > 0,
   }
 }

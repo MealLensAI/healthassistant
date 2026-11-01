@@ -15,6 +15,7 @@ import { patientChartPath } from '@/lib/care/profilePaths'
 import { practiceBase, practicePath } from '@/lib/care/practiceBase'
 import { formatDate, formatTime } from '@/lib/care/utils'
 import type { CredentialDocument, Dietitian, ExperienceItem, Review } from '@/lib/care/types'
+import { BOOK_TO_CALL_MESSAGE } from '@/lib/planEntitlements'
 
 const tabs = ['About', 'Experience', 'Reviews'] as const
 const ratingLabels = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent']
@@ -198,7 +199,13 @@ export function DietitianProfilePage() {
               >
                 <MessageSquare size={16} /> Chat
               </Button>
-              <Button variant="secondary" onClick={() => navigate(`${carePath}?tab=call`)}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  toast('info', BOOK_TO_CALL_MESSAGE)
+                  navigate(`${carePath}?tab=book`)
+                }}
+              >
                 <Video size={16} /> Video call
               </Button>
             </div>

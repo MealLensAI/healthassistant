@@ -86,6 +86,25 @@ def _register_and_approve_dietitian(client, email="doc@care.test", name="Dr. App
     return created["user"], listing
 
 
+def _reserve_visit(patient_id, listing_id, visit_id="apt-reserved"):
+    state = get_store().snapshot()
+    state.setdefault("appointments", []).append(
+        {
+            "id": visit_id,
+            "patientId": patient_id,
+            "dietitianId": listing_id,
+            "date": "2026-10-12",
+            "time": "10:00",
+            "status": "upcoming",
+            "type": "video",
+            "topic": "Consult",
+            "visitKind": "consultation",
+        }
+    )
+    get_store().replace(state)
+    return visit_id
+
+
 def _ensure_conversation(client, patient_id: str, dietitian_user_id: str, dietitian_name: str):
     response = client.post(
         "/api/care/actions",
@@ -432,6 +451,7 @@ def test_avatar_sync_visible_to_dietitian_and_preserves_newer_care_photo(client)
 def start_test_call(client):
     patient = _register_patient(client, email="caller-patient@care.test")
     doctor, listing = _register_and_approve_dietitian(client, email="caller-doc@care.test")
+    _reserve_visit(patient["id"], listing["id"])
     conv = _ensure_conversation(client, patient["id"], doctor["id"], listing["name"])
     response = client.post(
         "/api/care/actions",
@@ -483,6 +503,8 @@ def test_answered_call_is_recorded_without_missed_call(client):
     ).get_json()
     answered_patch = answered.get("patch") or answered
     assert answered_patch["liveCalls"][0]["status"] == "live"
+    after_answer = next(item for item in get_store().snapshot()["appointments"] if item["patientId"] == patient["id"])
+    assert after_answer["status"] == "upcoming"
     ended = client.post(
         "/api/care/actions",
         headers={"X-User-Id": doctor["id"]},
@@ -491,6 +513,8 @@ def test_answered_call_is_recorded_without_missed_call(client):
     ended_patch = ended.get("patch") or ended
     assert ended_patch["messages"][-1]["text"] == "Video call completed (answered)"
     assert "missedCalls" not in ended_patch or len(ended_patch.get("missedCalls") or []) == before
+    after_end = next(item for item in get_store().snapshot()["appointments"] if item["patientId"] == patient["id"])
+    assert after_end["status"] == "completed"
 
 
 @pytest.mark.parametrize("hangup_role", ["patient", "dietitian"])
@@ -723,7 +747,8 @@ def test_booking_is_scoped_idempotent_and_status_reaches_all_viewers(client):
 
 def test_new_call_creates_conversation_and_keeps_other_calls(client):
     patient = _register_patient(client)
-    doctor, _ = _register_and_approve_dietitian(client)
+    doctor, listing = _register_and_approve_dietitian(client)
+    _reserve_visit(patient["id"], listing["id"])
     previous_ids = {c['id'] for c in get_store().snapshot()['liveCalls']}
     response = client.post('/api/care/actions', headers={'X-User-Id': patient['id']}, json={'type': 'START_CALL', 'payload': {'call': {'conversationId': 'live', 'peerId': doctor['id'], 'peerName': doctor['name']}}})
     assert response.status_code == 200

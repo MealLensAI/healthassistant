@@ -222,6 +222,40 @@ describe('appReducer', () => {
     expect(ended.liveCalls).toEqual([])
   })
 
+  it('counts an appointment only after a live call ends', () => {
+    const booked = {
+      ...base,
+      dietitians: [{ ...pendingListing, status: 'approved' as const, verified: true }],
+      appointments: [
+        {
+          id: 'apt-1',
+          patientId: patient.id,
+          dietitianId: pendingListing.id,
+          date: '2026-10-12',
+          time: '10:00',
+          status: 'upcoming' as const,
+          type: 'video' as const,
+          topic: 'Consultation',
+          visitKind: 'consultation' as const,
+        },
+      ],
+    }
+    const ringing = appReducer(booked, {
+      type: 'START_CALL',
+      call: {
+        conversationId: 'conv-test',
+        peerId: dietitianUser.id,
+        peerName: dietitianUser.name,
+        peerAvatar: '',
+      },
+    })
+    const incoming = appReducer(ringing, { type: 'LOGIN', user: dietitianUser })
+    const live = appReducer(incoming, { type: 'ANSWER_CALL' })
+    expect(live.appointments[0]?.status).toBe('upcoming')
+    const ended = appReducer(live, { type: 'END_CALL' })
+    expect(ended.appointments[0]?.status).toBe('completed')
+  })
+
   it('stores a preview url when a file is uploaded', () => {
     const next = appReducer(base, {
       type: 'UPLOAD_FILE',
