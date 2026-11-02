@@ -607,6 +607,14 @@ class APIService {
   async getUserHealthHistory(enterpriseId: string, userId: string): Promise<APIResponse> {
     return this.get(`/enterprise/${enterpriseId}/user/${userId}/health-history`)
   }
+
+  async getClearaerDownloadStats(): Promise<APIResponse & { total?: number }> {
+    return this.get('/clearaer/downloads/stats', { skipAuth: true })
+  }
+
+  async recordClearaerDownload(): Promise<APIResponse & { total?: number }> {
+    return this.post('/clearaer/downloads', {}, { skipAuth: true })
+  }
 }
 
 // Create singleton instance

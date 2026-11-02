@@ -26,6 +26,7 @@ const LandingNavbar = () => {
     { name: "Conditions", href: "#conditions" },
     { name: "Who it's for", href: "#who" },
     { name: "Pricing", href: "#pricing" },
+    { name: "Clearaer", href: "/cleaner" },
   ];
 
   return (
@@ -44,6 +45,20 @@ const LandingNavbar = () => {
 
           <div className="hidden lg:flex items-center gap-7">
             {navLinks.map((link) => (
+              link.href.startsWith("/") ? (
+                <button
+                  key={link.name}
+                  type="button"
+                  onClick={() => navigate(link.href)}
+                  className={`text-sm font-medium transition-colors ${
+                    isScrolled
+                      ? "text-foreground/80 hover:text-primary"
+                      : "text-white/85 hover:text-white"
+                  }`}
+                >
+                  {link.name}
+                </button>
+              ) : (
               <a
                 key={link.name}
                 href={link.href}
@@ -55,6 +70,7 @@ const LandingNavbar = () => {
               >
                 {link.name}
               </a>
+              )
             ))}
           </div>
 
@@ -121,6 +137,19 @@ const LandingNavbar = () => {
           <div className="lg:hidden mt-4 py-4 border-t border-border bg-background rounded-b-2xl -mx-1 px-3">
             <div className="flex flex-col gap-3">
               {navLinks.map((link) => (
+                link.href.startsWith("/") ? (
+                  <button
+                    key={link.name}
+                    type="button"
+                    className="text-left text-foreground hover:text-primary font-medium py-2 transition-colors"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      navigate(link.href);
+                    }}
+                  >
+                    {link.name}
+                  </button>
+                ) : (
                 <a
                   key={link.name}
                   href={link.href}
@@ -129,6 +158,7 @@ const LandingNavbar = () => {
                 >
                   {link.name}
                 </a>
+                )
               ))}
               <div className="flex flex-col gap-3 pt-4 border-t border-border">
                 {!user ? (

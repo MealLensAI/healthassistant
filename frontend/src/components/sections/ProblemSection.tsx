@@ -36,7 +36,7 @@ const ProblemSection = () => {
             </p>
             <p className="mt-4 text-muted-foreground leading-relaxed max-w-xl mx-auto">
               Food for you turns “what should I eat?” into meals that fit your
-              health, wherever you live.
+              health. When you want a person, you can meet a verified dietitian.
             </p>
           </div>
         </div>

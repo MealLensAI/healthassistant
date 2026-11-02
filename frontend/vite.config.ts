@@ -1,6 +1,51 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import fs from "fs";
 import path from "path";
+
+function clearaerCountPlugin() {
+  const file = path.resolve(__dirname, "public/downloads/clearaer-count.json");
+
+  const readTotal = () => {
+    try {
+      return Math.max(0, Number(JSON.parse(fs.readFileSync(file, "utf8")).total) || 0);
+    } catch {
+      return 0;
+    }
+  };
+
+  const writeTotal = (total: number) => {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, `${JSON.stringify({ total })}\n`);
+  };
+
+  return {
+    name: "clearaer-count",
+    configureServer(server: { middlewares: { use: Function } }) {
+      server.middlewares.use((req: { method?: string; url?: string }, res: { setHeader: Function; end: Function; statusCode: number }, next: () => void) => {
+        const url = req.url?.split("?")[0];
+        if (url !== "/downloads/clearaer-count.json") {
+          next();
+          return;
+        }
+        if (req.method === "GET") {
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ total: readTotal() }));
+          return;
+        }
+        if (req.method === "POST") {
+          const total = readTotal() + 1;
+          writeTotal(total);
+          res.statusCode = 201;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ status: "success", total }));
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -10,7 +55,7 @@ export default defineConfig(({ mode }) => {
   const imagesApiUrl = env.VITE_IMAGES_API_URL || "";
 
   return {
-    plugins: [react()],
+    plugins: [react(), clearaerCountPlugin()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

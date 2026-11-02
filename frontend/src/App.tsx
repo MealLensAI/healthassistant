@@ -54,6 +54,7 @@ import { AdminBookingsPage } from "@/pages/admin/AdminBookingsPage";
 import { AdminDietitiansPage } from "@/pages/admin/AdminDietitiansPage";
 import { AdminDietitianDetailPage } from "@/pages/admin/AdminDietitianDetailPage";
 import { SettingsPage as AdminSettingsPage } from "@/pages/patient/SettingsPage";
+import CleanerPage from "./pages/CleanerPage";
 
 const router = createBrowserRouter([
   {
@@ -91,6 +92,14 @@ const router = createBrowserRouter([
   {
     path: "/landing",
     element: <WelcomePage />
+  },
+  {
+    path: "/cleaner",
+    element: <CleanerPage />
+  },
+  {
+    path: "/cleanner",
+    element: <Navigate to="/cleaner" replace />
   },
   {
     element: <PatientAppLayout />,

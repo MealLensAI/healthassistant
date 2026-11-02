@@ -46,9 +46,45 @@ const FeaturesSection = () => {
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
             Start with Food for you when you need meals that fit your
-            condition. Then scan, plan, and cook in one place, built so
-            managing health through food feels easy.
+            condition. Meet a verified dietitian when you want a real consult.
+            Then scan, plan, and cook in one place.
           </p>
+        </div>
+
+        <div className="mb-16 grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-leaf mb-3">
+              Marketplace
+            </p>
+            <h3 className="font-display text-2xl lg:text-3xl tracking-tight mb-3">
+              Meet verified dietitians
+            </h3>
+            <p className="text-muted-foreground leading-relaxed mb-5">
+              Browse specialists who have been checked before they go live.
+              Book a consultation, send a message, and join the video call
+              from your calendar.
+            </p>
+            <ul className="space-y-2">
+              {[
+                "Verified profiles only",
+                "Book a date and time",
+                "Message and video consults",
+              ].map((item) => (
+                <li key={item} className="flex items-center gap-2.5 text-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-leaf flex-shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-border bg-muted shadow-soft">
+            <img
+              src="/assets/verified-dietitians.jpg"
+              alt="Marketplace directory of verified dietitians"
+              className="w-full h-full object-cover object-top"
+              loading="lazy"
+            />
+          </div>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-x-12 gap-y-14">

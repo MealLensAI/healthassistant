@@ -33,8 +33,8 @@ const HeroSection = () => {
           <p className="text-base sm:text-lg text-white/85 leading-relaxed mx-auto max-w-xl mb-8 animate-fade-up-delay-2">
             When you wonder what to eat for your condition, wherever you are,
             MealLensAI is the answer. Get Food for you, cook with clear
-            instructions, and build weekly plans that fit your health, budget,
-            and life.
+            instructions, build weekly plans, and meet verified dietitians
+            who can guide you.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-up-delay-3">

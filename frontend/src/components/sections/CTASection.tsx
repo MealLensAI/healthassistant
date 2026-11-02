@@ -16,7 +16,8 @@ const CTASection = () => {
           </h2>
           <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto leading-relaxed">
             Start free. Open Food for you for meals that fit your condition,
-            then cook, plan, and stay consistent wherever you are.
+            meet a verified dietitian when you want a consult, then cook and
+            stay consistent.
           </p>
 
           <Button

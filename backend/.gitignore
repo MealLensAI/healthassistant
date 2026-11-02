@@ -9,3 +9,6 @@
 __pycache__/
 *.py[cod]
 *.pyc
+
+# Local Clearaer download counter (not the database)
+var/clearaer_count.json

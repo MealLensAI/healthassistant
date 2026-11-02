@@ -7,6 +7,7 @@ const LandingFooter = () => {
       { name: "How it works", href: "#how-it-works" },
       { name: "Pricing", href: "#pricing" },
       { name: "Who it's for", href: "#who" },
+      { name: "Clearaer for Mac", href: "/cleaner" },
     ],
     Legal: [
       { name: "Privacy", href: "#" },

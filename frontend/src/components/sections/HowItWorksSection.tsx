@@ -22,6 +22,13 @@ const STEPS = [
     image:
       "/assets/Screenshot_2025-12-14_at_11.08.28-2519680c-28ad-4b35-8caa-4fc0a4317ab5.png",
   },
+  {
+    number: "04",
+    title: "Meet a verified dietitian",
+    description:
+      "Book a time with a verified specialist, then join the video call from Appointments when you want a real consult.",
+    image: "/assets/book-dietitian.png",
+  },
 ];
 
 const HowItWorksSection = () => {
@@ -36,12 +43,12 @@ const HowItWorksSection = () => {
             From your health data to meals you can actually follow
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            From “what should I eat?” to food on your plate, in three simple
-            steps.
+            From “what should I eat?” to food on your plate, then a verified
+            dietitian when you want a consult.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-10 lg:gap-12">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
           {STEPS.map((step) => (
             <div key={step.number} className="flex flex-col gap-5">
               <span className="font-display text-4xl text-primary/25 tracking-tight">
