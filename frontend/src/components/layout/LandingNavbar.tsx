@@ -26,7 +26,7 @@ const LandingNavbar = () => {
     { name: "Conditions", href: "#conditions" },
     { name: "Who it's for", href: "#who" },
     { name: "Pricing", href: "#pricing" },
-    { name: "Clearaer", href: "/cleaner" },
+    { name: "Clearaer", href: "/clearaer" },
   ];
 
   return (

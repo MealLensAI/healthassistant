@@ -59,6 +59,10 @@ export const ROUTE_SEO: Record<string, Partial<MetaConfig>> = {
         title: 'Settings - MealLensAI',
         description: 'Configure your app settings and preferences.'
     },
+    '/clearaer': {
+        title: 'Clearaer – Free Mac disk cleaner',
+        description: 'Download Clearaer, a free open-source Mac app that finds hidden cache files and lets you move them to Trash. Intel and Apple Silicon. macOS 13+.'
+    },
     '/cleaner': {
         title: 'Clearaer – Free Mac disk cleaner',
         description: 'Download Clearaer, a free open-source Mac app that finds hidden cache files and lets you move them to Trash. Intel and Apple Silicon. macOS 13+.'

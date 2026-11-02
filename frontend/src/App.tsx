@@ -94,12 +94,16 @@ const router = createBrowserRouter([
     element: <WelcomePage />
   },
   {
-    path: "/cleaner",
+    path: "/clearaer",
     element: <CleanerPage />
   },
   {
+    path: "/cleaner",
+    element: <Navigate to="/clearaer" replace />
+  },
+  {
     path: "/cleanner",
-    element: <Navigate to="/cleaner" replace />
+    element: <Navigate to="/clearaer" replace />
   },
   {
     element: <PatientAppLayout />,
