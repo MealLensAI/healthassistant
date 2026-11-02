@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Apple, Check, Copy, HardDrive, ScanSearch, Trash2 } from "lucide-react";
+import { Apple, Check, Copy, FolderSearch, HardDrive, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { safeGetItem, safeSetItem } from "@/lib/utils";
 
@@ -42,7 +42,7 @@ const FEATURES = [
     title: "For everyone",
     items: [
       {
-        icon: ScanSearch,
+        icon: FolderSearch,
         name: "Scan hidden files",
         text: "Finds caches, logs, and leftover folders that fill a Mac.",
       },
