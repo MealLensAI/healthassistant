@@ -1,0 +1,330 @@
+{
+  "generated_at": "2026-10-30T19:46:10.581511+00:00",
+  "ai": "https://ai-production-95c7.up.railway.app",
+  "images": "https://getimages-production-8c05.up.railway.app",
+  "flask": "http://127.0.0.1:5001",
+  "rates": {
+    "gpt-4o": {
+      "in": 2.5,
+      "out": 10.0
+    },
+    "gpt-4.1-mini": {
+      "in": 0.4,
+      "out": 1.6
+    },
+    "gpt-4o-mini": {
+      "in": 0.15,
+      "out": 0.6
+    }
+  },
+  "hidden_system_tokens_est": {
+    "plan": 2800,
+    "scan": 1200,
+    "cook": 900,
+    "resources": 200,
+    "image": 0,
+    "flask": 0
+  },
+  "calls": [
+    {
+      "name": "Food for you / health nutrition plan",
+      "kind": "plan",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 21.59,
+      "request_bytes": 165,
+      "response_bytes": 10058,
+      "request_tokens": 60,
+      "response_tokens": 2843,
+      "hidden_system_tokens_est": 2800,
+      "billed_input_tokens_est": 2860,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "health_assessment",
+        "meal_plan",
+        "success",
+        "user_info"
+      ],
+      "error": null,
+      "preview": "{\"health_assessment\":{\"bmr\":1780.0,\"daily_calories\":2759.0,\"whtr\":0.49,\"whtr_category\":\"Healthy\"},\"meal_plan\":[{\"breakfast_benefit\":\"Healthy fats and protein stabilize blood sugar and reduce inflammation.\",\"breakfast_calories\":520,\"breakfast_carbs\":46,\"breakfast_fat\":32,\"breakfast_ingredients\":[\"2 slices boiled yam (120g)\",\"1 medium avocado (150g)\",\"2 boiled eggs (100g)\",\"Pinch of black pepper\"],\""
+    },
+    {
+      "name": "Location & budget plan",
+      "kind": "plan",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 10.88,
+      "request_bytes": 212,
+      "response_bytes": 3682,
+      "request_tokens": 55,
+      "response_tokens": 1064,
+      "hidden_system_tokens_est": 2800,
+      "billed_input_tokens_est": 2855,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "meal_plan"
+      ],
+      "error": null,
+      "preview": "{\"meal_plan\":[{\"breakfast\":\"Moi Moi\",\"breakfast_ingredients\":[\"beans\",\"onion\",\"vegetable oil\",\"pepper\",\"salt\"],\"day\":\"Monday\",\"dinner\":\"Jollof Rice with Fried Plantain\",\"dinner_ingredients\":[\"rice\",\"tomato\",\"pepper\",\"onion\",\"vegetable oil\",\"seasoning\",\"salt\",\"plantain\"],\"lunch\":\"Egusi Soup with Eba\",\"lunch_ingredients\":[\"egusi (melon seeds)\",\"palm oil\",\"vegetable (ugu or spinach)\",\"ponmo\",\"stockfi"
+    },
+    {
+      "name": "Health-aware weekly plan (sick_smart_plan)",
+      "kind": "plan",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 19.74,
+      "request_bytes": 1214,
+      "response_bytes": 9708,
+      "request_tokens": 307,
+      "response_tokens": 2805,
+      "hidden_system_tokens_est": 2800,
+      "billed_input_tokens_est": 3107,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "detected_ingredients",
+        "health_assessment",
+        "meal_plan",
+        "success",
+        "user_info"
+      ],
+      "error": null,
+      "preview": "{\"detected_ingredients\":[\"\"],\"health_assessment\":{\"bmr\":1780.0,\"daily_calories\":2759.0,\"whtr\":0.49,\"whtr_category\":\"Healthy\"},\"meal_plan\":[{\"breakfast_benefit\":\"Fiber-rich beans stabilize blood sugar.\",\"breakfast_calories\":510,\"breakfast_carbs\":79,\"breakfast_fat\":11,\"breakfast_ingredients\":[\"1.5 cups cooked brown beans (330g)\",\"1 medium tomato (70g)\",\"1/4 medium onion (25g)\",\"1 tablespoon palm oil"
+    },
+    {
+      "name": "Weekly plan from typed ingredients",
+      "kind": "plan",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 8.44,
+      "request_bytes": 320,
+      "response_bytes": 2631,
+      "request_tokens": 80,
+      "response_tokens": 690,
+      "hidden_system_tokens_est": 2800,
+      "billed_input_tokens_est": 2880,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "meal_plan"
+      ],
+      "error": null,
+      "preview": "{\"meal_plan\":[{\"breakfast\":\"Oatmeal with banana slices and yogurt\",\"breakfast_ingredients\":[\"oats\",\"bananas\",\"yogurt\"],\"day\":\"Monday\",\"dinner\":\"Bean and tomato stew with plantain\",\"dinner_ingredients\":[\"beans\",\"tomatoes\",\"plantain\"],\"lunch\":\"Grilled chicken with rice and saut\\u00e9ed spinach\",\"lunch_ingredients\":[\"chicken\",\"rice\",\"spinach\"],\"snack\":\"Boiled eggs\",\"snack_ingredients\":[\"eggs\"]},{\"bre"
+    },
+    {
+      "name": "Scan ingredients (typed list)",
+      "kind": "scan",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 6.75,
+      "request_bytes": 1114,
+      "response_bytes": 3461,
+      "request_tokens": 284,
+      "response_tokens": 875,
+      "hidden_system_tokens_est": 1200,
+      "billed_input_tokens_est": 1484,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "main_ingredients",
+        "meal_options"
+      ],
+      "error": null,
+      "preview": "{\"main_ingredients\":\"oats, eggs, spinach, tomatoes, chicken, rice, beans, plantain, yogurt, bananas\",\"meal_options\":[{\"calories\":330,\"carbs\":35,\"fat\":11,\"fiber\":7,\"food_suggestions\":[\"Savory Oatmeal Bowl with Spinach, Tomatoes, and Egg\"],\"health_benefit\":\"Oats provide soluble fiber which helps regulate blood sugar, eggs offer high-quality protein for satiety, and spinach and tomatoes deliver antio"
+    },
+    {
+      "name": "Scan fridge / food photo",
+      "kind": "scan",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 13.1,
+      "request_bytes": 149,
+      "response_bytes": 3821,
+      "request_tokens": 812,
+      "response_tokens": 955,
+      "hidden_system_tokens_est": 1200,
+      "billed_input_tokens_est": 2012,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "main_ingredients",
+        "meal_options"
+      ],
+      "error": null,
+      "preview": "{\"main_ingredients\":[\"whole chicken\",\"fish\",\"carrots\",\"asparagus\",\"lettuce\",\"orange\",\"lemons\",\"tomatoes\",\"radishes\",\"broccoli\",\"cauliflower\",\"butternut squash\",\"zucchini\",\"beets\",\"milk\",\"wheat grains\",\"oats\",\"bread\",\"whole grain bread\",\"pasta\",\"beans\",\"kidney beans\"],\"meal_options\":[{\"calories\":320,\"carbs\":21,\"fat\":9,\"fiber\":7,\"food_suggestions\":[\"Grilled Chicken with Roasted Vegetables\"],\"health_",
+      "vision_image_tokens_est": 765
+    },
+    {
+      "name": "Cooking instructions",
+      "kind": "cook",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 3.29,
+      "request_bytes": 130,
+      "response_bytes": 2119,
+      "request_tokens": 41,
+      "response_tokens": 637,
+      "hidden_system_tokens_est": 900,
+      "billed_input_tokens_est": 941,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "instructions"
+      ],
+      "error": null,
+      "preview": "{\"instructions\":\"**Ingredients**\\n\\n*Provided Ingredients:*\\n* *rice*\\n* *tomato*\\n* *pepper*\\n* *onion*\\n* *chicken*\\n* *oil*\\n* *stock*\\n\\n*Suggested Additional Ingredients:*\\n* *salt* (to taste)\\n* *thyme* or *mixed herbs* (for extra flavor)\\n* *garlic* (minced, optional)\\n* *bay leaf* (optional, for aroma)\\n* *curry powder* (optional)\\n* *black or white pepper* (for seasoning)\\n* *butter* (for"
+    },
+    {
+      "name": "Cooking instructions (health-aware)",
+      "kind": "cook",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 3.66,
+      "request_bytes": 105,
+      "response_bytes": 1645,
+      "request_tokens": 33,
+      "response_tokens": 462,
+      "hidden_system_tokens_est": 900,
+      "billed_input_tokens_est": 933,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "instructions"
+      ],
+      "error": null,
+      "preview": "{\"instructions\":\"**Ingredients**\\n* oats  \\n* milk (preferably low-fat or unsweetened plant-based milk)  \\n* berries (such as blueberries, strawberries, or raspberries)\\n\\n*Optional additional ingredients for diabetics:*\\n* *ground cinnamon* (helps support healthy blood glucose levels)\\n* *chia seeds* (for added fiber and omega-3s)\\n\\n---\\n\\n**Instructions**\\n\\n1. \\ud83e\\udd44 Measure \\u00bd cup o"
+    },
+    {
+      "name": "Cooking videos / web resources",
+      "kind": "resources",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 17.2,
+      "request_bytes": 160,
+      "response_bytes": 2417,
+      "request_tokens": 40,
+      "response_tokens": 637,
+      "hidden_system_tokens_est": 200,
+      "billed_input_tokens_est": 240,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "GoogleSearch",
+        "YoutubeSearch"
+      ],
+      "error": null,
+      "preview": "{\"GoogleSearch\":[{\"description\":\"A vibrant and flavorful dish,JollofRiceis a staple in West African cuisine, perfectly complemented by succulentgrilledchicken. This recipe serves one and is bursting with spices and taste, making it a delightful meal for any occasion.\",\"link\":\"https://cookaifood.com/recipe/jollof-rice-with-grilled-chicken-1\",\"title\":\"Jollof Rice with Grilled Chicken Recipe #1 (45 m"
+    },
+    {
+      "name": "Dish photo lookup: Oatmeal with Berries",
+      "kind": "image",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 1.7,
+      "request_bytes": 29,
+      "response_bytes": 89,
+      "request_tokens": 11,
+      "response_tokens": 27,
+      "hidden_system_tokens_est": 0,
+      "billed_input_tokens_est": 11,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "image_url"
+      ],
+      "error": null,
+      "preview": "{\"image_url\":\"https://joybauer.com/wp-content/uploads/2017/12/Oatmeal-with-berries2.jpg\"}"
+    },
+    {
+      "name": "Dish photo lookup: Grilled Chicken Salad",
+      "kind": "image",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 1.41,
+      "request_bytes": 30,
+      "response_bytes": 151,
+      "request_tokens": 9,
+      "response_tokens": 59,
+      "hidden_system_tokens_est": 0,
+      "billed_input_tokens_est": 9,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "image_url"
+      ],
+      "error": null,
+      "preview": "{\"image_url\":\"https://assets.epicurious.com/photos/64a845e67799ee8651e4fb8f/1:1/w_4198,h_4198,c_limit/AshaGrilledChickenSalad_RECIPE_070523_56498.jpg\"}"
+    },
+    {
+      "name": "Dish photo lookup: Jollof rice",
+      "kind": "image",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 1.57,
+      "request_bytes": 20,
+      "response_bytes": 82,
+      "request_tokens": 9,
+      "response_tokens": 30,
+      "hidden_system_tokens_est": 0,
+      "billed_input_tokens_est": 9,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "image_url"
+      ],
+      "error": null,
+      "preview": "{\"image_url\":\"https://kikifoodies.com/wp-content/uploads/2025/05/ET5B3508-2.jpeg\"}"
+    },
+    {
+      "name": "Local Flask login",
+      "kind": "flask",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 1.69,
+      "request_bytes": 15,
+      "response_bytes": 1633,
+      "request_tokens": 5,
+      "response_tokens": 950,
+      "hidden_system_tokens_est": 0,
+      "billed_input_tokens_est": 5,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "access_token",
+        "auth_type",
+        "message",
+        "refresh_token",
+        "session_created_at",
+        "session_id",
+        "status",
+        "user_data",
+        "user_id"
+      ],
+      "error": null,
+      "preview": "{\"status\":\"success\",\"user_id\":\"[redacted]\",\"access_token\":\"[redacted]\"}"
+    },
+    {
+      "name": "Local Flask subscription status",
+      "kind": "flask",
+      "ok": true,
+      "status": 200,
+      "elapsed_s": 1.06,
+      "request_bytes": 44,
+      "response_bytes": 1196,
+      "request_tokens": 27,
+      "response_tokens": 424,
+      "hidden_system_tokens_est": 0,
+      "billed_input_tokens_est": 27,
+      "usage_from_api": null,
+      "model_from_api": null,
+      "response_keys": [
+        "data",
+        "success"
+      ],
+      "error": null,
+      "preview": "{\"data\":{\"can_access_app\":true,\"can_generate_meal_plan\":true,\"entitlements\":{\"consultations\":1,\"follow_ups\":2,\"marketplace_access\":true,\"max_dietitians\":1,\"tier\":\"silver\"},\"free_meal_plan_used\":false,\"has_active_subscription\":true,\"has_ever_had_subscription\":true,\"marketplace_access\":true,\"meal_plans_limit\":3,\"meal_plans_used\":1,\"subscription\":{\"created_at\":\"2026-10-30T19:29:10.956481+00:00\",\"end_"
+    }
+  ]
+}
