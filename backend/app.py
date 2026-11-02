@@ -301,6 +301,13 @@ def create_app():
   except Exception as e:
       print(f"Care marketplace routes not available: {e}")
 
+  try:
+      from routes.clearaer_routes import clearaer_bp
+      app.register_blueprint(clearaer_bp, url_prefix='/api')
+      print("Clearaer download routes registered.")
+  except Exception as e:
+      print(f"Clearaer download routes not available: {e}")
+
   # Initialize meal reminder service (scheduled email reminders)
   if MEAL_REMINDER_SERVICE_AVAILABLE:
       try:

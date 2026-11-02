@@ -1,23 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Apple, Check, Copy, FolderSearch, HardDrive, Trash2 } from "lucide-react";
-import { api } from "@/lib/api";
-import { safeGetItem, safeSetItem } from "@/lib/utils";
+import { bumpSharedDownloadCount, getSharedDownloadCount } from "@/lib/clearaerDownloads";
 
 const SITE_URL = "https://healthassistant.meallensai.com";
-const COUNT_KEY = "clearaer_download_count";
-
-const readCachedCount = () => {
-  const raw = safeGetItem(COUNT_KEY);
-  const value = raw == null ? 0 : Number(raw);
-  return Number.isFinite(value) && value > 0 ? value : 0;
-};
-
-const saveCachedCount = (total: number) => {
-  const next = Math.max(0, Number(total) || 0);
-  safeSetItem(COUNT_KEY, String(next));
-  return next;
-};
 
 const COMPANIES = [
   "Computer Vision Africa",
@@ -86,10 +72,7 @@ const FEATURES = [
 
 const CleanerPage = () => {
   const navigate = useNavigate();
-  const [downloads, setDownloads] = useState<number | null>(() => {
-    const cached = readCachedCount();
-    return cached > 0 ? cached : null;
-  });
+  const [downloads, setDownloads] = useState<number | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -108,17 +91,8 @@ const CleanerPage = () => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const stats = await api.getClearaerDownloadStats();
-        if (cancelled) return;
-        if (stats.status === "success" && typeof stats.total === "number") {
-          setDownloads(saveCachedCount(stats.total));
-          return;
-        }
-      } catch {
-        // Keep the last known count if the API is down.
-      }
-      if (!cancelled) setDownloads(readCachedCount());
+      const total = await getSharedDownloadCount();
+      if (!cancelled) setDownloads(total);
     })();
     return () => {
       cancelled = true;
@@ -128,21 +102,14 @@ const CleanerPage = () => {
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
-    setDownloads((current) => saveCachedCount((current ?? 0) + 1));
-    try {
-      const result = await api.recordClearaerDownload();
-      if (typeof result.total === "number") {
-        setDownloads(saveCachedCount(result.total));
-      }
-    } catch {
-      // Still start the file download even if tracking fails.
-    }
     const link = document.createElement("a");
     link.href = "/downloads/Clearaer.dmg";
     link.download = "Clearaer.dmg";
     document.body.appendChild(link);
     link.click();
     link.remove();
+    const total = await bumpSharedDownloadCount();
+    if (total != null) setDownloads(total);
     setDownloading(false);
   };
 

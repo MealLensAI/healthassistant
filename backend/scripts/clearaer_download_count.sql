@@ -14,6 +14,8 @@ on conflict (id) do nothing;
 
 alter table public.clearaer_download_count enable row level security;
 
+grant select on public.clearaer_download_count to anon, authenticated, service_role;
+
 drop policy if exists clearaer_download_count_read on public.clearaer_download_count;
 create policy clearaer_download_count_read
   on public.clearaer_download_count
@@ -30,14 +32,15 @@ as $$
 declare
   next_total bigint;
 begin
-  update public.clearaer_download_count
-  set total = total + 1,
-      updated_at = now()
-  where id = 1
-  returning total into next_total;
+  insert into public.clearaer_download_count (id, total, updated_at)
+  values (1, 1, now())
+  on conflict (id) do update
+    set total = public.clearaer_download_count.total + 1,
+        updated_at = now()
+  returning public.clearaer_download_count.total into next_total;
   return coalesce(next_total, 0);
 end;
 $$;
 
 revoke all on function public.bump_clearaer_downloads() from public;
-grant execute on function public.bump_clearaer_downloads() to service_role;
+grant execute on function public.bump_clearaer_downloads() to anon, authenticated, service_role;
