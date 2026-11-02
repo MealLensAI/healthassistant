@@ -6,7 +6,6 @@ import { safeGetItem, safeSetItem } from "@/lib/utils";
 
 const SITE_URL = "https://healthassistant.meallensai.com";
 const COUNT_KEY = "clearaer_download_count";
-const COUNT_URL = "/downloads/clearaer-count.json";
 
 const readCachedCount = () => {
   const raw = safeGetItem(COUNT_KEY);
@@ -15,7 +14,7 @@ const readCachedCount = () => {
 };
 
 const saveCachedCount = (total: number) => {
-  const next = Math.max(total, readCachedCount());
+  const next = Math.max(0, Number(total) || 0);
   safeSetItem(COUNT_KEY, String(next));
   return next;
 };
@@ -109,26 +108,17 @@ const CleanerPage = () => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const cached = readCachedCount();
-      let fileTotal = 0;
-      let apiTotal = 0;
-      try {
-        const response = await fetch(COUNT_URL, { cache: "no-store" });
-        if (response.ok) {
-          const data = await response.json();
-          fileTotal = Number(data?.total) || 0;
-        }
-      } catch {
-        // Keep the cached count if the file is missing.
-      }
       try {
         const stats = await api.getClearaerDownloadStats();
-        apiTotal = Number(stats.total) || 0;
+        if (cancelled) return;
+        if (stats.status === "success" && typeof stats.total === "number") {
+          setDownloads(saveCachedCount(stats.total));
+          return;
+        }
       } catch {
-        // Backend can be down. Do not reset the counter.
+        // Keep the last known count if the API is down.
       }
-      if (cancelled) return;
-      setDownloads(saveCachedCount(Math.max(cached, fileTotal, apiTotal)));
+      if (!cancelled) setDownloads(readCachedCount());
     })();
     return () => {
       cancelled = true;
@@ -138,19 +128,7 @@ const CleanerPage = () => {
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
-    const next = saveCachedCount((downloads ?? 0) + 1);
-    setDownloads(next);
-    try {
-      const response = await fetch(COUNT_URL, { method: "POST", cache: "no-store" });
-      if (response.ok) {
-        const data = await response.json();
-        if (typeof data.total === "number") {
-          setDownloads(saveCachedCount(data.total));
-        }
-      }
-    } catch {
-      // Count is already stored locally.
-    }
+    setDownloads((current) => saveCachedCount((current ?? 0) + 1));
     try {
       const result = await api.recordClearaerDownload();
       if (typeof result.total === "number") {

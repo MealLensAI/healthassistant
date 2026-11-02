@@ -1,41 +1,65 @@
-"""Count Clearaer downloads in a local JSON file. Does not use the database."""
+"""Clearaer download counter. Uses one Supabase table, nothing else."""
 from __future__ import annotations
 
-import fcntl
-import json
 import logging
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-COUNT_PATH = Path(__file__).resolve().parent.parent / "var" / "clearaer_count.json"
+
+def _db():
+    try:
+        from flask import current_app
+
+        service = getattr(current_app, "supabase_service", None)
+        return getattr(service, "_admin_db", None) or getattr(service, "supabase", None)
+    except Exception as exc:
+        logger.warning("Clearaer count: no Supabase client (%s)", exc)
+        return None
 
 
-def _with_count(increment: bool = False) -> int:
-    COUNT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    COUNT_PATH.touch(exist_ok=True)
-    with COUNT_PATH.open("r+", encoding="utf-8") as fh:
-        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
-        raw = fh.read().strip()
-        total = 0
-        if raw:
-            try:
-                total = int(json.loads(raw).get("total") or 0)
-            except Exception as exc:
-                logger.warning("Clearaer count file was unreadable: %s", exc)
-                total = 0
-        if increment:
-            total += 1
-            fh.seek(0)
-            fh.truncate()
-            json.dump({"total": total}, fh)
-            fh.flush()
-        return total
+def _read_total(db) -> int:
+    result = (
+        db.table("clearaer_download_count")
+        .select("total")
+        .eq("id", 1)
+        .limit(1)
+        .execute()
+    )
+    rows = getattr(result, "data", None) or []
+    if not rows:
+        return 0
+    return int(rows[0].get("total") or 0)
 
 
 def download_count() -> int:
-    return _with_count(increment=False)
+    db = _db()
+    if not db:
+        return 0
+    try:
+        return _read_total(db)
+    except Exception as exc:
+        logger.warning("Clearaer count read failed: %s", exc)
+        return 0
 
 
 def record_download() -> int:
-    return _with_count(increment=True)
+    db = _db()
+    if not db:
+        return 0
+    try:
+        result = db.rpc("bump_clearaer_downloads").execute()
+        data = getattr(result, "data", None)
+        if isinstance(data, (int, float)):
+            return int(data)
+        if isinstance(data, list) and data:
+            first = data[0]
+            if isinstance(first, (int, float)):
+                return int(first)
+            if isinstance(first, dict) and "bump_clearaer_downloads" in first:
+                return int(first["bump_clearaer_downloads"] or 0)
+        if isinstance(data, str) and data.isdigit():
+            return int(data)
+        return _read_total(db)
+    except Exception as exc:
+        logger.warning("Clearaer count bump failed: %s", exc)
+        return download_count()
