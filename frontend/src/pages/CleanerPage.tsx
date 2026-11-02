@@ -294,6 +294,18 @@ const CleanerPage = () => {
           <p>Clearaer is a free project from MealLensAI.</p>
           <p>{COMPANIES.join(" · ")}</p>
         </div>
+        <div className="mx-auto max-w-5xl border-t border-[#d9e5e0] px-4 py-5 text-sm font-medium text-[#0b1210]">
+          <p className="font-bold">Feedback</p>
+          <p className="mt-1">
+            <a className="text-[#1a8f6c] underline" href="mailto:danielsamueletukudo@gmail.com">
+              danielsamueletukudo@gmail.com
+            </a>
+            {" "}or{" "}
+            <a className="text-[#1a8f6c] underline" href="tel:+254748703778">
+              +254748703778
+            </a>
+          </p>
+        </div>
       </footer>
     </div>
   );
