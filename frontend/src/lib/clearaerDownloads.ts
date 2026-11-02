@@ -5,6 +5,9 @@ const SUPABASE_ANON_KEY =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBrbHF1bWx6cGtsenJvYWZtdHJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTcxNTIsImV4cCI6MjA2NzY5MzE1Mn0.eyzqg0hBZ5ZoPJKwGXPSKL96TJaPOX_p08dxt4FOn8g";
 
+const TABLE = "clearaer_downloads";
+const REST = `${SUPABASE_URL}/rest/v1/${TABLE}`;
+
 const supabaseHeaders = {
   apikey: SUPABASE_ANON_KEY,
   Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
@@ -17,57 +20,54 @@ const asTotal = (value: unknown): number | null => {
   return Number.isFinite(total) && total >= 0 ? total : null;
 };
 
-async function supabaseCount(): Promise<number | null> {
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/clearaer_download_count?id=eq.1&select=total`,
-    { headers: supabaseHeaders },
-  );
-  if (!response.ok) return null;
-  const rows = await response.json();
-  const row = Array.isArray(rows) ? rows[0] : rows;
-  return asTotal(row?.total);
-}
+const totalFromContentRange = (response: Response): number | null => {
+  const range = response.headers.get("content-range");
+  if (!range) return null;
+  const total = range.split("/")[1];
+  if (!total || total === "*") return null;
+  return asTotal(total);
+};
 
-async function supabaseBump(): Promise<number | null> {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/bump_clearaer_downloads`, {
-    method: "POST",
-    headers: supabaseHeaders,
-    body: "{}",
+async function fetchSharedCount(): Promise<number | null> {
+  const counted = await fetch(`${REST}?select=id`, {
+    headers: {
+      ...supabaseHeaders,
+      Prefer: "count=exact",
+      Range: "0-0",
+    },
   });
-  if (!response.ok) return null;
-  return asTotal(await response.json());
+  if (counted.ok) {
+    const fromHeader = totalFromContentRange(counted);
+    if (fromHeader != null) return fromHeader;
+  }
+
+  const listed = await fetch(`${REST}?select=id`, { headers: supabaseHeaders });
+  if (!listed.ok) return null;
+  const rows = await listed.json();
+  return Array.isArray(rows) ? rows.length : null;
 }
 
 export async function getSharedDownloadCount(): Promise<number | null> {
   try {
-    const fromSupabase = await supabaseCount();
-    if (fromSupabase != null) return fromSupabase;
+    return await fetchSharedCount();
   } catch {
-    // Fall through to the API.
+    return null;
   }
-  try {
-    const { api } = await import("@/lib/api");
-    const stats = await api.getClearaerDownloadStats();
-    if (stats.status === "success") return asTotal(stats.total);
-  } catch {
-    // No shared count available.
-  }
-  return null;
 }
 
 export async function bumpSharedDownloadCount(): Promise<number | null> {
   try {
-    const fromSupabase = await supabaseBump();
-    if (fromSupabase != null) return fromSupabase;
+    const recorded = await fetch(REST, {
+      method: "POST",
+      headers: {
+        ...supabaseHeaders,
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ created_at: new Date().toISOString() }),
+    });
+    if (!recorded.ok) return null;
+    return await fetchSharedCount();
   } catch {
-    // Fall through to the API.
+    return null;
   }
-  try {
-    const { api } = await import("@/lib/api");
-    const result = await api.recordClearaerDownload();
-    if (result.status === "success") return asTotal(result.total);
-  } catch {
-    // Download should still start even if counting fails.
-  }
-  return getSharedDownloadCount();
 }

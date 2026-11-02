@@ -92,7 +92,7 @@ const CleanerPage = () => {
     let cancelled = false;
     (async () => {
       const total = await getSharedDownloadCount();
-      if (!cancelled) setDownloads(total);
+      if (!cancelled && total != null) setDownloads(total);
     })();
     return () => {
       cancelled = true;
