@@ -202,7 +202,7 @@ const CleanerPage = () => {
           <p className="mx-auto mt-2 max-w-xl text-[16px] font-medium leading-7 text-[#1c2a26]">
             Finds hidden caches and leftover files, then lets you choose what to
             move to Trash.{" "}
-            <strong className="font-extrabold text-[#0b1210]">Free. Open source. No subscription.</strong>
+            <span className="font-extrabold text-[#1a8f6c]">Free. Open source. No subscription.</span>
           </p>
           <button
             type="button"
