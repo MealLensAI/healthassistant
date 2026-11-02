@@ -196,9 +196,12 @@ const CleanerPage = () => {
           <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-[#0b1210] md:text-5xl">
             Clearaer
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-[18px] font-medium leading-7 text-[#0b1210]">
-            A free, open-source Mac app that finds hidden cache files and lets
-            you choose what to move to Trash. No subscription. No trial.
+          <p className="mx-auto mt-4 max-w-xl text-[22px] font-extrabold leading-8 text-[#0b1210]">
+            Clean your Mac and get your storage back.
+          </p>
+          <p className="mx-auto mt-2 max-w-xl text-[16px] font-medium leading-7 text-[#1c2a26]">
+            Finds hidden caches and leftover files, then lets you choose what to
+            move to Trash. Free. Open source. No subscription.
           </p>
           <button
             type="button"

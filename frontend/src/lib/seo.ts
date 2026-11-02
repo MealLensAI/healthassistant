@@ -61,7 +61,7 @@ export const ROUTE_SEO: Record<string, Partial<MetaConfig>> = {
     },
     '/clearaer': {
         title: 'Clearaer – Free Mac disk cleaner',
-        description: 'Download Clearaer, a free open-source Mac app that finds hidden cache files and lets you move them to Trash. Intel and Apple Silicon. macOS 13+.'
+        description: 'Clean your Mac and get your storage back. Clearaer finds hidden caches and leftover files so you can free space. Free, open source, Intel and Apple Silicon.'
     }
 }
 
