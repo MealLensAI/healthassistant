@@ -4,8 +4,16 @@
 
 create table if not exists public.clearaer_downloads (
   id uuid primary key default gen_random_uuid(),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  name text,
+  email text,
+  feedback text
 );
+
+alter table public.clearaer_downloads
+  add column if not exists name text,
+  add column if not exists email text,
+  add column if not exists feedback text;
 
 alter table public.clearaer_downloads enable row level security;
 

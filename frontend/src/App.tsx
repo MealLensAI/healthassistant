@@ -98,6 +98,10 @@ const router = createBrowserRouter([
     element: <CleanerPage />
   },
   {
+    path: "/iclearer",
+    element: <Navigate to="/clearaer" replace />
+  },
+  {
     element: <PatientAppLayout />,
     children: [
       { path: "/health-meals", element: <AIResponsePage /> },
